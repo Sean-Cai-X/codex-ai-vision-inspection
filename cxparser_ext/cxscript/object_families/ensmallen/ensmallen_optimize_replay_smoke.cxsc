@@ -1,0 +1,4 @@
+OptimizeTask task;
+EnsmallenOptimizer optimizer;
+OptimizeResult result = optimizer.optimize(task);
+ReplayResult replay = optimizer.replay(result);

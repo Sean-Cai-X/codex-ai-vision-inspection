@@ -1,0 +1,22 @@
+algorithm_name: logistic_regression
+source_method_file: mlpack-master/src/mlpack/methods/logistic_regression/logistic_regression.hpp
+source_test_file: mlpack-master/src/mlpack/tests/logistic_regression_test.cpp
+task_type: train/infer
+input_shape: [n_samples, n_features]
+label_shape: [n_samples]
+required_parameters:
+  - lambda: regularization parameter, default 0.0
+  - max_iterations: maximum iterations, default 1000
+  - tolerance: convergence tolerance, default 1e-10
+train_call: LogisticRegression<>::Train(input, labels)
+infer_call: LogisticRegression<>::Classify(input)
+score_or_assertion: prediction_count == sample_count
+expected_behavior: predictions in [0, num_classes)
+edge_cases: empty input, single sample, all same class
+project_field_mapping:
+  predictions -> global_baseline_class_ref
+  probabilities -> classification_score
+  model -> global_baseline_result_ref
+cxscript_target_case: baseline_logreg_official_min_train.cxsc
+cxscript_target_infer: baseline_logreg_official_min_infer.cxsc
+contract_target: baseline_logreg_contract.cxsc

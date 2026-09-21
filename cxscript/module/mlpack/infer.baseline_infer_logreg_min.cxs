@@ -1,0 +1,37 @@
+# mlpack baseline logistic regression infer
+kind=module
+layer=infer
+module=mlpack
+case=baseline_infer_logreg_min
+mode=build-run
+report=on
+
+step input {
+input feature_set = "all_v1";
+input model_name = "LogisticRegression";
+input label_column = "label";
+input model_path = "artifacts/baseline/logreg_all_v1.bin";
+input test_csv = "artifacts/baseline/all_v1_test.csv";
+input output_predictions_csv = "artifacts/baseline/logreg_all_v1_predictions.csv";
+}
+
+step flow {
+load_model(model_path);
+load_dataset(test_csv);
+select_feature_set(feature_set);
+infer_model(output_predictions_csv);
+}
+
+step check {
+expect infer_ok == true;
+expect prediction_count > 0;
+expect infer_time_ms >= 0;
+expect predictions_csv == "artifacts/baseline/logreg_all_v1_predictions.csv";
+}
+
+step output {
+emit predictions_csv;
+emit infer_time_ms;
+emit prediction_count;
+emit summary;
+}

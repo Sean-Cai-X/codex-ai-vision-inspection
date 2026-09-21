@@ -1,0 +1,38 @@
+// stage25_case_id: {{case_id}}
+// image_id: {{image_id}}
+// target_id: {{target_id}}
+// profile_id: {{profile_id}}
+// circle: center={{cx}},{{cy}} pass={{px}},{{py}}
+// gap/linegap: {{gap}},{{linegap}}
+// method/threshold: {{method}},{{threshold}}
+
+Image m_image;
+FindCircle m_circle;
+
+m_image.copyFromMat(global_matInput);
+
+int cx = {{cx}};
+int cy = {{cy}};
+int px = {{px}};
+int py = {{py}};
+
+int method = {{method}};
+int threshold = {{threshold}};
+int gap = {{gap}};
+int linegap = {{linegap}};
+
+m_circle.Setgap(gap);
+m_circle.setlinegap(linegap);
+m_circle.setthre(threshold);
+m_circle.setmethod(method);
+
+{{optional_findcircle_filter}}
+{{optional_findcircle_samplerate}}
+
+m_circle.setcircle(py, px, cy, cx);
+
+m_circle.measure(&m_image);
+m_circle.fitcircle();
+
+global_circle_ref = m_circle.get_result();
+global_current_status = "PENDING";

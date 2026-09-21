@@ -1,0 +1,21 @@
+Image m_image;
+
+m_image.copyFromMat(global_matInput);
+
+int attach_schema_version = 1;
+int input_element_count = 0;
+int result_element_count = 0;
+int attach_record_count = 0;
+int attach_runtime_binding_ready = 0;
+int evidence_chain_placeholder = 1;
+
+int findline_roi_to_result_attach = 0;
+int findcircle_roi_to_result_attach = 0;
+int findellipse_roi_to_result_attach = 0;
+int findrect_roi_to_result_attach = 0;
+int fastmatch_learn_search_result_attach = 0;
+int findsegmentation_prompt_boundary_attach = 0;
+
+int global_status_pending = 1;
+
+1+1;

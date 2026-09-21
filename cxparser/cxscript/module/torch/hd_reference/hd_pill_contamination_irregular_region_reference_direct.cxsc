@@ -1,0 +1,13 @@
+Image m_image;
+TorchTask m_task;
+m_image.copyFromMat(global_matInput);
+m_task.settask("torch.reference.hd.closed_region.contamination.v1");
+m_task.setcase("hd_pill_contamination_irregular_region_reference");
+m_task.setmodel("PENDING_BINDING");
+m_task.setdevice("cpu");
+m_task.settimeout(30000);
+m_task.run(&m_image);
+global_headless_ok = m_task.getok();
+global_torch_ok = m_task.getok();
+global_torch_mask_available = m_task.getmaskavailable();
+global_torch_infer_ms = m_task.getinferms();

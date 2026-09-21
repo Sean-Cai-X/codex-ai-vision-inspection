@@ -1,0 +1,38 @@
+CxParameterProfile_reset(0);
+CxParameterProfile_settool("FindCircle");
+
+CxParameterProfile_add("findcircle_stage25_direct");
+CxParameterProfile_setrole("BASELINE_OK");
+CxParameterProfile_setmethod(0);
+CxParameterProfile_setthreshold(20);
+CxParameterProfile_setgap(5);
+CxParameterProfile_setlinegap(6);
+CxParameterProfile_setfilterprofile(0);
+CxParameterProfile_setdescription("Baseline FindCircle direct profile from verified basic-dot case.");
+
+CxParameterProfile_add("findcircle_threshold8");
+CxParameterProfile_setrole("DIAGNOSTIC_LOW_CONTRAST");
+CxParameterProfile_setmethod(0);
+CxParameterProfile_setthreshold(8);
+CxParameterProfile_setgap(5);
+CxParameterProfile_setlinegap(6);
+CxParameterProfile_setfilterprofile(0);
+CxParameterProfile_setdescription("Lower threshold diagnostic profile for weak contrast.");
+
+CxParameterProfile_add("findcircle_gap3");
+CxParameterProfile_setrole("DIAGNOSTIC_DENSE_EDGE");
+CxParameterProfile_setmethod(0);
+CxParameterProfile_setthreshold(20);
+CxParameterProfile_setgap(3);
+CxParameterProfile_setlinegap(6);
+CxParameterProfile_setfilterprofile(0);
+CxParameterProfile_setdescription("Smaller gap for dense edge detection.");
+
+CxParameterProfile_add("findcircle_linegap10");
+CxParameterProfile_setrole("DIAGNOSTIC_WIDE_LINE");
+CxParameterProfile_setmethod(0);
+CxParameterProfile_setthreshold(20);
+CxParameterProfile_setgap(5);
+CxParameterProfile_setlinegap(10);
+CxParameterProfile_setfilterprofile(0);
+CxParameterProfile_setdescription("Wider linegap for wider edge lines.");

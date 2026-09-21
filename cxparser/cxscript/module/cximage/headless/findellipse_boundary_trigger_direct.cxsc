@@ -1,0 +1,63 @@
+Image m_image;
+FindEllipse m_ellipse;
+
+m_image.copyFromMat(global_matInput);
+
+int gap = global_gap;
+int linegap = global_linegap;
+int threshold = global_threshold;
+int method = global_method;
+int findsetting = global_findellipse_findsetting;
+int selected_edge = global_findellipse_selected_edge;
+int point_consistency_enabled = global_findellipse_point_consistency_enabled;
+int point_consistency_range = global_findellipse_point_consistency_range;
+int inner_scale_percent = global_findellipse_inner_scale_percent;
+
+m_ellipse.setbboxx0(global_ellipse_x0);
+m_ellipse.setbboxy0(global_ellipse_y0);
+m_ellipse.setbboxx1(global_ellipse_x1);
+m_ellipse.setbboxy1(global_ellipse_y1);
+m_ellipse.buildbbox();
+m_ellipse.setinnerpercent(inner_scale_percent);
+m_ellipse.setgap(gap);
+m_ellipse.setlinegap(linegap);
+m_ellipse.setthre(threshold);
+m_ellipse.setmethod(method);
+m_ellipse.setfindsetting(findsetting);
+m_ellipse.setselectedgenum(selected_edge);
+m_ellipse.setpointconsistency(point_consistency_enabled, point_consistency_range);
+
+if (global_metrology_boundary_preview_enabled) {
+    m_ellipse.setboundaryresponsemode(global_metrology_boundary_response_mode);
+    m_ellipse.setboundarypolarity(global_metrology_boundary_polarity);
+    m_ellipse.setboundaryselection(global_metrology_boundary_selection_mode);
+    m_ellipse.setboundarynthcandidate(global_metrology_boundary_nth_candidate);
+    m_ellipse.setboundaryreferencepositionpermille(global_metrology_boundary_reference_position_permille);
+    m_ellipse.setboundarysubpixel(global_metrology_boundary_subpixel_mode);
+    m_ellipse.setboundarybaseline(global_metrology_boundary_baseline_mode);
+    m_ellipse.setboundarydenoise(global_metrology_boundary_denoise_mode);
+    m_ellipse.setboundarysmoothingradius(global_metrology_boundary_smoothing_radius);
+    m_ellipse.setboundarybaselinewindow(global_metrology_boundary_baseline_window);
+    m_ellipse.setboundarywaveletscale(global_metrology_boundary_wavelet_scale);
+    m_ellipse.setboundarythresholdpermille(global_metrology_boundary_trigger_threshold_permille);
+    m_ellipse.setboundarylevelpermille(global_metrology_boundary_level_permille);
+    m_ellipse.setboundaryhysteresispermille(global_metrology_boundary_hysteresis_permille);
+    m_ellipse.setboundarygatestartpermille(global_metrology_boundary_gate_start_permille);
+    m_ellipse.setboundarygateendpermille(global_metrology_boundary_gate_end_permille);
+    m_ellipse.setboundaryminplateauwidth(global_metrology_boundary_min_plateau_width);
+    m_ellipse.setboundaryminamplitudepermille(global_metrology_boundary_min_amplitude_permille);
+    m_ellipse.setboundarypairminwidth(global_metrology_boundary_pair_min_width);
+    m_ellipse.setboundarypairmaxwidth(global_metrology_boundary_pair_max_width);
+    m_ellipse.setboundarypairanchor(global_metrology_boundary_pair_anchor_mode);
+}
+
+m_ellipse.measure(&m_image);
+m_ellipse.fitellipse();
+
+global_selected_method = method;
+global_selected_threshold = threshold;
+global_selected_linegap = linegap;
+global_valid_points_count = m_ellipse.getvalidpointcount();
+global_has_fit_ellipse = m_ellipse.hasfitresult();
+global_avgdist = m_ellipse.getavgdist();
+global_ellipse_ref = m_ellipse.get_result();

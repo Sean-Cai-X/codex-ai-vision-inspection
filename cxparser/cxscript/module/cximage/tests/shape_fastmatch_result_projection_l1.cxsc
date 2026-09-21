@@ -1,0 +1,18 @@
+CxShapeTest_reset(0);
+
+CxShapeTest_addcase("fastmatch_result_projection");
+CxShapeTest_settool("FastMatch");
+CxShapeTest_setoperation("runtime_publish");
+CxShapeTest_setfrom(100, 100);
+
+CxShapeTest_setrole("model");
+CxShapeTest_expectrole(0);
+
+CxShapeTest_setrole("measure_points");
+CxShapeTest_expectrole(0);
+
+CxShapeTest_setrole("result");
+CxShapeTest_expectrole(0);
+
+CxShapeTest_setrole("best_result");
+CxShapeTest_expectrole(0);

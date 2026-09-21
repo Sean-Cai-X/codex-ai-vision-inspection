@@ -1,0 +1,34 @@
+scenario {
+  double prepare_ok=0;
+  double action_ok=0;
+  double check_ok=0;
+  double input_ready=0;
+  trace_id="trace.integration.torch_geometry.feature.input_prior.001";
+  image_path="data/infer/sample_001.png";
+  roi_id="roi_main";
+  line_id="line_main";
+  pointset_id="pointset_main";
+  expected_artifact_ref="torch_input_prior_request";
+  prepare_ok=1;
+
+  if (prepare_ok) {
+    geom_export_roi(image_path,roi_id);
+    geom_export_line(line_id);
+    geom_export_pointset(pointset_id);
+    geom_align_input_prior(roi_id,line_id,pointset_id);
+    geom_build_torch_request(roi_id,"input_prior_bundle");
+    action_ok=1;
+  }
+
+  check {
+    input_ready=geom_check_input_ready(roi_id,"input_prior_bundle");
+    check_ok=action_ok&&input_ready;
+  }
+
+  report {
+    chain_status="torch_geometry_input_prior_ready";
+    artifact_ref=expected_artifact_ref;
+    request_ref="input_prior_bundle";
+    report_text="input prior aligned";
+  }
+}

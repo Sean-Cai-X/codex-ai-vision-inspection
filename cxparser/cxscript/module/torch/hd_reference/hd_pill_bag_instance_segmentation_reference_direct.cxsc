@@ -1,0 +1,22 @@
+Image m_image;
+TorchTask m_task;
+
+m_image.copyFromMat(global_matInput);
+
+int timeout_ms = 30000;
+
+m_task.settask("torch.reference.hd.segmentation.instance_pill_bag.v1");
+m_task.setcase("hd_pill_bag_instance_segmentation_reference");
+m_task.setmodel("D:/HD/projects/Example_InstanceSegm_PillBags.dltp");
+m_task.setinputpath("D:/Codex-WorkDir/Sean_WorkDir/images/pill_bag/pill_bag_001.png");
+m_task.setoutputdir("D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/cxscript_runs/hd_reference/pill_bag_instance_segmentation");
+m_task.setdevice("cpu");
+m_task.settimeout(timeout_ms);
+
+m_task.run(&m_image);
+
+global_headless_ok = m_task.getok();
+global_torch_ok = m_task.getok();
+global_torch_mask_available = m_task.getmaskavailable();
+global_torch_infer_ms = m_task.getinferms();
+

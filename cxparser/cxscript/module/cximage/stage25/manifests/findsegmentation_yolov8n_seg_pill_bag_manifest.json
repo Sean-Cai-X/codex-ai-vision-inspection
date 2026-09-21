@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "purpose": "FindSegmentation YOLOv8n-Seg pill bag evidence case",
+  "selection_policy": "single_case",
+  "images": [
+    {
+      "image_id": "pill_bag_001",
+      "level": "L1_model_evidence",
+      "path": "D:/Codex-WorkDir/Sean_WorkDir/images/pill_bag/pill_bag_001.png",
+      "width": 1248,
+      "height": 780,
+      "raw_not_cropped": true,
+      "raw_not_enhanced": true,
+      "raw_not_rotated": true,
+      "tool_targets": [
+        {
+          "tool": "FindSegmentation",
+          "roi_name": "pill_bag_full_image",
+          "x0": 0,
+          "y0": 0,
+          "x1": 1248,
+          "y1": 780,
+          "threshold": 25,
+          "method": 2,
+          "comment": "Full-image YOLOv8n-Seg evidence case; semantic quality requires human review."
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+kind("integration");
+layer("scenario");
+module("rag");
+case_name("paired_replay_transport_switch");
+mode("build-run");
+report(true);
+
+ImageProbe probe;
+probe.Load("rag_torch_paired.png");
+probe.Detect(0.5);
+probe.Score();

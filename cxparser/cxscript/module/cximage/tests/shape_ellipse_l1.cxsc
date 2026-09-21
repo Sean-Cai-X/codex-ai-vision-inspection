@@ -1,0 +1,109 @@
+CxShapeTest_reset(0);
+
+CxShapeTest_addcase("ellipse_drag_center");
+CxShapeTest_settool("ellipse_manual");
+CxShapeTest_setoperation("drag_handle");
+CxShapeTest_setinitialellipse(40, 80, 180, 200);
+CxShapeTest_sethandle("Center");
+CxShapeTest_setfrom(200, 180);
+CxShapeTest_setto(240, 210);
+CxShapeTest_setexpected("ellipse_translate_only");
+
+CxShapeTest_addcase("ellipse_drag_radius_x");
+CxShapeTest_settool("ellipse_manual");
+CxShapeTest_setoperation("drag_handle");
+CxShapeTest_setinitialellipse(40, 80, 180, 200);
+CxShapeTest_sethandle("RadiusX");
+CxShapeTest_setfrom(280, 180);
+CxShapeTest_setto(310, 180);
+CxShapeTest_setexpected("radius_x_only");
+
+CxShapeTest_addcase("ellipse_drag_radius_y");
+CxShapeTest_settool("ellipse_manual");
+CxShapeTest_setoperation("drag_handle");
+CxShapeTest_setinitialellipse(40, 80, 180, 200);
+CxShapeTest_sethandle("RadiusY");
+CxShapeTest_setfrom(200, 220);
+CxShapeTest_setto(200, 250);
+CxShapeTest_setexpected("radius_y_only");
+
+CxShapeTest_addcase("ellipse_drag_body");
+CxShapeTest_settool("ellipse_manual");
+CxShapeTest_setoperation("drag_handle");
+CxShapeTest_setinitialellipse(40, 80, 180, 200);
+CxShapeTest_sethandle("Body");
+CxShapeTest_setfrom(256, 208);
+CxShapeTest_setto(276, 223);
+CxShapeTest_setexpected("ellipse_translate_only");
+
+CxShapeTest_addcase("ellipse_rx_small");
+CxShapeTest_settool("ellipse_manual");
+CxShapeTest_setoperation("drag_handle");
+CxShapeTest_setinitialellipse(40, 10, 180, 200);
+CxShapeTest_sethandle("RadiusX");
+CxShapeTest_setfrom(210, 180);
+CxShapeTest_setto(220, 180);
+CxShapeTest_setexpected("radius_x_only");
+
+CxShapeTest_addcase("ellipse_ry_small");
+CxShapeTest_settool("ellipse_manual");
+CxShapeTest_setoperation("drag_handle");
+CxShapeTest_setinitialellipse(10, 80, 180, 200);
+CxShapeTest_sethandle("RadiusY");
+CxShapeTest_setfrom(200, 190);
+CxShapeTest_setto(200, 200);
+CxShapeTest_setexpected("radius_y_only");
+
+CxShapeTest_addcase("ellipse_near_circle_hit");
+CxShapeTest_settool("ellipse_manual");
+CxShapeTest_setoperation("drag_handle");
+CxShapeTest_setinitialellipse(55, 60, 180, 200);
+CxShapeTest_sethandle("Body");
+CxShapeTest_setfrom(200, 128);
+CxShapeTest_setto(210, 138);
+CxShapeTest_setexpected("ellipse_translate_only");
+
+CxShapeTest_addcase("ellipse_flat_horizontal_hit");
+CxShapeTest_settool("ellipse_manual");
+CxShapeTest_setoperation("drag_handle");
+CxShapeTest_setinitialellipse(20, 100, 180, 200);
+CxShapeTest_sethandle("Body");
+CxShapeTest_setfrom(280, 185);
+CxShapeTest_setto(290, 190);
+CxShapeTest_setexpected("ellipse_translate_only");
+
+CxShapeTest_addcase("ellipse_flat_vertical_hit");
+CxShapeTest_settool("ellipse_manual");
+CxShapeTest_setoperation("drag_handle");
+CxShapeTest_setinitialellipse(100, 20, 180, 200);
+CxShapeTest_sethandle("Body");
+CxShapeTest_setfrom(205, 260);
+CxShapeTest_setto(215, 270);
+CxShapeTest_setexpected("ellipse_translate_only");
+
+CxShapeTest_addcase("ellipse_outside_no_hit");
+CxShapeTest_settool("ellipse_manual");
+CxShapeTest_setoperation("drag_handle");
+CxShapeTest_setinitialellipse(40, 80, 180, 200);
+CxShapeTest_sethandle("Body");
+CxShapeTest_setfrom(350, 300);
+CxShapeTest_setto(360, 310);
+CxShapeTest_setexpected("no_hit");
+CxShapeTest_setexpectedhit(0);
+CxShapeTest_setexpectedbegindrag(0);
+CxShapeTest_setexpectedcommit(0);
+
+CxShapeTest_addcase("ellipse_noneditable_drag_rejected");
+CxShapeTest_settool("ellipse_manual");
+CxShapeTest_setoperation("drag_handle");
+CxShapeTest_setinitialellipse(40, 80, 180, 200);
+CxShapeTest_sethandle("Body");
+CxShapeTest_setfrom(256, 208);
+CxShapeTest_setto(276, 223);
+CxShapeTest_setexpected("drag_rejected_noneditable");
+CxShapeTest_seteditable(0);
+CxShapeTest_setexpectedhit(1);
+CxShapeTest_setexpectedbegindrag(0);
+CxShapeTest_setexpectedcommit(0);
+
+1+1;

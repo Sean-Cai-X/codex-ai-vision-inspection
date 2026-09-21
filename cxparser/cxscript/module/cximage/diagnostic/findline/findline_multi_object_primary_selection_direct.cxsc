@@ -1,0 +1,40 @@
+Image m_image;
+FindLine m_line_primary;
+FindLine m_line_secondary;
+
+m_image.copyFromMat(global_matInput);
+
+m_line_primary.setmaxelapsedms(global_max_elapsed_ms);
+m_line_primary.setmaxscanlines(global_max_scan_lines);
+m_line_primary.setmaxsamples(global_max_samples);
+
+m_line_primary.SetWHgap(global_wgap, global_hgap);
+m_line_primary.setlinegap(global_linegap);
+m_line_primary.setline(
+    global_roi_x0,
+    global_roi_y0,
+    global_roi_x1,
+    global_roi_y1,
+    global_tool_half_width);
+m_line_primary.setmethod(global_method);
+m_line_primary.setthre(global_threshold);
+m_line_primary.setfilterprofile(global_filterprofile);
+
+m_line_secondary.setmaxelapsedms(global_max_elapsed_ms);
+m_line_secondary.setmaxscanlines(global_max_scan_lines);
+m_line_secondary.setmaxsamples(global_max_samples);
+
+m_line_secondary.SetWHgap(global_wgap, global_hgap);
+m_line_secondary.setlinegap(global_linegap);
+m_line_secondary.setline(
+    global_roi_x0,
+    global_roi_y0 + 80,
+    global_roi_x1,
+    global_roi_y1 + 80,
+    global_tool_half_width);
+m_line_secondary.setmethod(global_method);
+m_line_secondary.setthre(global_threshold);
+m_line_secondary.setfilterprofile(global_filterprofile);
+
+m_line_primary.measure(&m_image);
+m_line_primary.fitline();

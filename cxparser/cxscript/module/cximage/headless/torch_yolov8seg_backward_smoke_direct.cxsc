@@ -1,0 +1,18 @@
+Image m_image;
+TorchTask m_torch;
+
+m_image.copyFromMat(global_matInput);
+
+m_torch.settask("torch.train.instance_segmentation.yolov8.backward_smoke.v1");
+m_torch.setcase("torch_yolov8seg_backward_smoke_evidence");
+m_torch.setmanifest("libtorch_module/models/yolov8n_seg_coco_v1/model_manifest.json");
+m_torch.setdatasetroot("cxparser/cxscript/module/cximage/evidence/torch_runtime_ui_evidence_chain.cxsc");
+m_torch.setdevice("cpu");
+m_torch.setrequestcontext(global_torch_request_context);
+m_torch.settimeout(global_max_elapsed_ms);
+m_torch.run(&m_image);
+
+global_headless_ok = m_torch.getok();
+global_torch_ok = m_torch.getok();
+global_torch_result_count = m_torch.getresultcount();
+global_valid_points_count = m_torch.getok();

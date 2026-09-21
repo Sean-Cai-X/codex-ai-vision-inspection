@@ -1,0 +1,161 @@
+{
+  "schema": "cxvision.hd_annotation_contracts.v1",
+  "contracts": [
+    {
+      "contract_id": "closed_regular_object_mask_v1",
+      "track_id": "C1",
+      "required": [
+        "image",
+        "pixel_class_mask",
+        "closed_contour"
+      ],
+      "optional": [
+        "shape_family",
+        "object_class"
+      ],
+      "forbidden_substitutions": [
+        "folder_label_as_mask",
+        "bbox_as_mask"
+      ]
+    },
+    {
+      "contract_id": "closed_irregular_defect_mask_v1",
+      "track_id": "C2",
+      "required": [
+        "image",
+        "pixel_class_mask",
+        "closed_contour"
+      ],
+      "optional": [
+        "defect_class"
+      ],
+      "forbidden_substitutions": [
+        "folder_label_as_mask",
+        "bbox_as_mask"
+      ]
+    },
+    {
+      "contract_id": "multi_instance_mask_v1",
+      "track_id": "C3",
+      "required": [
+        "image",
+        "instance_id_mask",
+        "instance_class"
+      ],
+      "optional": [
+        "bbox",
+        "score"
+      ],
+      "forbidden_substitutions": [
+        "bbox_as_instance_mask",
+        "semantic_union_as_instance_ids"
+      ]
+    },
+    {
+      "contract_id": "open_boundary_measurement_v1",
+      "track_id": "O2",
+      "required": [
+        "image",
+        "boundary_polyline",
+        "valid_endpoint_flags",
+        "boundary_role"
+      ],
+      "optional": [
+        "boundary_probability_map",
+        "line_fit",
+        "arc_fit",
+        "open_curve_fit",
+        "width_samples",
+        "length"
+      ],
+      "forbidden_substitutions": [
+        "forced_closed_mask",
+        "bbox_as_boundary",
+        "line_like_object_class_as_boundary"
+      ]
+    },
+    {
+      "contract_id": "fuzzy_region_membership_v1",
+      "track_id": "R2",
+      "required": [
+        "image",
+        "membership_map",
+        "region_class"
+      ],
+      "optional": [
+        "confidence_map",
+        "hard_mask_view"
+      ],
+      "forbidden_substitutions": [
+        "folder_label_as_membership",
+        "hard_mask_as_membership"
+      ]
+    },
+    {
+      "contract_id": "composite_stage_outputs_v1",
+      "track_id": "X1",
+      "required": [
+        "image",
+        "stage_outputs",
+        "provenance",
+        "fused_decision"
+      ],
+      "optional": [
+        "semantic_mask",
+        "instance_masks",
+        "boundary_map",
+        "membership_map",
+        "measurements"
+      ],
+      "forbidden_substitutions": [
+        "single_stage_result_as_composite",
+        "missing_stage_provenance"
+      ]
+    },
+    {
+      "contract_id": "open_regular_boundary_measurement_v1",
+      "track_id": "O1",
+      "required": [
+        "image",
+        "boundary_centerline_polyline",
+        "measurement_points",
+        "valid_endpoint_flags",
+        "boundary_role"
+      ],
+      "optional": [
+        "line_fit",
+        "arc_fit",
+        "open_curve_fit",
+        "tangent_or_normal",
+        "curvature",
+        "length",
+        "confidence"
+      ],
+      "forbidden_substitutions": [
+        "forced_closed_mask",
+        "bbox_as_boundary",
+        "folder_label_as_boundary",
+        "line_like_object_class_as_boundary"
+      ]
+    },
+    {
+      "contract_id": "roi_region_learning_v1",
+      "track_id": "R1",
+      "required": [
+        "image",
+        "roi_or_polygon",
+        "region_class",
+        "positive_negative_role"
+      ],
+      "optional": [
+        "feature_vector",
+        "similarity",
+        "hard_negative_role"
+      ],
+      "forbidden_substitutions": [
+        "whole_image_folder_label_without_roi",
+        "automatic_candidate_as_accepted_label"
+      ]
+    }
+  ]
+}

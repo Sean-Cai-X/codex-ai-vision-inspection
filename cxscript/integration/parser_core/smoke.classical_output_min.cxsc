@@ -1,0 +1,39 @@
+scenario {
+  ParserEntry parser;
+  CxcoreBridge core;
+  double prepare_ok=0;
+  double action_ok=0;
+  double check_ok=0;
+  double roi_ready=0;
+  double boundary_ready=0;
+  double fit_ready=0;
+  double match_ready=0;
+  trace_id="trace.integration.parser_core.smoke.001";
+  task_id="integration_parser_core_classical";
+  route_hint="default";
+  image_path="data/infer/sample_001.png";
+  roi_id="roi_main";
+  expected_chain_status="parser_core_ready";
+  expected_artifact_ref="cxcore_classical_output";
+  prepare_ok=1;
+
+  if (prepare_ok) {
+    parser.dispatch(task_id,trace_id,route_hint,image_path);
+    core.build_classical_output(parser,roi_id);
+    action_ok=1;
+  }
+
+  check {
+    roi_ready=core.has_roi_result();
+    boundary_ready=core.has_boundary_result();
+    fit_ready=core.has_fit_result();
+    match_ready=core.has_match_result();
+    check_ok=roi_ready&&boundary_ready&&fit_ready&&match_ready;
+  }
+
+  report {
+    chain_status=expected_chain_status;
+    artifact_ref=expected_artifact_ref;
+    report_text="parser_core smoke flow ready";
+  }
+}

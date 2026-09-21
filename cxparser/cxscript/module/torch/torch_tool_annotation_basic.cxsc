@@ -1,0 +1,7 @@
+global_torch_task = "torch.feature.mobilevit.session";
+global_torch_device = "auto";
+global_torch_input_image = "";
+
+global_current_status = "torch_annotation_start";
+
+global_current_status = "torch_annotation_completed";

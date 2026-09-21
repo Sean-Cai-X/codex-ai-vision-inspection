@@ -1,0 +1,75 @@
+{
+  "schema": "cxvision.hd_model_tracks.v1",
+  "tracks": [
+    {
+      "model_track_id": "closed_semantic_segmentation_v1",
+      "case_tracks": [
+        "C1",
+        "C2"
+      ],
+      "output_contract": "binary_or_multiclass_pixel_mask",
+      "parent_binding": "pending",
+      "child_binding": "pending"
+    },
+    {
+      "model_track_id": "instance_segmentation_v1",
+      "case_tracks": [
+        "C3"
+      ],
+      "output_contract": "instance_id_masks_with_class",
+      "parent_binding": "pending",
+      "child_binding": "pending"
+    },
+    {
+      "model_track_id": "open_boundary_segmentation_v1",
+      "case_tracks": [
+        "O2"
+      ],
+      "output_contract": "boundary_probability_or_polyline",
+      "parent_binding": "pending",
+      "child_binding": "pending"
+    },
+    {
+      "model_track_id": "fuzzy_region_learning_v1",
+      "case_tracks": [
+        "R2"
+      ],
+      "output_contract": "membership_map_and_region_class",
+      "parent_binding": "pending",
+      "child_binding": "pending"
+    },
+    {
+      "model_track_id": "composite_pipeline_v1",
+      "case_tracks": [
+        "X1"
+      ],
+      "output_contract": "typed_stage_outputs_and_fusion",
+      "parent_binding": "pending",
+      "child_binding": "pending"
+    },
+    {
+      "model_track_id": "open_regular_boundary_model_v1",
+      "case_tracks": [
+        "O1"
+      ],
+      "output_contract": "segmentation_boundary_probability_map_ordered_polyline_endpoints_geometry_fit_and_confidence",
+      "parent_reuse": [
+        "mobilenetv3_deeplab_semantic_segmentation_with_boundary_head",
+        "yolov8_seg_instance_mask_with_contour_adapter_and_geometry_head"
+      ],
+      "forbidden_direction": "line_like_object_detection",
+      "parent_binding": "pending",
+      "child_binding": "pending"
+    },
+    {
+      "model_track_id": "roi_region_learning_v1",
+      "case_tracks": [
+        "R1"
+      ],
+      "output_contract": "roi_features_class_and_similarity",
+      "parent_binding": "pending",
+      "child_binding": "pending"
+    }
+  ],
+  "selection_rule": "select by final output semantics and annotation contract; never infer model type from folder names"
+}

@@ -1,0 +1,46 @@
+Image m_image;
+FindCircle m_outer_circle;
+FindCircle m_inner_circle;
+FindLine m_line_gauge;
+CircleRingGauge m_ring_gauge;
+FormfitGauge m_formfit_gauge;
+
+m_image.copyFromMat(global_matInput);
+
+int cx = 640;
+int cy = 480;
+int outer_px = 800;
+int outer_py = 480;
+int inner_px = 730;
+int inner_py = 480;
+int gap = 5;
+int linegap = 3;
+int concentric_tolerance = 3;
+int thickness_tolerance = 5;
+
+int line_x0 = 420;
+int line_y0 = 690;
+int line_x1 = 860;
+int line_y1 = 690;
+int line_half_width = 28;
+int wgap = 4;
+int hgap = 4;
+
+m_outer_circle.Setgap(gap);
+m_outer_circle.setlinegap(linegap);
+m_outer_circle.setcircle(outer_py, outer_px, cy, cx);
+
+m_inner_circle.Setgap(gap);
+m_inner_circle.setlinegap(linegap);
+m_inner_circle.setcircle(inner_py, inner_px, cy, cx);
+
+m_line_gauge.SetWHgap(wgap, hgap);
+m_line_gauge.setlinegap(linegap);
+m_line_gauge.setline(line_x0, line_y0, line_x1, line_y1, line_half_width);
+
+m_ring_gauge.settolerance(concentric_tolerance, thickness_tolerance);
+m_ring_gauge.setouter(&m_outer_circle);
+m_ring_gauge.setinner(&m_inner_circle);
+
+// G0/G1 only: FormfitGauge composition anchor, no measure/fit execution here.
+global_current_status = "FORMFIT_FRAME_PROBE_ONLY";

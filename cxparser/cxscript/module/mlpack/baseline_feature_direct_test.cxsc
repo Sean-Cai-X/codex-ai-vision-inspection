@@ -1,0 +1,18 @@
+Image m_image;
+MlpackFeature m_feature;
+MlpackDataset m_dataset;
+
+m_image.copyFromMat(global_matInput);
+
+int feature_width = 64;
+int feature_height = 64;
+int feature_channel = 1;
+int normalize_mode = 1;
+
+m_feature = mlpack.build_feature(&m_image, feature_width, feature_height, feature_channel);
+m_dataset = mlpack.build_dataset(m_feature);
+m_dataset.normalize(normalize_mode);
+
+global_feature_ref = m_feature;
+global_statistics_evidence_ref = m_dataset.get_statistics_ref();
+global_current_status = "PENDING";

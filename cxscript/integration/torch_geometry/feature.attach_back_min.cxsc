@@ -1,0 +1,34 @@
+scenario {
+  double prepare_ok=0;
+  double action_ok=0;
+  double check_ok=0;
+  double attach_ready=0;
+  trace_id="trace.integration.torch_geometry.feature.attach_back.001";
+  roi_id="roi_main";
+  mask_id="mask_pred";
+  boundary_id="boundary_pred";
+  keypoints_id="keypoints_pred";
+  expected_artifact_ref="torch_geometry_attach_packet";
+  prepare_ok=1;
+
+  if (prepare_ok) {
+    geom_attach_result_to_roi(roi_id,"pred_class",0.95,"embedding_main");
+    geom_attach_result_mask(roi_id,mask_id);
+    geom_attach_result_boundary(roi_id,boundary_id);
+    geom_attach_result_keypoints(roi_id,keypoints_id);
+    geom_publish_attach_packet(roi_id);
+    action_ok=1;
+  }
+
+  check {
+    attach_ready=geom_check_attach_ready(roi_id);
+    check_ok=action_ok&&attach_ready;
+  }
+
+  report {
+    chain_status="torch_geometry_attach_ready";
+    artifact_ref=expected_artifact_ref;
+    packet_ref="attach_packet_main";
+    report_text="geometry attach completed";
+  }
+}

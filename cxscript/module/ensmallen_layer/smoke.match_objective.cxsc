@@ -1,0 +1,35 @@
+# ensmallen_layer module cxscript
+kind=module
+layer=smoke
+module=ensmallen_layer
+case=match_objective
+mode=build-run
+route=default
+report=on
+
+# input
+sample_id=template_match.template_scene
+input_image=phase1.template_match.template_scene
+template_image=phase1.template_match.template_patch
+roi_match=20,18,48,40
+gt_match=center:60,66
+param_init=thre:8;comparegap:2;linegap:6;wgap:6;hgap:6;minscore:0.40
+objective_weights=rank:4;location:3;margin:2;fp:2;score_stability:1.5
+
+# call
+call_1=FastMatch.FastMatch
+call_2=ExportMatchOutput
+call_3=EnsmallenMatchObjectiveEval
+
+# expect
+expect_output_1=MatchOutput
+expect_output_2=EnsmallenObjectiveResult
+expect_field_1=objective_value
+expect_field_2=match_best_score
+expect_field_3=match_candidate_count
+expect_field_4=location_error
+
+# checkpoint
+check_1=objective_value_defined
+check_2=objective_value_ge_0
+check_3=match_output_defined

@@ -1,0 +1,7 @@
+# mlpack minimal train probe
+kind=module
+layer=train
+module=mlpack
+case=minimal_train
+mode=build-run
+report=on

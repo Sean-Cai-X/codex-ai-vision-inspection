@@ -1,0 +1,39 @@
+{
+  "schema": "cxvision.yolov8n_cpp_training_plan.v1",
+  "epochs": 50,
+  "batch_size": 8,
+  "input_size": 128,
+  "max_train_batches_per_epoch": 15,
+  "learning_rate": 0.003,
+  "assignment_topk": 3,
+  "classification_focal_gamma": 2.0,
+  "use_assignment_quality_targets": 1,
+  "global_multiscale_assignment": 1,
+  "class_loss_weights": [0.78, 1.16, 1.13, 1.31, 0.74, 1.40, 0.80],
+  "validation_interval": 1,
+  "early_stop_patience": 8,
+  "minimum_complete_epochs": 30,
+  "minimum_f1_delta": 0.001,
+  "restore_best_validation_checkpoint": 1,
+  "postprocess_confidence_threshold": 0.25,
+  "postprocess_iou_threshold": 0.45,
+  "postprocess_max_detections": 20,
+  "postprocess_class_agnostic_nms": 1,
+  "evaluation_match_iou_threshold": 0.5,
+  "frozen_parameter_prefixes": [
+    "backbone"
+  ],
+  "seed": 1023,
+  "num_classes": 7,
+  "class_names": [
+    "arc",
+    "circle",
+    "ellipse",
+    "line",
+    "open_curve",
+    "polygon",
+    "closed_curve"
+  ],
+  "human_review_required": true,
+  "promotion_allowed": false
+}

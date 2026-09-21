@@ -1,0 +1,25 @@
+Image m_image;
+MlpackFeature m_feature;
+MlpackDataset m_dataset;
+MlpackPrediction m_prediction;
+
+m_image.copyFromMat(global_matInput);
+
+int feature_width = 64;
+int feature_height = 64;
+int feature_channel = 1;
+int normalize_mode = 1;
+int k = global_mlpack_k;
+int max_iterations = global_mlpack_max_iterations;
+double tolerance = global_mlpack_tolerance;
+
+m_feature = mlpack.build_feature(&m_image, feature_width, feature_height, feature_channel);
+m_dataset = mlpack.build_dataset(m_feature);
+m_dataset.normalize(normalize_mode);
+
+m_prediction = mlpack.kmeans_cluster(m_dataset, k, max_iterations, tolerance);
+
+global_cluster_ref = m_prediction.get_cluster_ref();
+global_cluster_centroid_ref = m_prediction.get_centroid_ref();
+global_cluster_distance_ref = m_prediction.get_distance_ref();
+global_current_status = "PENDING";

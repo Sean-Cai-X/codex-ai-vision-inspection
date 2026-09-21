@@ -1,0 +1,7 @@
+# mlpack baseline feature export
+kind=module
+layer=feature
+module=mlpack
+case=baseline_feature_all_v1
+mode=build-run
+report=on

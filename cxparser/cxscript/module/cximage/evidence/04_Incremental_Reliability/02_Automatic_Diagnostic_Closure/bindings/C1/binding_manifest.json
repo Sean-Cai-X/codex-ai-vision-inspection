@@ -1,0 +1,12 @@
+{
+  "schema": "cxvision.single_image_runtime_binding.v1",
+  "case_id": "hd_closed_body_audit_sample_001",
+  "case_track": "C1",
+  "sample": {"image_path": "D:/Codex-WorkDir/Sean_WorkDir/images/pill/ginseng/contamination/pill_ginseng_contamination_001.png"},
+  "typed_label": {"kind": "binary_closed_object_mask", "status": "auto_provisional", "path": "cxscript_runs/typed_label_proposal/run_20260826_231500_phase1_auto_content/C1/typed_label.png", "proposal_manifest": "cxscript_runs/typed_label_proposal/run_20260826_231500_phase1_auto_content/C1/typed_label_manifest.json", "candidate_reference": "cxscript_runs/reference_candidate/run_20260826_220000_phase1_binding/C1/cximage_reference_mask.png", "independent_ground_truth": false},
+  "runtime_direction_manifest": "cxparser/cxscript/module/cximage/evidence/04_Incremental_Reliability/02_Automatic_Diagnostic_Closure/bindings/C1/runtime_direction_manifest.json",
+  "parent_binding": {"status": "pending_compatible_hd_model", "task_id": "semantic_segmentation", "physical_output_contract": "binary_closed_object_mask"},
+  "child_binding": {"status": "pending_compatible_hd_model", "task_id": "semantic_segmentation", "physical_output_contract": "binary_closed_object_mask"},
+  "runtime_candidate_audit": "cxparser/cxscript/module/cximage/evidence/04_Incremental_Reliability/02_Automatic_Diagnostic_Closure/runtime_candidate_audit.json",
+  "training_enabled": 0
+}

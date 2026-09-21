@@ -1,0 +1,14 @@
+kind=module
+layer=feature
+module=cxcore
+case=circle_measurement
+mode=build-run
+report=on
+input source_image;
+input roi_circle;
+call measure_circle();
+expect success == true;
+expect task_id == "cxcore.feature.circle_measurement";
+expect scalar_result == 104.000000;
+emit task_id;
+emit summary;

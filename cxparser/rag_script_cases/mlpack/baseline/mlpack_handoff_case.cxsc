@@ -1,0 +1,8 @@
+﻿# mlpack GUI handoff baseline case
+# purpose: keep sample_switch, statistics evidence, baseline result, and issue entry on the same image and same chain
+# source_chain: cxcore -> mlpack -> dev_analysis_gui
+# preferred_runtime_entry: cxparser_ext_cxscript_cli --script cxparser/cxscript/module/mlpack/observe.mlpack_handoff_case.cxs
+# primary_case: baseline_pair_compare_min
+# focus_fields: sample_switch, test_image_ref, main_chain_ref, statistics_evidence_ref, baseline_result_ref, issue_entry_ref, runtime_fillback_status, evidence_ref, result_ref
+# acceptance_rule: do not issue a final conclusion before a real runtime result package is loaded into GUI capture flow
+case mlpack_handoff_case;

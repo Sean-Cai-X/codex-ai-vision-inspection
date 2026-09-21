@@ -1,0 +1,17 @@
+kind=module
+layer=operator
+module=cximage
+case=roi_edge
+mode=build-run
+report=on
+Flow.Begin("cximage.roi_edge");
+Input.Image("source_image","synthetic.operator.edge.primary");
+Input.Roi("roi_main",16,12,48,40);
+Input.Param("kernel",5);
+Action.Call("Image.setroi");
+Action.Call("Image.roiedge");
+Check.StructExists("roi_bounds");
+Check.ScalarGe("edge_pixels",0);
+Output.Emit("RoiEdgeImage");
+Output.Conclusion("roi_edge_status","pass_if_checks_ok");
+Flow.End();

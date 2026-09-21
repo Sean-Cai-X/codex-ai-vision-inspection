@@ -1,0 +1,7 @@
+# mlpack minimal feature probe
+kind=module
+layer=feature
+module=mlpack
+case=minimal_model
+mode=build-run
+report=on

@@ -1,0 +1,63 @@
+{
+  "schema": "cxvision.geometry_augmentation_contract.v1",
+  "plan_ref": "geometry_augmentation_plan.json",
+  "training_enabled": 0,
+  "human_review_required": 1,
+  "reproducibility_required": [
+    "source_hash",
+    "generated_hash",
+    "seed",
+    "operation_order",
+    "operation_parameters",
+    "affine_source_to_output"
+  ],
+  "implemented_photometric_operations": [
+    "gaussian_blur",
+    "sensor_noise"
+  ],
+  "photometric_target_policy": "typed_geometry_target_unchanged",
+  "implemented_geometric_operations": [
+    "rotate",
+    "translate_y"
+  ],
+  "geometric_target_policy": "transform_mask_geometry_facts_endpoints_vertices_centers_angles_and_position_annotation",
+  "standard_position_annotation": {
+    "schema": "cxvision.standard_geometry_position.v1",
+    "coordinate_system": "pixel_center_origin_top_left_x_right_y_down",
+    "required_facts": [
+      "bbox_xywh",
+      "centroid_xy",
+      "source_centroid_xy",
+      "affine_centroid_xy",
+      "affine_source_to_output",
+      "retained_label_ratio",
+      "centroid_consistency_error_px"
+    ],
+    "centroid_consistency_tolerance_px": 2.0,
+    "minimum_retained_label_ratio": 0.985
+  },
+  "split_policy": {
+    "train": "training_eligible_after_human_acceptance_only",
+    "validation": "never_training_eligible_and_controlled_regression_only_when_source_image_is_shared",
+    "separation": "variant_ids_and_seeds_are_disjoint",
+    "source_split_required": true,
+    "same_source_augmentation_role": "controlled_robustness_regression_only",
+    "release_validation_requirement": "source_disjoint_original_images_with_explicit_source_split",
+    "release_eligible_from_same_source_augmentation": false
+  },
+  "evidence_policy": {
+    "publication": "atomic_after_all_mandatory_assets_exist",
+    "display_name": "source_review_item_plus_variant_review_suffix",
+    "training_enabled_before_human_review": 0
+  },
+  "forbidden": [
+    "modify_input_without_recording_seed_and_parameters",
+    "apply_geometry_transform_without_transforming_typed_target",
+    "modify_typed_label_to_simulate_photometric_interference",
+    "use_validation_or_holdout_images_for_training",
+    "treat_same_source_augmentation_as_source_disjoint_validation",
+    "promote_without_explicit_source_split",
+    "publish_partial_case_directories",
+    "hardcode_case_or_variant_names_in_cpp"
+  ]
+}

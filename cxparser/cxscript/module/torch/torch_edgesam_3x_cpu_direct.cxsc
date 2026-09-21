@@ -1,0 +1,17 @@
+Image m_image;
+TorchTask m_task;
+
+m_image.copyFromMat(global_matInput);
+
+m_task.settask("torch.infer.segmentation.edgesam.v1");
+m_task.setrequestcontext(global_torch_request_context);
+m_task.setmanifest("libtorch_module/models/edgesam_3x_torchscript/model_manifest.json");
+m_task.setdevice("cpu");
+m_task.settimeout(30000);
+
+m_task.run(m_image);
+
+global_headless_ok = m_task.getok();
+global_torch_ok = m_task.getok();
+global_torch_mask_available = m_task.getmaskavailable();
+global_torch_infer_ms = m_task.getinferms();

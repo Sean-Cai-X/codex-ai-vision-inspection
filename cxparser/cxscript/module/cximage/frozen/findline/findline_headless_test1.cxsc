@@ -1,0 +1,15 @@
+Image m_image;
+FindLine m_line;
+
+m_image.copyFromMat(global_matInput);
+
+m_line.setmaxelapsedms(global_max_elapsed_ms);
+m_line.setmaxscanlines(global_max_scan_lines);
+m_line.setmaxsamples(global_max_samples);
+
+m_line.setline(100, 100, 200, 200, 10);
+m_line.setthre(20);
+m_line.setmethod(2);
+
+m_line.measure(&m_image);
+m_line.fitline();

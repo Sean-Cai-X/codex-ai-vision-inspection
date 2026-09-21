@@ -1,0 +1,34 @@
+Image m_image;
+FastMatch m_match;
+
+m_image.copyFromMat(global_matInput);
+
+int learn_x = 100;
+int learn_y = 100;
+int learn_w = 420;
+int learn_h = 320;
+
+int threshold = 16;
+int linegap = 3;
+int wgap = 15;
+int hgap = 15;
+int compare_gap = 20;
+int objfilter = 0;
+
+m_match.setrectxywh(learn_x, learn_y, learn_w, learn_h);
+m_match.setobjfilter(objfilter);
+m_match.setwhgap(wgap, hgap);
+m_match.setthre(threshold);
+m_match.setlinegap(linegap);
+m_match.setcompgap(compare_gap);
+
+m_match.learn(m_image);
+m_match.modelzero();
+m_match.pattern2org();
+m_match.samplemodel(100);
+
+global_learn_a_count = m_match.getlearnacount();
+global_learn_b_count = m_match.getlearnbcount();
+global_learn_a2_count = m_match.getlearna2count();
+global_learn_b2_count = m_match.getlearnb2count();
+global_model_point_count = m_match.getmodelpointcount();

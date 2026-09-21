@@ -1,0 +1,280 @@
+{
+  "schema_version": "1.0",
+  "purpose": "Stage25 L1-L3 Parameter Consistency",
+  "selection_policy": "full",
+  "images": [
+    {
+      "image_id": "basic_01",
+      "level": "L0_basic",
+      "path": "D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/test_images/L0_basic/basic_01.jpg",
+      "width": 1280,
+      "height": 960,
+      "tool_targets": [
+        {
+          "tool": "FindCircle",
+          "roi_name": "basic_dot",
+          "cx": 640,
+          "cy": 480,
+          "px": 960,
+          "py": 480,
+          "gap": 5,
+          "linegap": 3
+        }
+      ]
+    },
+    {
+      "image_id": "line_high_contrast_001",
+      "level": "L1_high_contrast",
+      "path": "D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/test_images/L1_high_contrast/line_high_contrast_001.jpg",
+      "width": 1280,
+      "height": 1024,
+      "tool_targets": [
+        {
+          "tool": "FindLine",
+          "roi_name": "plate_top_edge",
+          "x0": 82,
+          "y0": 183,
+          "x1": 1210,
+          "y1": 183,
+          "wgap": 8,
+          "hgap": 32,
+          "method": 1,
+          "comment": "Manual evidence review on 2026-07-30 confirmed polarity must use method=1 for this target."
+        }
+      ]
+    },
+    {
+      "image_id": "line_high_contrast_002",
+      "level": "L1_high_contrast",
+      "path": "D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/test_images/L1_high_contrast/line_high_contrast_002.jpg",
+      "width": 1280,
+      "height": 960,
+      "tool_targets": [
+        {
+          "tool": "FindLine",
+          "roi_name": "metal_part_lower_right_edge",
+          "x0": 687,
+          "y0": 760,
+          "x1": 799,
+          "y1": 680,
+          "tool_half_width": 20,
+          "wgap": 8,
+          "hgap": 28,
+          "linegap": 6,
+          "threshold": 20,
+          "method": 2,
+          "comment": "Locked from manual_accepted gauge_annotation.json, manual_gauge_smoke/L1_line_high_contrast_002_metal_part_lower_right_edge_ok."
+        }
+      ]
+    },
+    {
+      "image_id": "circle_high_contrast_001",
+      "level": "L1_high_contrast",
+      "path": "D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/test_images/L1_high_contrast/circle_high_contrast_001.jpg",
+      "width": 1280,
+      "height": 1024,
+      "tool_targets": [
+        {
+          "tool": "FindCircle",
+          "roi_name": "isolated_plate_circle",
+          "cx": 498,
+          "cy": 704,
+          "px": 563,
+          "py": 704,
+          "gap": 5,
+          "linegap": 3
+        }
+      ]
+    },
+    {
+      "image_id": "circle_high_contrast_002",
+      "level": "L1_high_contrast",
+      "path": "D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/test_images/L1_high_contrast/circle_high_contrast_002.jpg",
+      "width": 640,
+      "height": 512,
+      "tool_targets": [
+        {
+          "tool": "FindCircle",
+          "roi_name": "bottle_inner_mouth",
+          "cx": 288,
+          "cy": 261,
+          "px": 420,
+          "py": 261,
+          "gap": 5,
+          "linegap": 3,
+          "threshold": 20,
+          "method": 0,
+          "comment": "Locked from historical replay_package.json, run_20260715_findcircle_gaussian_chebyshev_v1."
+        }
+      ]
+    },
+    {
+      "image_id": "line_low_contrast_001",
+      "level": "L2_low_contrast_illumination",
+      "path": "D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/test_images/L2_low_contrast_illumination/line_low_contrast_001.jpg",
+      "width": 652,
+      "height": 494,
+      "tool_targets": [
+        {
+          "tool": "FindLine",
+          "roi_name": "weak_vertical_scratch",
+          "x0": 181,
+          "y0": 20,
+          "x1": 244,
+          "y1": 407,
+          "wgap": 8,
+          "hgap": 24
+        }
+      ]
+    },
+    {
+      "image_id": "line_uneven_light_001",
+      "level": "L2_low_contrast_illumination",
+      "path": "D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/test_images/L2_low_contrast_illumination/line_uneven_light_001.jpg",
+      "width": 2448,
+      "height": 2048,
+      "tool_targets": [
+        {
+          "tool": "FindLine",
+          "roi_name": "reflective_part_right_edge",
+          "x0": 1190,
+          "y0": 715,
+          "x1": 1515,
+          "y1": 1390,
+          "tool_half_width": 20,
+          "wgap": 10,
+          "hgap": 36,
+          "linegap": 6,
+          "threshold": 20,
+          "method": 2,
+          "comment": "Locked from historical replay_package.json, run_20260715_findline_findcircle_function_chain_v2."
+        }
+      ]
+    },
+    {
+      "image_id": "circle_low_contrast_001",
+      "level": "L2_low_contrast_illumination",
+      "path": "D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/test_images/L2_low_contrast_illumination/circle_low_contrast_001.jpg",
+      "width": 1280,
+      "height": 1024,
+      "tool_targets": [
+        {
+          "tool": "FindCircle",
+          "roi_name": "cap_outer_boundary",
+          "cx": 635,
+          "cy": 516,
+          "px": 932,
+          "py": 516,
+          "gap": 6,
+          "linegap": 3
+        }
+      ]
+    },
+    {
+      "image_id": "circle_reflection_001",
+      "level": "L2_low_contrast_illumination",
+      "path": "D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/test_images/L2_low_contrast_illumination/circle_reflection_001.jpg",
+      "width": 640,
+      "height": 512,
+      "tool_targets": [
+        {
+          "tool": "FindCircle",
+          "roi_name": "reflective_bottle_mouth",
+          "cx": 296,
+          "cy": 257,
+          "px": 443,
+          "py": 257,
+          "gap": 5,
+          "linegap": 3,
+          "threshold": 20,
+          "method": 0,
+          "comment": "Locked from historical replay_package.json, run_20260715_findcircle_gaussian_chebyshev_v1."
+        }
+      ]
+    },
+    {
+      "image_id": "line_complex_boundary_001",
+      "level": "L3_complex_boundary",
+      "path": "D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/test_images/L3_complex_boundary/line_complex_boundary_001.jpg",
+      "width": 3840,
+      "height": 2748,
+      "tool_targets": [
+        {
+          "tool": "FindLine",
+          "roi_name": "central_screw_shaft_edge",
+          "x0": 1440,
+          "y0": 555,
+          "x1": 1625,
+          "y1": 1300,
+          "wgap": 10,
+          "hgap": 34
+        }
+      ]
+    },
+    {
+      "image_id": "line_near_interference_001",
+      "level": "L3_complex_boundary",
+      "path": "D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/test_images/L3_complex_boundary/line_near_interference_001.jpg",
+      "width": 640,
+      "height": 480,
+      "tool_targets": [
+        {
+          "tool": "FindLine",
+          "roi_name": "grid_top_edge",
+          "x0": 330,
+          "y0": 121,
+          "x1": 460,
+          "y1": 121,
+          "tool_half_width": 20,
+          "wgap": 7,
+          "hgap": 24,
+          "linegap": 6,
+          "threshold": 20,
+          "method": 2,
+          "comment": "Locked from historical replay_package.json, run_20260715_findline_findcircle_function_chain_v2."
+        }
+      ]
+    },
+    {
+      "image_id": "circle_complex_boundary_001",
+      "level": "L3_complex_boundary",
+      "path": "D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/test_images/L3_complex_boundary/circle_complex_boundary_001.jpg",
+      "width": 1280,
+      "height": 1024,
+      "tool_targets": [
+        {
+          "tool": "FindCircle",
+          "roi_name": "brake_disk_inner_circle",
+          "cx": 704,
+          "cy": 522,
+          "px": 960,
+          "py": 522,
+          "gap": 6,
+          "linegap": 3
+        }
+      ]
+    },
+    {
+      "image_id": "circle_partial_edge_001",
+      "level": "L3_complex_boundary",
+      "path": "D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/test_images/L3_complex_boundary/circle_partial_edge_001.jpg",
+      "width": 2016,
+      "height": 1512,
+      "tool_targets": [
+        {
+          "tool": "FindCircle",
+          "roi_name": "pipe_mouth_with_occlusion",
+          "cx": 1458,
+          "cy": 704,
+          "px": 1512,
+          "py": 704,
+          "gap": 5,
+          "linegap": 3,
+          "threshold": 20,
+          "method": 0,
+          "comment": "Locked from historical replay_package.json, run_20260715_findcircle_gaussian_chebyshev_v1."
+        }
+      ]
+    }
+  ]
+}

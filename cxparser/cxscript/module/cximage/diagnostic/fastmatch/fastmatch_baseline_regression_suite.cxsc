@@ -1,0 +1,64 @@
+Suite s;
+s.reset();
+
+s.setname("fastmatch_baseline_regression");
+s.setdescription("FastMatch L1/L2/L3 baseline regression");
+
+s.setimageroot("D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/test_images");
+
+s.addimage("L1_fastmatch_bracket_template", "L1_high_contrast", "L1_high_contrast/fastmatch_bracket_template_l1.jpg");
+s.addimage("L1_fastmatch_bracket_test", "L1_high_contrast", "L1_high_contrast/fastmatch_bracket_test_l1.jpg");
+s.addimage("L2_fastmatch_bottle_template", "L2_low_contrast_illumination", "L2_low_contrast_illumination/fastmatch_bottle_template_l2.jpg");
+s.addimage("L2_fastmatch_bottle_test", "L2_low_contrast_illumination", "L2_low_contrast_illumination/fastmatch_bottle_test_l2.jpg");
+s.addimage("L3_fastmatch_brakedisk_template", "L3_complex_boundary", "L3_complex_boundary/fastmatch_brakedisk_template_l3.jpg");
+s.addimage("L3_fastmatch_brakedisk_test", "L3_complex_boundary", "L3_complex_boundary/fastmatch_brakedisk_test_l3.jpg");
+
+s.addcatalogentry("fastmatch_l1_baseline_regression", "FastMatch", "cxparser/cxscript/module/cximage/diagnostic/fastmatch/fastmatch_l1_baseline_regression.cxsc");
+
+s.addcase("fastmatch_l1_high_contrast_bracket");
+s.case_setimage("L1_fastmatch_bracket_template");
+s.case_setscript("fastmatch_l1_baseline_regression");
+s.case_settarget("fastmatch_bracket");
+s.case_addparameter("learn_roi_x", 50);
+s.case_addparameter("learn_roi_y", 50);
+s.case_addparameter("learn_roi_w", 300);
+s.case_addparameter("learn_roi_h", 200);
+s.case_addparameter("threshold", 16);
+s.case_addparameter("linegap", 3);
+s.case_addparameter("wgap", 15);
+s.case_addparameter("hgap", 15);
+s.case_addparameter("min_score", 0.65);
+s.case_addparameter("find_num", 1);
+s.case_setlevel("L1");
+
+s.addcase("fastmatch_l2_low_contrast_bottle");
+s.case_setimage("L2_fastmatch_bottle_template");
+s.case_setscript("fastmatch_l1_baseline_regression");
+s.case_settarget("fastmatch_bottle");
+s.case_addparameter("learn_roi_x", 80);
+s.case_addparameter("learn_roi_y", 80);
+s.case_addparameter("learn_roi_w", 350);
+s.case_addparameter("learn_roi_h", 250);
+s.case_addparameter("threshold", 12);
+s.case_addparameter("linegap", 2);
+s.case_addparameter("wgap", 12);
+s.case_addparameter("hgap", 12);
+s.case_addparameter("min_score", 0.60);
+s.case_addparameter("find_num", 1);
+s.case_setlevel("L2");
+
+s.addcase("fastmatch_l3_complex_brakedisk");
+s.case_setimage("L3_fastmatch_brakedisk_template");
+s.case_setscript("fastmatch_l1_baseline_regression");
+s.case_settarget("fastmatch_brakedisk");
+s.case_addparameter("learn_roi_x", 100);
+s.case_addparameter("learn_roi_y", 100);
+s.case_addparameter("learn_roi_w", 400);
+s.case_addparameter("learn_roi_h", 400);
+s.case_addparameter("threshold", 20);
+s.case_addparameter("linegap", 4);
+s.case_addparameter("wgap", 18);
+s.case_addparameter("hgap", 18);
+s.case_addparameter("min_score", 0.70);
+s.case_addparameter("find_num", 1);
+s.case_setlevel("L3");

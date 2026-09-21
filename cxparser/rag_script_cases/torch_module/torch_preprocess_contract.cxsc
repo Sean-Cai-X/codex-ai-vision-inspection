@@ -1,0 +1,1 @@
+host=TorchTestHost();host.run_preprocess_contract();

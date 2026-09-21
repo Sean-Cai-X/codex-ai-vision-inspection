@@ -1,0 +1,34 @@
+# ensmallen_layer module cxscript
+kind=module
+layer=infer
+module=ensmallen_layer
+case=phase1_param_eval
+mode=build-run
+route=default
+report=on
+
+# input
+dataset=dataset.cxcore.phase1.ensmallen
+best_params=batch_best_params.json
+compare_enable=1
+baseline_only=0
+
+# call
+call_1=LoadEnsmallenBestParams
+call_2=EnsmallenCircleInferEval
+call_3=EnsmallenEllipseInferEval
+call_4=EnsmallenMatchInferEval
+call_5=EnsmallenInferCompare
+
+# expect
+expect_output_1=InferCompareSummary
+expect_field_1=baseline_metrics
+expect_field_2=optimized_metrics
+expect_field_3=delta_metrics
+expect_artifact_1=baseline_report.json
+expect_artifact_2=optimized_report.json
+expect_artifact_3=infer_compare.json
+
+# checkpoint
+check_1=infer_compare_generated
+check_2=baseline_and_optimized_present

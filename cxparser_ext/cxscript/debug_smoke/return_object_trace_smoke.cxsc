@@ -1,0 +1,3 @@
+SourceObject source;
+InputObject input;
+ReturnObject result = source.method(input);

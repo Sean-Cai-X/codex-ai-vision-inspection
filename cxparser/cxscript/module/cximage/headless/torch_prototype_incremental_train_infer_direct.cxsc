@@ -1,0 +1,16 @@
+Image m_image;
+TorchTask m_torch;
+
+m_image.copyFromMat(global_matInput);
+
+m_torch.settask("torch.incremental.prototype.lifecycle.v1");
+m_torch.setcase("torch_prototype_incremental_train_infer_evidence");
+m_torch.setdevice("cpu");
+m_torch.setrequestcontext(global_torch_request_context);
+m_torch.settimeout(global_max_elapsed_ms);
+m_torch.run(&m_image);
+
+global_headless_ok = m_torch.getok();
+global_torch_ok = m_torch.getok();
+global_torch_result_count = m_torch.getresultcount();
+global_valid_points_count = m_torch.getok();

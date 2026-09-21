@@ -1,0 +1,49 @@
+Image m_image;
+FindObject m_object;
+
+m_image.copyFromMat(global_matInput);
+
+int x0 = global_roi_x0;
+int y0 = global_roi_y0;
+int x1 = global_roi_x1;
+int y1 = global_roi_y1;
+int width = x1 - x0;
+int height = y1 - y0;
+
+// FindObject uses an explicit ROI and foreground polarity.  It is a
+// component tool, not a positive/negative prompt segmentation backend.
+// Current ParserClass registers FindObject.setrect through setrect_script(),
+// so cxscript order is legacy Run.cpp order: height, width, y, x.
+m_object.setrect(height, width, y0, x0);
+m_object.setsearchtype(global_method);
+m_object.setdistance(global_gap);
+m_object.setbrow(global_object_foreground_mode);
+m_object.setroithre(global_object_threshold);
+
+m_object.setgeometrycalibration(global_object_pixel_size_x_milli / 1000.0,
+                                global_object_pixel_size_y_milli / 1000.0);
+m_object.setgeometryconnectivity(global_object_geometry_connectivity);
+m_object.setmeasurementselection(global_object_selected_measurement);
+m_object.setshowboundary(global_object_show_boundary);
+m_object.setshowmomentellipse(global_object_show_moment_ellipse);
+m_object.setshowferet(global_object_show_feret);
+m_object.setshowgeometrycircles(global_object_show_circles);
+m_object.setconclusionshape(global_object_conclusion_shape);
+m_object.setbackgroundmethod(global_object_background_method);
+m_object.setbackgroundborderwidth(global_object_background_border_px);
+m_object.setbackgroundmorphologyradius(global_object_background_radius_px);
+m_object.setsubpixelenabled(global_object_subpixel_enabled);
+m_object.setsubpixelminimumgradient(global_object_subpixel_min_gradient_milli / 1000.0);
+m_object.setsubpixelisothreshold(global_object_subpixel_iso_threshold);
+m_object.setactivegeometrybasis(global_object_geometry_basis);
+m_object.setminmax(global_object_min_area, 999999);
+m_object.setminmaxwh(0, 99999, 0, 99999);
+m_object.measurecc(m_image);
+
+global_match_count = m_object.getresultobjsnum();
+global_candidate_count = m_object.getdebugcomponentcount();
+global_rendered_result_count = m_object.getdebugacceptedcount();
+global_valid_points_count = m_object.getdebugacceptedcount();
+global_debug_max_component_area = m_object.getdebugmaxcomponentarea();
+global_debug_max_component_w = m_object.getdebugmaxcomponentw();
+global_debug_max_component_h = m_object.getdebugmaxcomponenth();

@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0",
+  "purpose": "YOLOv8-Seg fixed single-image backward smoke closed loop",
+  "selection_policy": "single_case",
+  "images": [
+    {
+      "image_id": "torch_deeppcb_g1_00041000_input",
+      "level": "L1_fixed_train_smoke",
+      "path": "D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/evidence_images/torch_deeppcb_g1_00041000_input.jpg",
+      "width": 640,
+      "height": 640,
+      "raw_not_cropped": true,
+      "raw_not_enhanced": true,
+      "raw_not_rotated": true,
+      "tool_targets": [
+        {
+          "tool": "FindLine",
+          "roi_name": "deeppcb_full_image_training_anchor",
+          "x0": 1,
+          "y0": 1,
+          "x1": 639,
+          "y1": 639,
+          "wgap": 8,
+          "hgap": 32,
+          "threshold": 0,
+          "method": 0,
+          "comment": "Fixed anchor for YOLOv8-Seg class+mask backward smoke; target is not used as model supervision."
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+Image m_image;
+GridPatternClassTool m_grid_pattern;
+
+m_image.copyFromMat(global_matInput);
+
+m_grid_pattern.setrect(
+    global_learn_roi_x,
+    global_learn_roi_y,
+    global_learn_roi_w,
+    global_learn_roi_h);
+m_grid_pattern.setnormalized(
+    global_grid_normalized_width,
+    global_grid_normalized_height);
+m_grid_pattern.setgrid(global_grid_rows, global_grid_cols);
+m_grid_pattern.setlevels(global_grid_levels);
+m_grid_pattern.setorientationbins(global_grid_orientation_bins);
+m_grid_pattern.setforegroundthreshold(global_grid_foreground_threshold);
+m_grid_pattern.setforegrounddark(global_grid_foreground_dark);
+m_grid_pattern.setequalizecontrast(global_grid_equalize_contrast);
+m_grid_pattern.setactiveforegroundpercent(global_grid_active_foreground_percent);
+m_grid_pattern.setactiveedgepercent(global_grid_active_edge_percent);
+m_grid_pattern.setmaxoverlays(global_grid_max_overlays);
+m_grid_pattern.setfusionmode(global_grid_fusion_mode);
+m_grid_pattern.analyze(&m_image);
+
+global_grid_status = m_grid_pattern.getstatuscode();
+global_grid_active_cell_count = m_grid_pattern.getactivecellcount();
+global_grid_descriptor_dim = m_grid_pattern.getdescriptordim();
+global_grid_level_count = m_grid_pattern.getlevelcount();
+global_grid_overlay_count = m_grid_pattern.getoverlaycount();
+global_grid_overlay_truncated = m_grid_pattern.getoverlaytruncated();

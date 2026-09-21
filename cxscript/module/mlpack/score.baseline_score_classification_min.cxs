@@ -1,0 +1,34 @@
+# mlpack baseline score
+kind=module
+layer=score
+module=mlpack
+case=baseline_score_classification_min
+mode=build-run
+report=on
+
+step input {
+input feature_set = "all_v1";
+input model_name = "LogisticRegression";
+input predictions_csv = "artifacts/baseline/logreg_all_v1_predictions.csv";
+input output_summary_csv = "artifacts/baseline/baseline_summary.csv";
+}
+
+step flow {
+load_predictions(predictions_csv);
+score_classification();
+write_summary(output_summary_csv);
+}
+
+step check {
+expect score_ok == true;
+expect accuracy >= 0;
+expect macro_f1 >= 0;
+expect output_summary_csv == "artifacts/baseline/baseline_summary.csv";
+}
+
+step output {
+emit accuracy;
+emit macro_f1;
+emit output_summary_csv;
+emit summary;
+}

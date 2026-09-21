@@ -1,0 +1,51 @@
+Image m_template;
+Image m_image;
+FastMatch m_match;
+
+m_template.copyFromMat(global_templateInput);
+m_image.copyFromMat(global_matInput);
+
+int learn_x = 10;
+int learn_y = 10;
+int learn_w = 460;
+int learn_h = 460;
+
+int search_x = 50;
+int search_y = 50;
+int search_w = 600;
+int search_h = 600;
+
+int threshold = 30;
+int linegap = 4;
+int wgap = 16;
+int hgap = 16;
+int compare_gap = 0;
+int objfilter = 0;
+int min_score = 50;
+int find_num = 3;
+
+m_match.setrectxywh(learn_x, learn_y, learn_w, learn_h);
+m_match.setobjfilter(objfilter);
+m_match.setwhgap(wgap, hgap);
+m_match.setthre(threshold);
+m_match.setlinegap(linegap);
+m_match.setcompgap(compare_gap);
+m_match.setminscore(min_score);
+m_match.setfindnum(find_num);
+
+m_match.learn(&m_template);
+m_match.modelzero();
+m_match.pattern2org();
+m_match.samplemodel(100);
+
+global_learn_a_count = m_match.getlearnacount();
+global_learn_b_count = m_match.getlearnbcount();
+global_learn_a2_count = m_match.getlearna2count();
+global_learn_b2_count = m_match.getlearnb2count();
+global_model_point_count = m_match.getmodelpointcount();
+
+m_match.setmatchrectxywh(search_x, search_y, search_w, search_h);
+m_match.match(&m_image);
+
+global_match_count = m_match.getresultcandidatecount();
+global_best_score = m_match.getresultbestscore();

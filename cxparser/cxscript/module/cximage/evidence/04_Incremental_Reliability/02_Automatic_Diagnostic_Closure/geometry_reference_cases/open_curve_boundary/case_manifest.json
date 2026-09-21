@@ -1,0 +1,40 @@
+{
+  "schema": "cxvision.geometry_reference_case.v1",
+  "asset_role": "controlled_geometry_reference_fixture",
+  "training_enabled": 0,
+  "binding_status": "REFERENCE_CASE_READY",
+  "image_width": 480,
+  "image_height": 360,
+  "generator": {
+    "method": "deterministic_region_interface_boundary_v2",
+    "ai_generated": false,
+    "reproducible_from_geometry_facts": true
+  },
+  "truth_semantics": {
+    "independent_of_model": true,
+    "production_ground_truth": false,
+    "allowed_claim": "geometry_contract_and_pipeline_reference_only",
+    "forbidden_claims": [
+      "production_accuracy",
+      "model_quality",
+      "promotion_gate_pass"
+    ]
+  },
+  "review_item": "Controlled open-curve boundary case",
+  "case_track": "O1",
+  "geometry_type": "open_curve",
+  "topology": "open",
+  "boundary_scene_semantics": "interface_between_two_regions",
+  "input_image": "01_boundary_scene_input_v2.bmp",
+  "typed_label": "02_visible_boundary_map_v2.bmp",
+  "typed_label_kind": "boundary_map",
+  "required_assets": [
+    "01_boundary_scene_input_v2.bmp",
+    "02_visible_boundary_map_v2.bmp",
+    "boundary.json",
+    "anchor_candidates.json"
+  ],
+  "geometry_facts_ref": "boundary.json",
+  "anchor_policy_ref": "../boundary_anchor_policy_v1.json",
+  "anchor_candidates_ref": "anchor_candidates.json"
+}

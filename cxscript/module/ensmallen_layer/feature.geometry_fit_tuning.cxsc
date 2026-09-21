@@ -1,0 +1,38 @@
+scenario {
+  prepare_ok = 0;
+  action_ok = 0;
+  check_ok = 0;
+  report_text = "";
+
+  sample_id = "fit_circle.circle_double | fit_ellipse.ellipse_rotated";
+  image = "<resolved_by_cxparser>";
+  roi_main = "<resolved_by_cxparser>";
+  gt = "<resolved_by_cxparser>";
+  params = "<resolved_by_cxparser>";
+  replay_log_path = "replay_log.jsonl";
+  rag_writeback_case = "feature.geometry_fit_writeback";
+
+  ResolveTuningCase();
+  RunBaselineEval();
+  prepare_ok = 1;
+
+  RunGeometryFitTuning();
+  CompareBaselineVsBest();
+  ExportReplayLog();
+  BuildRagExplainPacket();
+  RouteToRagWriteback(rag_writeback_case);
+  action_ok = 1;
+
+  check(sample_id);
+  check(baseline_result);
+  check(best_result);
+  check(compare_result);
+  check(replay_log_path);
+  check(rag_packet);
+  check_ok = 1;
+
+  output(OptimizeSummary);
+  output(CompareSummary);
+  output(RagWritebackNote);
+  report_text = "geometry_fit_tuning_contract_ready";
+}

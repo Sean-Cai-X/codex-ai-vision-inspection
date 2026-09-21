@@ -1,0 +1,41 @@
+Image m_image;
+TorchSegModel m_model;
+TorchTensor m_tensor;
+TorchRawOutput m_raw;
+TorchMask m_mask;
+
+m_image.copyFromMat(global_matInput);
+
+string model_path = global_model_path;
+int input_w = 512;
+int input_h = 512;
+float mean0 = 0.485;
+float mean1 = 0.456;
+float mean2 = 0.406;
+float std0 = 0.229;
+float std1 = 0.224;
+float std2 = 0.225;
+float mask_threshold = 0.5;
+
+m_model.load(model_path);
+m_model.set_device("cuda_or_cpu");
+
+m_tensor = torch.preprocess_image(
+  &m_image,
+  input_w,
+  input_h,
+  mean0,
+  mean1,
+  mean2,
+  std0,
+  std1,
+  std2
+);
+
+m_raw = m_model.infer(m_tensor);
+m_mask = torch.decode_mask(m_raw, mask_threshold);
+cximage.overlay_mask(&m_image, m_mask);
+
+global_mask_ref = m_mask;
+global_overlay_ref = m_image.get_overlay();
+global_current_status = "PENDING";

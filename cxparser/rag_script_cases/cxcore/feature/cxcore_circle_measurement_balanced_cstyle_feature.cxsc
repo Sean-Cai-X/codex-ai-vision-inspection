@@ -1,0 +1,19 @@
+kind=module
+layer=feature
+module=cxcore
+case=circle_measurement_balanced
+mode=build-run
+report=on
+use Image;
+use Roi;
+use CircleMeasurementOutput;
+Image source_image;
+Roi roi_circle;
+CircleMeasurementOutput circle_result;
+measure_circle_balanced(source_image, roi_circle);
+check(success == true);
+check(task_id == "cxcore.feature.circle_measurement_balanced");
+check(scalar_result == 1042.000000);
+check(metrics == "center_x,center_y,radius,avg_distance,sample_points");
+print(task_id);
+print(summary);

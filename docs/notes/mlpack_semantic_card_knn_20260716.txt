@@ -1,0 +1,21 @@
+algorithm_name: knn
+source_method_file: mlpack-master/src/mlpack/methods/neighbor_search/neighbor_search.hpp
+source_test_file: mlpack-master/src/mlpack/tests/neighbor_search_test.cpp
+task_type: infer/classify
+input_shape: [n_samples, n_features]
+reference_shape: [n_reference, n_features]
+required_parameters:
+  - k: number of neighbors, default 5
+  - distance_metric: Euclidean/L1/Chebyshev, default Euclidean
+  - leaf_size: tree leaf size, default 20
+search_call: KNN<>::Search(reference, query, distances, neighbors)
+classify_call: KNN<>::Classify(reference_labels)
+score_or_assertion: neighbor_indices in [0, n_reference), distances >= 0
+expected_behavior: k nearest neighbors returned for each query point
+edge_cases: empty query, single reference, query == reference
+project_field_mapping:
+  neighbors -> global_neighbor_ref
+  distances -> global_distance_ref
+  predictions -> global_baseline_class_ref
+cxscript_target_case: baseline_knn_official_min_infer.cxsc
+contract_target: baseline_knn_contract.cxsc

@@ -1,0 +1,31 @@
+Image m_image;
+FindLine m_line;
+
+m_image.copyFromMat(global_matInput);
+
+int x0 = global_roi_x0;
+int y0 = global_roi_y0;
+int x1 = global_roi_x1;
+int y1 = global_roi_y1;
+
+int method = global_method;
+int threshold = global_threshold;
+int linegap = global_linegap;
+int fitmode = 1;
+int wgap = global_wgap;
+int hgap = global_hgap;
+int tool_half_width = global_tool_half_width;
+int objfilter = global_findline_objfilter;
+int measure_fallback = 0;
+
+m_line.setmeasurefallback(measure_fallback);
+m_line.SetWHgap(wgap, hgap);
+m_line.setline(x0, y0, x1, y1, tool_half_width);
+
+m_line.setmethod(method);
+m_line.setthre(threshold);
+m_line.setlinegap(linegap);
+m_line.setobjfilter(objfilter);
+m_line.setfitmode(fitmode);
+m_line.measure(&m_image);
+m_line.fitline();

@@ -1,0 +1,21 @@
+# ensmallen_layer reusable fragment
+kind=module
+layer=feature
+module=ensmallen_layer
+case=common_replay_export
+mode=build-run
+route=default
+report=on
+
+# input
+replay_records=required
+output_dir=required
+
+# call
+call_1=ExportReplayJsonl
+
+# expect
+expect_artifact_1=replay_log.jsonl
+
+# checkpoint
+check_1=replay_log_generated

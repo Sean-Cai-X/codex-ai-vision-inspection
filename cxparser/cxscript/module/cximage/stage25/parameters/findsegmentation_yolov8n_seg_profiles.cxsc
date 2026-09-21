@@ -1,0 +1,8 @@
+CxParameterProfile_reset(0);
+CxParameterProfile_settool("FindSegmentation");
+
+CxParameterProfile_add("yolov8n_seg_coco_v1_findsegmentation");
+CxParameterProfile_setrole("TORCH_PRIMARY_AUTOMATIC_SEGMENTATION_REVIEW");
+CxParameterProfile_setmethod(2);
+CxParameterProfile_setthreshold(25);
+CxParameterProfile_setdescription("YOLOv8n-Seg CPU instance segmentation evidence gate for FindSegmentation.");

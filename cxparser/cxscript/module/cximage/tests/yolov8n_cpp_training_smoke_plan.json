@@ -1,0 +1,21 @@
+{
+  "schema": "cxvision.yolov8n_cpp_training_plan.v1",
+  "epochs": 2,
+  "batch_size": 2,
+  "input_size": 128,
+  "max_train_batches_per_epoch": 1,
+  "learning_rate": 0.001,
+  "seed": 1023,
+  "num_classes": 7,
+  "class_names": [
+    "arc",
+    "circle",
+    "ellipse",
+    "line",
+    "open_curve",
+    "polygon",
+    "rectangle"
+  ],
+  "human_review_required": true,
+  "promotion_allowed": false
+}

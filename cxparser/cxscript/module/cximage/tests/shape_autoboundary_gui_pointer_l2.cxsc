@@ -1,0 +1,14 @@
+CxShapeTest_reset(0);
+
+CxShapeTest_addcase("gui_create_auto_boundary_prompt_rect");
+CxShapeTest_settool("auto_boundary_edgesam");
+CxShapeTest_setoperation("gui_pointer_create");
+CxShapeTest_setpointersequence("drag_release");
+CxShapeTest_setfrom(120, 120);
+CxShapeTest_setto(240, 220);
+CxShapeTest_setexpectedshapedelta(1);
+CxShapeTest_setexpectedcreatedkind("RectShape");
+CxShapeTest_setexpectedphase("create_shape");
+CxShapeTest_setexpectedstatus("created");
+
+1+1;

@@ -1,0 +1,39 @@
+module mlpack;
+layer infer;
+case baseline_rf_flow_min;
+
+input {
+  task = "classification";
+  feature_set = "all_v1";
+  model_name = "RandomForest";
+  label_column = "label";
+  model_path = "artifacts/baseline/rf_all_v1.bin";
+  test_csv = "artifacts/baseline/all_v1_test.csv";
+  output_predictions_csv = "artifacts/baseline/rf_all_v1_predictions.csv";
+}
+
+flow {
+  action load_model;
+  action load_test_csv;
+  action select_feature_set;
+  action infer_model;
+}
+
+check {
+  require file_exists(model_path);
+  require file_exists(test_csv);
+  require predictions_csv_created(output_predictions_csv);
+  require prediction_count_matches_input;
+  require infer_time_ms >= 0;
+}
+
+output {
+  emit predictions_csv = output_predictions_csv;
+  emit infer_time_ms;
+  emit prediction_count;
+  emit infer_ok;
+}
+
+conclusion {
+  summary = "baseline_rf_infer_ready";
+}

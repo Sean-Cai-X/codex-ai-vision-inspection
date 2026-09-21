@@ -1,0 +1,35 @@
+# ensmallen_layer module cxscript
+kind=module
+layer=smoke
+module=ensmallen_layer
+case=ellipse_objective
+mode=build-run
+route=default
+report=on
+
+# input
+sample_id=fit_ellipse.ellipse_rotated
+input_image=phase1.fit_ellipse.ellipse_rotated
+roi_ellipse=48,52,168,136
+gt_ellipse=center:132,120;bbox:62,90,140,60
+param_init=thre:8;comparegap:2;gap:6;linesamplerate:0.004
+objective_weights=bbox_center:3;bbox_size:2;fit_residual:2.5;coverage:1.5;stability:1.5
+
+# call
+call_1=FindEllipse.Measure
+call_2=ExportEllipseMeasurement
+call_3=EnsmallenEllipseObjectiveEval
+
+# expect
+expect_output_1=EllipseMeasurementOutput
+expect_output_2=EnsmallenObjectiveResult
+expect_field_1=objective_value
+expect_field_2=sample_point_count
+expect_field_3=fit_residual
+expect_field_4=bbox_center_error
+expect_field_5=bbox_size_error
+
+# checkpoint
+check_1=objective_value_defined
+check_2=objective_value_ge_0
+check_3=sample_point_count_ge_1

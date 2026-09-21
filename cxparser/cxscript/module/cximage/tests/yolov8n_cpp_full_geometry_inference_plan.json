@@ -1,0 +1,13 @@
+{
+  "schema": "cxvision.yolov8n_cpp_comparison_plan.v1",
+  "selection_mode": "all_matching_cases",
+  "signal_families": [
+    "rotation",
+    "scale",
+    "deformation"
+  ],
+  "max_cases_per_signal_family": 100,
+  "max_total_cases": 100,
+  "human_review_required": true,
+  "promotion_allowed": false
+}

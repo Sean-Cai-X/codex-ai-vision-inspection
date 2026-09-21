@@ -1,0 +1,39 @@
+ArgOrderProbe probe;
+FindRect m_capture_anchor;
+
+probe.setdouble1(1); global_arg_order_double1 = probe.probevalue(0);
+probe.setdouble2(1, 2); global_arg_order_double2 = probe.probevalue(1);
+probe.setdouble3(1, 2, 3); global_arg_order_double3 = probe.probevalue(2);
+probe.setdouble4full(1, 2, 3, 4); global_arg_order_double4 = probe.probevalue(3);
+
+probe.setint1(1); global_arg_order_int1 = probe.probevalue(4);
+probe.setint2(1, 2); global_arg_order_int2 = probe.probevalue(5);
+probe.setint3(1, 2, 3); global_arg_order_int3 = probe.probevalue(6);
+probe.setint4full(1, 2, 3, 4); global_arg_order_int4 = probe.probevalue(7);
+probe.setint5(1, 2, 3, 4, 5); global_arg_order_int5 = probe.probevalue(8);
+probe.setint6(1, 2, 3, 4, 5, 6); global_arg_order_int6 = probe.probevalue(9);
+probe.setint7(1, 2, 3, 4, 5, 6, 7); global_arg_order_int7 = probe.probevalue(10);
+
+probe.setcharp1("A"); global_arg_order_charp1 = probe.probevalue(13);
+probe.setdoublecharp2(55, "B"); global_arg_order_double_charp2 = probe.probevalue(14);
+probe.setcharpany("A", "B", "C", "D"); global_arg_order_charp_any = probe.probevalue(15);
+probe.setanyfull(1, 2, 3, 4); global_arg_order_any_numeric = probe.probevalue(16);
+probe.setvoidp(m_capture_anchor); global_arg_order_voidp1 = probe.probevalue(17);
+
+global_arg_order_return_voidp1 = probe.returnvoidp(m_capture_anchor);
+global_arg_order_return_int1_int = probe.returnint1int(1);
+global_arg_order_return_int2_int = probe.returnint2int(1, 2);
+global_arg_order_return_int1_double = probe.returnint1double(1);
+global_arg_order_return_int2_double = probe.returnint2double(1, 2);
+global_arg_order_return_int3_double = probe.returnint3double(1, 2, 3);
+global_arg_order_return_charp_any_int = probe.returncharpanyint("A", "B", "C", "D");
+global_arg_order_return_charp_any_double = probe.returncharpanydouble("A", "B", "C", "D");
+global_arg_order_return_any_int = probe.returnanyint(1, 2, 3, 4);
+global_arg_order_return_any_double = probe.returnanydouble(1, 2, 3, 4);
+global_arg_order_return_double_charp2 = probe.returndoublecharp2(55, "B");
+
+int x0 = global_roi_x0;
+int y0 = global_roi_y0;
+int width = global_roi_x1 - global_roi_x0;
+int height = global_roi_y1 - global_roi_y0;
+m_capture_anchor.setrect(height, width, y0, x0);

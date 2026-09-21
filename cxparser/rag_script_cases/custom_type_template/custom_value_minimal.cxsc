@@ -1,0 +1,1 @@
+CustomValueHost host;host.reset();host.setvalue(3);if(gate){host.step();}total=host.getvalue();

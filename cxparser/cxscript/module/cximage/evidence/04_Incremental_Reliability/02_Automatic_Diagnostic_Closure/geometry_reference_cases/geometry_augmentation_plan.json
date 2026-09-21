@@ -1,0 +1,217 @@
+{
+  "schema": "cxvision.geometry_augmentation_plan.v1",
+  "training_enabled": 0,
+  "human_review_required": 1,
+  "split_policy": "variant_ids_and_seeds_are_disjoint_between_train_and_validation",
+  "variants": [
+    {
+      "id": "train_blur_mild",
+      "review_suffix": "Train | Gaussian blur | mild",
+      "split": "train",
+      "seed": 1101,
+      "operations": [{"type": "gaussian_blur", "kernel": 3, "sigma": 0.8}]
+    },
+    {
+      "id": "train_blur_moderate",
+      "review_suffix": "Train | Gaussian blur | moderate",
+      "split": "train",
+      "seed": 1102,
+      "operations": [{"type": "gaussian_blur", "kernel": 7, "sigma": 1.6}]
+    },
+    {
+      "id": "train_noise_mild",
+      "review_suffix": "Train | Sensor noise | mild",
+      "split": "train",
+      "seed": 1103,
+      "operations": [{"type": "sensor_noise", "sigma": 4.0}]
+    },
+    {
+      "id": "train_noise_moderate",
+      "review_suffix": "Train | Sensor noise | moderate",
+      "split": "train",
+      "seed": 1104,
+      "operations": [{"type": "sensor_noise", "sigma": 10.0}]
+    },
+    {
+      "id": "train_rotate_minus_8",
+      "review_suffix": "Train | Object rotation | minus 8 deg",
+      "split": "train",
+      "seed": 1105,
+      "operations": [{"type": "rotate", "angle_deg": -8.0}]
+    },
+    {
+      "id": "train_rotate_plus_8",
+      "review_suffix": "Train | Object rotation | plus 8 deg",
+      "split": "train",
+      "seed": 1106,
+      "operations": [{"type": "rotate", "angle_deg": 8.0}]
+    },
+    {
+      "id": "train_shift_up_12",
+      "review_suffix": "Train | Object vertical shift | up 12 px",
+      "split": "train",
+      "seed": 1107,
+      "operations": [{"type": "translate_y", "offset_y_px": -12.0}]
+    },
+    {
+      "id": "train_shift_down_12",
+      "review_suffix": "Train | Object vertical shift | down 12 px",
+      "split": "train",
+      "seed": 1108,
+      "operations": [{"type": "translate_y", "offset_y_px": 12.0}]
+    },
+    {
+      "id": "train_combined_minus",
+      "review_suffix": "Train | Combined blur noise rotate shift | minus",
+      "split": "train",
+      "seed": 1109,
+      "operations": [
+        {"type": "gaussian_blur", "kernel": 5, "sigma": 1.0},
+        {"type": "sensor_noise", "sigma": 6.0},
+        {"type": "rotate", "angle_deg": -6.0},
+        {"type": "translate_y", "offset_y_px": -8.0}
+      ]
+    },
+    {
+      "id": "train_combined_plus",
+      "review_suffix": "Train | Combined blur noise rotate shift | plus",
+      "split": "train",
+      "seed": 1110,
+      "operations": [
+        {"type": "gaussian_blur", "kernel": 5, "sigma": 1.2},
+        {"type": "sensor_noise", "sigma": 8.0},
+        {"type": "rotate", "angle_deg": 6.0},
+        {"type": "translate_y", "offset_y_px": 8.0}
+      ]
+    },
+    {
+      "id": "train_brightness_low_mild",
+      "review_suffix": "Train | Brightness low | mild",
+      "split": "train",
+      "seed": 1111,
+      "operations": [{"type": "brightness_scale", "scale": 0.72, "offset": 0.0}]
+    },
+    {
+      "id": "train_brightness_low_strong",
+      "review_suffix": "Train | Brightness low | strong",
+      "split": "train",
+      "seed": 1112,
+      "operations": [{"type": "brightness_scale", "scale": 0.52, "offset": 0.0}]
+    },
+    {
+      "id": "train_local_gap_mild",
+      "review_suffix": "Train | Local gap | mild",
+      "split": "train",
+      "seed": 1113,
+      "operations": [{"type": "local_gap", "width_px": 12, "height_px": 18, "count": 1}]
+    },
+    {
+      "id": "train_jagged_cut_mild",
+      "review_suffix": "Train | Jagged scissor cut | mild",
+      "split": "train",
+      "seed": 1114,
+      "operations": [{"type": "edge_jagged_cut", "width_px": 14, "height_px": 22, "count": 1, "jagged_px": 4}]
+    },
+    {
+      "id": "train_line_break_mild",
+      "review_suffix": "Train | Line or edge break | mild",
+      "split": "train",
+      "seed": 1115,
+      "operations": [{"type": "line_break", "width_px": 10, "height_px": 10, "count": 1}]
+    },
+    {
+      "id": "validation_blur_strong",
+      "review_suffix": "Validation | Gaussian blur | strong unseen",
+      "split": "validation",
+      "seed": 2101,
+      "operations": [{"type": "gaussian_blur", "kernel": 9, "sigma": 2.4}]
+    },
+    {
+      "id": "validation_noise_strong",
+      "review_suffix": "Validation | Sensor noise | strong unseen",
+      "split": "validation",
+      "seed": 2102,
+      "operations": [{"type": "sensor_noise", "sigma": 14.0}]
+    },
+    {
+      "id": "validation_rotate_minus_17",
+      "review_suffix": "Validation | Object rotation | minus 17 deg",
+      "split": "validation",
+      "seed": 2103,
+      "operations": [{"type": "rotate", "angle_deg": -17.0}]
+    },
+    {
+      "id": "validation_rotate_plus_17",
+      "review_suffix": "Validation | Object rotation | plus 17 deg",
+      "split": "validation",
+      "seed": 2104,
+      "operations": [{"type": "rotate", "angle_deg": 17.0}]
+    },
+    {
+      "id": "validation_shift_up_20",
+      "review_suffix": "Validation | Object vertical shift | up 20 px",
+      "split": "validation",
+      "seed": 2105,
+      "operations": [{"type": "translate_y", "offset_y_px": -20.0}]
+    },
+    {
+      "id": "validation_shift_down_20",
+      "review_suffix": "Validation | Object vertical shift | down 20 px",
+      "split": "validation",
+      "seed": 2106,
+      "operations": [{"type": "translate_y", "offset_y_px": 20.0}]
+    },
+    {
+      "id": "validation_combined_minus",
+      "review_suffix": "Validation | Combined blur noise rotate shift | minus unseen",
+      "split": "validation",
+      "seed": 2107,
+      "operations": [
+        {"type": "gaussian_blur", "kernel": 7, "sigma": 1.8},
+        {"type": "sensor_noise", "sigma": 11.0},
+        {"type": "rotate", "angle_deg": -12.0},
+        {"type": "translate_y", "offset_y_px": 14.0}
+      ]
+    },
+    {
+      "id": "validation_combined_plus",
+      "review_suffix": "Validation | Combined blur noise rotate shift | plus unseen",
+      "split": "validation",
+      "seed": 2108,
+      "operations": [
+        {"type": "gaussian_blur", "kernel": 9, "sigma": 2.0},
+        {"type": "sensor_noise", "sigma": 12.0},
+        {"type": "rotate", "angle_deg": 12.0},
+        {"type": "translate_y", "offset_y_px": -14.0}
+      ]
+    },
+    {
+      "id": "validation_brightness_low_unseen",
+      "review_suffix": "Validation | Brightness low | unseen",
+      "split": "validation",
+      "seed": 2109,
+      "operations": [{"type": "brightness_scale", "scale": 0.42, "offset": 0.0}]
+    },
+    {
+      "id": "validation_local_gap_unseen",
+      "review_suffix": "Validation | Local gap | unseen",
+      "split": "validation",
+      "seed": 2110,
+      "operations": [{"type": "local_gap", "width_px": 18, "height_px": 26, "count": 1}]
+    },
+    {
+      "id": "validation_jagged_cut_unseen",
+      "review_suffix": "Validation | Jagged scissor cut | unseen",
+      "split": "validation",
+      "seed": 2111,
+      "operations": [{"type": "edge_jagged_cut", "width_px": 22, "height_px": 30, "count": 2, "jagged_px": 6}]
+    },
+    {
+      "id": "validation_line_break_unseen",
+      "review_suffix": "Validation | Line or edge break | unseen",
+      "split": "validation",
+      "seed": 2112,
+      "operations": [{"type": "line_break", "width_px": 16, "height_px": 16, "count": 1}]
+    }
+  ]
+}

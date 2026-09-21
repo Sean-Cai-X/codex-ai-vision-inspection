@@ -1,0 +1,1 @@
+TorchTestHost t;t.run_core();

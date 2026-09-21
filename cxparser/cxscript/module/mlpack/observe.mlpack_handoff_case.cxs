@@ -1,0 +1,14 @@
+﻿# mlpack GUI handoff observe case
+# sample_switch=ELPV:G1.semantic_handoff -> HALCON:pcb_anomaly -> texture:surface_scratch
+# test_image_ref=keep one image, one chain, one anomaly family in focus first
+# main_chain_ref=score -> distance -> anomaly :: baseline_compare
+# statistics_evidence_ref=baseline_class_ref|cluster_ref|distance_ref|anomaly_ref
+# baseline_result_ref=result.json pending real runtime fillback
+# issue_entry_ref=check whether the same image and same anomaly family stay visible in GUI
+# runtime_fillback_status=pending_real_runtime_fillback
+kind=integration
+layer=scenario
+module=mlpack
+case=baseline_pair_compare_min
+mode=build-run
+report=on

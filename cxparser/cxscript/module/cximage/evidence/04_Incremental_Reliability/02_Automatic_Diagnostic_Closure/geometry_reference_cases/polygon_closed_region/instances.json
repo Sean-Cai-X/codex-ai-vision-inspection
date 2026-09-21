@@ -1,0 +1,38 @@
+{
+  "schema": "cxvision.closed_geometry_instances.v1",
+  "geometry_type": "polygon",
+  "instance_count": 1,
+  "instances": [
+    {
+      "instance_id": 1,
+      "class_name": "polygon",
+      "vertices_xy": [
+        [
+          130,
+          95
+        ],
+        [
+          330,
+          75
+        ],
+        [
+          395,
+          155
+        ],
+        [
+          350,
+          285
+        ],
+        [
+          165,
+          300
+        ],
+        [
+          85,
+          210
+        ]
+      ],
+      "closed": true
+    }
+  ]
+}

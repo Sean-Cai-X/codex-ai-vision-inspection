@@ -1,0 +1,39 @@
+# mlpack baseline logistic regression train
+kind=module
+layer=train
+module=mlpack
+case=baseline_train_logreg_min
+mode=build-run
+report=on
+
+step input {
+input feature_set = "all_v1";
+input model_name = "LogisticRegression";
+input label_column = "label";
+input train_csv = "artifacts/baseline/all_v1_train.csv";
+input val_csv = "artifacts/baseline/all_v1_val.csv";
+input output_model_path = "artifacts/baseline/logreg_all_v1.bin";
+}
+
+step flow {
+load_dataset(train_csv);
+load_dataset(val_csv);
+select_feature_set(feature_set);
+encode_labels(label_column);
+train_model(output_model_path);
+}
+
+step check {
+expect train_ok == true;
+expect feature_dim >= 50;
+expect feature_dim <= 50;
+expect fit_time_ms >= 0;
+expect model_path == "artifacts/baseline/logreg_all_v1.bin";
+}
+
+step output {
+emit model_path;
+emit fit_time_ms;
+emit feature_dim;
+emit summary;
+}

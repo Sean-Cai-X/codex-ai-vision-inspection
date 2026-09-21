@@ -1,0 +1,11 @@
+FindLine m_line;
+FindCircle m_circle;
+
+m_line.SetWHgap(32, 8);
+m_line.setlinegap(6);
+m_line.setline(100, 120, 500, 120, 20);
+
+m_circle.setlinegap(6);
+m_circle.setcircle(320, 420, 320, 320);
+
+0;

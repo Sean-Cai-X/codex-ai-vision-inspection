@@ -1,0 +1,7 @@
+# cxscript module sample
+kind=module
+layer=scenario
+module=rag
+case=rag_script_assist
+mode=build-run
+report=on

@@ -1,0 +1,14 @@
+Image m_image;
+TorchTask m_task;
+
+m_image.copyFromMat(global_matInput);
+
+m_task.settask("torch.incremental.prototype.lifecycle.v1");
+m_task.setrequestcontext(global_torch_request_context);
+m_task.setmanifest("cxparser/cxscript/module/cximage/evidence/torch_runtime_ui_evidence_chain.cxsc");
+m_task.setdevice("cpu");
+m_task.settimeout(30000);
+m_task.run(m_image);
+
+global_headless_ok = m_task.getok();
+global_torch_ok = m_task.getok();

@@ -1,0 +1,9 @@
+double label_contract_ok=0;
+geom_export_roi(image_path,roi_id);
+geom_export_mask_label(image_path,roi_id,mask_id);
+geom_export_boundary_label(image_path,roi_id,boundary_id);
+geom_export_keypoints_label(image_path,roi_id,keypoints_id);
+geom_align_training_label(roi_id,mask_id,boundary_id,keypoints_id);
+geom_build_torch_label_packet(roi_id,label_align_bundle);
+label_contract_ok=geom_check_label_ready(roi_id,label_align_bundle);
+label_contract_ok;

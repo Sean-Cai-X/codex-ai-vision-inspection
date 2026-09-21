@@ -1,0 +1,16 @@
+{
+  "schema": "cxvision.hd_composite_pipeline.v1",
+  "pipeline_id": "pill_composite_visual_analysis_v1",
+  "execution": "strict_serial",
+  "training_enabled": 0,
+  "stages": [
+    {"index": 1, "stage": "localization", "output": "roi"},
+    {"index": 2, "stage": "closed_region_partition", "output": "semantic_or_instance_masks"},
+    {"index": 3, "stage": "open_boundary_extraction", "output": "boundary_map"},
+    {"index": 4, "stage": "region_learning_classification", "output": "membership_and_class"},
+    {"index": 5, "stage": "cximage_measurement", "output": "geometric_facts"},
+    {"index": 6, "stage": "evidence_fusion", "output": "fused_decision_with_provenance"}
+  ],
+  "promotion_allowed": false,
+  "gate": "all_stage_contracts_complete_and_frozen_validation_stable_then_pending_human_review"
+}

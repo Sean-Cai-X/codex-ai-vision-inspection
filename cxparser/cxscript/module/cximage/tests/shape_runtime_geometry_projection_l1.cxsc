@@ -1,0 +1,62 @@
+CxShapeTest_reset(0);
+
+CxShapeTest_addcase("findline_geometry_publish");
+CxShapeTest_settool("findline_gauge");
+CxShapeTest_setoperation("runtime_geometry_publish");
+CxShapeTest_setinitialline(100, 150, 250, 150);
+CxShapeTest_setwhgap(2, 2);
+CxShapeTest_settoolhalfwidth(10);
+CxShapeTest_setlinegap(3);
+CxShapeTest_setthreshold(20);
+CxShapeTest_setmethod(0);
+CxShapeTest_setrole("roi");
+CxShapeTest_expectrole(1);
+CxShapeTest_expecteditable(1);
+CxShapeTest_expecteditableelement(0);
+CxShapeTest_setrole("scan");
+CxShapeTest_expectrole(1);
+CxShapeTest_expecteditable(0);
+CxShapeTest_expecteditableelement(0);
+
+CxShapeTest_addcase("findcircle_geometry_publish");
+CxShapeTest_settool("findcircle_gauge");
+CxShapeTest_setoperation("runtime_geometry_publish");
+CxShapeTest_setinitialcircle(200, 180, 60);
+CxShapeTest_setgap(5);
+CxShapeTest_setlinegap(3);
+CxShapeTest_setthreshold(20);
+CxShapeTest_setmethod(0);
+CxShapeTest_setrole("roi");
+CxShapeTest_expectrole(1);
+CxShapeTest_expecteditable(1);
+CxShapeTest_expecteditableelement(0);
+CxShapeTest_setrole("scan");
+CxShapeTest_expectrole(1);
+CxShapeTest_expecteditable(0);
+CxShapeTest_expecteditableelement(0);
+
+CxShapeTest_addcase("findellipse_geometry_publish");
+CxShapeTest_settool("findellipse_gauge");
+CxShapeTest_setoperation("runtime_geometry_publish");
+CxShapeTest_setinitialellipse(50, 80, 180, 200);
+CxShapeTest_setgap(5);
+CxShapeTest_setlinegap(3);
+CxShapeTest_setthreshold(20);
+CxShapeTest_setmethod(0);
+CxShapeTest_setrole("roi");
+CxShapeTest_expectrole(1);
+CxShapeTest_expecteditable(1);
+CxShapeTest_expecteditableelement(0);
+
+CxShapeTest_addcase("findrect_geometry_publish");
+CxShapeTest_settool("findrect_gauge");
+CxShapeTest_setoperation("runtime_geometry_publish");
+CxShapeTest_setinitialrect(250, 250, 150, 100);
+CxShapeTest_setlinegap(3);
+CxShapeTest_setthreshold(20);
+CxShapeTest_setrole("roi");
+CxShapeTest_expectrole(1);
+CxShapeTest_expecteditable(1);
+CxShapeTest_expecteditableelement(0);
+
+1+1;

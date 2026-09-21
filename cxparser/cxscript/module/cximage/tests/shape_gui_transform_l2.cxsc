@@ -1,0 +1,53 @@
+CxShapeTest_reset(0);
+
+CxShapeTest_addcase("zoom_100_pan_0_hit");
+CxShapeTest_settool("scan_line");
+CxShapeTest_setoperation("drag_handle");
+CxShapeTest_setzoom(1.0);
+CxShapeTest_setpan(0.0, 0.0);
+CxShapeTest_sethandle("Center");
+CxShapeTest_setfrom(175, 150);
+CxShapeTest_setto(195, 170);
+CxShapeTest_setexpected("translate_only");
+
+CxShapeTest_addcase("zoom_78_pan_offset_hit");
+CxShapeTest_settool("scan_line");
+CxShapeTest_setoperation("drag_handle");
+CxShapeTest_setzoom(0.78);
+CxShapeTest_setpan(50.0, 30.0);
+CxShapeTest_sethandle("Center");
+CxShapeTest_setfrom(175, 150);
+CxShapeTest_setto(195, 170);
+CxShapeTest_setexpected("translate_only");
+
+CxShapeTest_addcase("zoom_150_pan_offset_hit");
+CxShapeTest_settool("scan_line");
+CxShapeTest_setoperation("drag_handle");
+CxShapeTest_setzoom(1.5);
+CxShapeTest_setpan(-30.0, -20.0);
+CxShapeTest_sethandle("Center");
+CxShapeTest_setfrom(175, 150);
+CxShapeTest_setto(195, 170);
+CxShapeTest_setexpected("translate_only");
+
+CxShapeTest_addcase("screen_to_image_roundtrip");
+CxShapeTest_settool("roi_rect");
+CxShapeTest_setoperation("drag_handle");
+CxShapeTest_setzoom(1.2);
+CxShapeTest_setpan(20.0, 10.0);
+CxShapeTest_sethandle("Center");
+CxShapeTest_setfrom(150, 150);
+CxShapeTest_setto(170, 170);
+CxShapeTest_setexpected("translate_only");
+
+CxShapeTest_addcase("image_to_screen_roundtrip");
+CxShapeTest_settool("circle_roi");
+CxShapeTest_setoperation("drag_handle");
+CxShapeTest_setzoom(0.85);
+CxShapeTest_setpan(-40.0, 25.0);
+CxShapeTest_sethandle("Radius");
+CxShapeTest_setfrom(250, 180);
+CxShapeTest_setto(270, 180);
+CxShapeTest_setexpected("outer_radius_only");
+
+1+1;

@@ -1,0 +1,22 @@
+Image m_image;
+TorchSegModel m_model;
+TorchTensor m_tensor;
+TorchMask m_mask;
+MlpackFeature m_feature;
+MlpackPrediction m_prediction;
+MlpackScore m_score;
+
+m_image.copyFromMat(global_matInput);
+m_model.load(global_model_path);
+m_model.set_device("cuda_or_cpu");
+m_tensor = torch.preprocess_image(&m_image, 512, 512);
+m_mask = m_model.infer(m_tensor);
+cximage.overlay_mask(&m_image, m_mask);
+m_feature = mlpack.build_feature_from_mask(m_mask);
+m_prediction = mlpack.predict(m_feature);
+m_score = mlpack.score(m_prediction, 0.5);
+
+global_mask_ref = m_mask;
+global_score_ref = m_score;
+global_overlay_ref = m_image.get_overlay();
+global_current_status = "PENDING";

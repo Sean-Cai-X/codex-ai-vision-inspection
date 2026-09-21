@@ -1,0 +1,38 @@
+# ensmallen_layer module cxscript
+kind=module
+layer=train
+module=ensmallen_layer
+case=phase1_param_opt
+mode=build-run
+route=batch
+report=on
+
+# input
+dataset=dataset.cxcore.phase1.ensmallen
+split=phase1
+task_scope=parameter_optimization_only
+optimizer_name=lbfgs
+max_evals=100
+patience=10
+epsilon=0.0005
+replay_enable=1
+
+# call
+call_1=ResolvePhase1SampleBundle
+call_2=EnsmallenCircleOptimize
+call_3=EnsmallenEllipseOptimize
+call_4=EnsmallenMatchOptimize
+call_5=EnsmallenAggregateBestParams
+call_6=EnsmallenSaveBestParams
+
+# expect
+expect_output_1=EnsmallenBatchOptimizeSummary
+expect_field_1=task_scope
+expect_field_2=best_param_sets
+expect_field_3=sample_count
+expect_artifact_1=batch_best_params.json
+expect_artifact_2=batch_summary.json
+
+# checkpoint
+check_1=task_scope_eq_parameter_optimization_only
+check_2=sample_count_ge_3

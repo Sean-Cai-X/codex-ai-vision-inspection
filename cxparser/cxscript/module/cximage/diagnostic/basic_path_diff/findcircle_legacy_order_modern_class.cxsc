@@ -1,0 +1,29 @@
+Image m_image;
+FindCircle m_circle;
+
+m_image.copyFromMat(global_matInput);
+
+m_circle.setmaxelapsedms(global_max_elapsed_ms);
+m_circle.setmaxscanlines(global_max_scan_lines);
+m_circle.setmaxsamples(global_max_samples);
+
+int cx = global_circle_cx;
+int cy = global_circle_cy;
+int px = global_circle_px;
+int py = global_circle_py;
+
+int method = global_method;
+int threshold = global_threshold;
+int gap = global_gap;
+int linegap = global_linegap;
+
+m_circle.setcircle(cx, cy, px, py);
+m_circle.Setgap(gap);
+m_circle.setlinegap(linegap);
+m_circle.setthre(threshold);
+m_circle.setmethod(method);
+
+m_circle.measure(&m_image);
+m_circle.fitcircle();
+
+global_circle_ref = m_circle.get_result();

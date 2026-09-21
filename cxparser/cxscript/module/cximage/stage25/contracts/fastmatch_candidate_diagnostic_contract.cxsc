@@ -1,0 +1,8 @@
+if (global_result_status == "diagnostic_executed" &&
+    global_policy_guard == "FASTMATCH_DIAGNOSTIC") {
+    global_contract_pass = 1;
+    global_contract_conclusion = "FastMatch diagnostic executed";
+} else {
+    global_contract_pass = 0;
+    global_contract_conclusion = "FastMatch diagnostic contract failed";
+}

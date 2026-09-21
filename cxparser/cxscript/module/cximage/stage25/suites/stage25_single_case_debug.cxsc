@@ -1,0 +1,13 @@
+CxScriptSuite_reset(0);
+CxScriptSuite_setid("stage25_single_case_debug");
+CxScriptSuite_setname("Stage25 Single Case Debug");
+CxScriptSuite_setcatalog("cxparser/cxscript/module/cximage/catalog/cximage_catalog.cxsc");
+CxScriptSuite_setoutputroot("D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/cxscript_runs/stage25_single_case_debug");
+
+CxScriptSuite_addcase("L1_line_high_contrast_001_plate_top_edge_ok");
+CxScriptSuite_case_setscriptid("findline_horizontal_stage25_filter20_ok");
+CxScriptSuite_case_setexpected("ok");
+CxScriptSuite_case_setexpectedpolicyguard("MEASURE_AND_FIT_AVAILABLE");
+CxScriptSuite_case_setimage("line_high_contrast_001");
+CxScriptSuite_case_settarget("plate_top_edge");
+CxScriptSuite_case_setlevel("L1_high_contrast");

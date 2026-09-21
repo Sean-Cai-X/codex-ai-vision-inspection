@@ -1,0 +1,1 @@
+CustomRecordHost rec;rec.setname("alpha");rec.setscore(2);if(gate){rec.appendtag("beta");}rec.appendtag("g");total=rec.summaryscore();

@@ -1,0 +1,16 @@
+kind=module
+layer=feature
+module=cxcore
+case=template_feature_match
+mode=build-run
+report=on
+input template_model_image;
+input search_image;
+input roi_match;
+call learn_template_model();
+call match_template();
+expect success == true;
+expect task_id == "cxcore.feature.template_feature_match";
+expect scalar_result == 1032.000000;
+emit task_id;
+emit summary;

@@ -1,0 +1,7 @@
+# mlpack semantic anomaly ref export
+kind=module
+layer=score
+module=mlpack
+case=baseline_anomaly_ref_min
+mode=build-run
+report=on

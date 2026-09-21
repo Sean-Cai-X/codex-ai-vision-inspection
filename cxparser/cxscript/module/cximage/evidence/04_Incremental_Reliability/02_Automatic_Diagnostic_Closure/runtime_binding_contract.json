@@ -1,0 +1,18 @@
+{
+  "schema": "cxvision.parent_child_runtime_binding_contract.v2",
+  "allowed_model_binding_status": ["pending_compatible_hd_model", "bound", "result_bound"],
+  "bound_required_model_fields": ["status", "task_id", "model_id", "manifest_path", "requested_device", "physical_output_contract"],
+  "result_bound_required_fields": ["status", "task_id", "model_id", "model_hash", "input_image_path", "result_ref", "mask_path", "requested_device", "physical_output_contract"],
+  "optional_result_bound_fields": ["overlay_path"],
+  "required_pair_invariants": ["same_input_image", "same_requested_device", "distinct_output_directories", "parent_completes_before_child_starts_or_precomputed_result_loaded_before_child", "physical_output_exists_before_evaluation"],
+  "result_bound_semantics": {
+    "purpose": "consume externally produced, frozen parent/child inference outputs without rerunning Torch runtime",
+    "input_image_path": "must resolve to the same physical image as the case sample",
+    "result_ref": "must be a physical result summary JSON produced by the inference run",
+    "mask_path": "must be a physical binary or indexed mask image accepted by the evaluator",
+    "ground_truth": false,
+    "promotion_allowed": false
+  },
+  "forbidden": ["project_name_without_runtime_manifest", "classification_label_as_segmentation_mask", "bbox_as_mask", "shared_output_directory", "parallel_parser_execution", "precomputed_result_without_input_image", "precomputed_result_without_mask"],
+  "training_enabled": 0
+}

@@ -1,0 +1,49 @@
+CxShapeTest_reset(0);
+
+CxShapeTest_addcase("findrect_create_drag_release");
+CxShapeTest_settool("findrect_gauge");
+CxShapeTest_setoperation("gui_pointer_create");
+CxShapeTest_setpointersequence("drag_release");
+CxShapeTest_setfrom(100, 100);
+CxShapeTest_setto(180, 150);
+CxShapeTest_setexpectedshapedelta(1);
+CxShapeTest_setexpectedcreatedkind("RectShape");
+CxShapeTest_setexpectedphase("create_shape");
+CxShapeTest_setexpectedstatus("created");
+
+CxShapeTest_addcase("findrect_select_existing");
+CxShapeTest_settool("findrect_gauge");
+CxShapeTest_setoperation("gui_pointer_select_existing");
+CxShapeTest_setpointersequence("click");
+CxShapeTest_setfrom(150, 100);
+CxShapeTest_setexpectedphase("select_existing");
+CxShapeTest_setexpectedstatus("selected");
+
+CxShapeTest_addcase("findrect_drag_existing_center");
+CxShapeTest_settool("findrect_gauge");
+CxShapeTest_setoperation("gui_pointer_drag_existing");
+CxShapeTest_setpointersequence("drag_release");
+CxShapeTest_setfrom(150, 100);
+CxShapeTest_setto(205, 145);
+CxShapeTest_setexpectedphase("drag_existing");
+CxShapeTest_setexpectedstatus("committed");
+
+CxShapeTest_addcase("findrect_drag_existing_corner");
+CxShapeTest_settool("findrect_gauge");
+CxShapeTest_setoperation("gui_pointer_drag_existing");
+CxShapeTest_setpointersequence("drag_release");
+CxShapeTest_setfrom(180, 120);
+CxShapeTest_setto(230, 170);
+CxShapeTest_setexpectedphase("drag_existing");
+CxShapeTest_setexpectedstatus("committed");
+
+CxShapeTest_addcase("findrect_create_too_small_rejected");
+CxShapeTest_settool("findrect_gauge");
+CxShapeTest_setoperation("gui_pointer_create");
+CxShapeTest_setpointersequence("drag_release");
+CxShapeTest_setfrom(100, 100);
+CxShapeTest_setto(101, 101);
+CxShapeTest_setexpectedshapedelta(0);
+CxShapeTest_setexpectedstatus("draft_too_small");
+
+1+1;

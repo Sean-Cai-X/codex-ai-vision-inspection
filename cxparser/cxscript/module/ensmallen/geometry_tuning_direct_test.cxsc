@@ -1,0 +1,49 @@
+Image m_image;
+FindCircle m_circle;
+EnsmallenObjective m_objective;
+EnsmallenParamSpace m_param_space;
+EnsmallenOptimizer m_optimizer;
+EnsmallenCandidate m_candidate;
+EnsmallenBestParam m_best;
+EnsmallenMetric m_baseline_metric;
+EnsmallenMetric m_candidate_metric;
+EnsmallenHistory m_history;
+
+m_image.copyFromMat(global_matInput);
+
+m_circle.setcircle(690, 0, 690, 850);
+m_circle.setmethod(0);
+m_circle.setthre(20);
+m_circle.setlinegap(3);
+m_circle.measure(&m_image);
+m_circle.fitcircle();
+
+m_baseline_metric = cximage.measure_circle_metric(m_circle);
+m_objective = ensmallen.build_objective(
+  "minimize_fit_residual",
+  m_baseline_metric
+);
+
+m_param_space.set_range("threshold", 10, 60);
+m_param_space.set_range("linegap", 1, 8);
+m_param_space.set_range("fitmeasuregap", 40, 120);
+m_optimizer.set_max_iter(20);
+m_optimizer.set_tolerance(0.001);
+
+m_candidate = m_optimizer.optimize_step(m_objective, m_param_space);
+m_circle.setthre(m_candidate.get_int("threshold"));
+m_circle.setlinegap(m_candidate.get_int("linegap"));
+m_circle.setfitmeasuregap(m_candidate.get_int("fitmeasuregap"));
+m_circle.measure(&m_image);
+m_circle.fitcircle();
+m_circle.FitResultMeasure(&m_image);
+
+m_candidate_metric = cximage.measure_circle_metric(m_circle);
+m_best = ensmallen.choose_best(m_candidate, m_candidate_metric);
+ensmallen.replay_best(m_best, &m_circle);
+ensmallen.compare_baseline(m_baseline_metric, m_candidate_metric);
+m_history = ensmallen.get_history();
+
+global_best_param_ref = m_best;
+global_evidence_ref = m_candidate_metric;
+global_current_status = "PENDING";

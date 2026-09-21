@@ -1,0 +1,1 @@
+double gate=1;TorchTestHost t;if(gate){t.run_mobilevit();}

@@ -1,0 +1,16 @@
+case "cxcore.ellipse_param_opt";
+layer "feature";
+module "ensmallen_layer";
+
+input sample_id = "fit_ellipse.ellipse_rotated";
+input image = "<resolved_by_cxparser>";
+input roi_main = "<resolved_by_cxparser>";
+input gt = "<resolved_by_cxparser>";
+input params = "<resolved_by_cxparser>";
+
+do RedirectTo("feature.geometry_fit_tuning");
+
+check sample_id defined;
+check redirect target "feature.geometry_fit_tuning" defined;
+
+output RedirectNotice;

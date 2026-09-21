@@ -1,0 +1,10 @@
+{
+  "schema": "cxvision.parent_child_runtime_direction.v1",
+  "case_track": "C2",
+  "selection_basis": "small irregular contamination region inside a previously segmented host object",
+  "parent": {"status": "pending_compatible_weights", "task_id": "semantic_segmentation", "recommended_family": "host_conditioned_UNet_or_DeepLabV3Plus_binary", "physical_output_contract": "binary_closed_defect_mask", "required_training_label_kind": "binary_closed_defect_mask"},
+  "child": {"status": "pending_incremental_checkpoint", "task_id": "semantic_segmentation", "recommended_family": "same_architecture_and_class_map_as_parent", "physical_output_contract": "binary_closed_defect_mask", "parent_lineage_required": true},
+  "preprocess": ["bind_C1_host_mask", "crop_or_mask_background"],
+  "postprocess": ["remove_regions_outside_host", "compact_component_analysis"],
+  "training_enabled": 0
+}

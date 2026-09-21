@@ -1,0 +1,24 @@
+{
+  "schema": "cxvision.torch_model_manifest",
+  "schema_version": 1,
+  "model_id": "yolov8_cpu_v1",
+  "task": "detection",
+  "architecture": "yolov8",
+  "variant": "nano",
+  "weights": "y8_model.pt",
+  "weights_format": "python_state_dict",
+  "num_classes": 1,
+  "classes": ["target"],
+  "input": {
+    "width": 640,
+    "height": 640,
+    "color": "rgb",
+    "scale": 0.003921568627,
+    "letterbox": true
+  },
+  "postprocess": {
+    "confidence_threshold": 0.25,
+    "iou_threshold": 0.45,
+    "max_detections": 100
+  }
+}

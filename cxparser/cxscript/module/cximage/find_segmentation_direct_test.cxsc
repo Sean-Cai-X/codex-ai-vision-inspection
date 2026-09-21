@@ -1,0 +1,44 @@
+Image m_image;
+FindSegmentation m_seg;
+
+m_image.copyFromMat(global_matInput);
+
+int x0 = global_roi_x0;
+int y0 = global_roi_y0;
+int x1 = global_roi_x1;
+int y1 = global_roi_y1;
+int threshold_percent = global_segmentation_threshold_percent;
+double threshold = threshold_percent * 0.01;
+
+int prompt_x0 = 120;
+int prompt_y0 = 120;
+int prompt_x1 = 980;
+int prompt_y1 = 820;
+
+if (x1 > x0)
+{
+if (y1 > y0)
+{
+prompt_x0 = x0;
+prompt_y0 = y0;
+prompt_x1 = x1;
+prompt_y1 = y1;
+}
+}
+
+m_seg.setthreshold(threshold);
+// Fixed-int Param_int_4 dispatch and the xyxy wrapper preserve readable xyxy order.
+m_seg.setpromptrectxyxy(prompt_x0, prompt_y0, prompt_x1, prompt_y1);
+m_seg.setmode(global_segmentation_mode);
+if (global_segmentation_positive_enabled != 0)
+{
+m_seg.setpositivepointxy(global_segmentation_positive_x, global_segmentation_positive_y);
+}
+if (global_segmentation_negative_enabled != 0)
+{
+m_seg.setnegativepointxy(global_segmentation_negative_x, global_segmentation_negative_y);
+}
+
+m_seg.segment(&m_image);
+m_seg.extractboundary();
+m_seg.buildoverlay(&m_image);

@@ -1,0 +1,48 @@
+Stage25Manifest m;
+
+m.reset();
+
+m.setname("stage25_fastmatch_readiness");
+m.setoutroot("D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/cxscript_runs/stage25_fastmatch_readiness");
+m.setimageroot("D:/Codex-WorkDir/Sean_WorkDir/cxvisionai");
+
+m.addimage(
+    "basic_01",
+    "L0_basic",
+    "D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/01.jpg");
+
+m.image_addtag("line");
+m.image_addfindlinetarget(
+    "main_line_edge",
+    "120", "240",
+    "980", "240",
+    "8", "32");
+
+m.addfindlineprofile("stage25_filter20");
+m.findline_setmethod(0);
+m.findline_setthreshold(20);
+m.findline_setlinegap(6);
+m.findline_setfitmode(1);
+m.findline_setscript_scale(1);
+m.findline_setfilterprofile(1);
+m.findline_setpolicy("FILTER_POLICY_CANDIDATE");
+m.findline_setparameterpolicyid("stage25_filter20");
+m.findline_setparameterrole("candidate");
+
+m.addimage(
+    "complex_01",
+    "L3_complex_boundary",
+    "D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/01.jpg");
+
+m.image_addtag("line");
+m.image_addfindlinetarget(
+    "complex_line_edge",
+    "120", "240",
+    "980", "240",
+    "8", "32");
+
+m.addevidenceprofile("normal");
+m.evidence_setnearestpointsupportpx(3.0);
+m.evidence_setlinedistancesupportpx(3.0);
+m.evidence_setmingradient(6.0);
+m.evidence_setmingradientratio(0.35);

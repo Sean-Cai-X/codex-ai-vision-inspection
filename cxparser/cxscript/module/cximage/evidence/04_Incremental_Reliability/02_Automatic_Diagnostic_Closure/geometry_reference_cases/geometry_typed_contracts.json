@@ -1,0 +1,104 @@
+{
+  "schema": "cxvision.geometry_typed_contracts.v2",
+  "coordinate_system": "pixel_center_origin_top_left_x_right_y_down",
+  "training_enabled": 0,
+  "human_review_required": 1,
+  "instance_required_fields": [
+    "instance_id",
+    "geometry_type",
+    "geometry_parameters",
+    "visibility_ratio",
+    "identifiable",
+    "rejection_reason",
+    "tolerance_policy_ref"
+  ],
+  "target_semantics": {
+    "per_annotation": "solve and retain the best geometry parameter solution for each labeled instance",
+    "batch": "optimize robust aggregate loss over accepted per-instance targets",
+    "not_allowed": "replace all annotations with one shared geometry parameter value"
+  },
+  "identifiability_policy": {
+    "minimum_visibility_ratio": 0.985,
+    "maximum_centroid_consistency_error_px": 2.0,
+    "reject_empty_label": true,
+    "reject_missing_required_asset": true,
+    "reject_unidentifiable_fit": true
+  },
+  "contracts": [
+    {
+      "geometry_type": "circle",
+      "case_track": "C1",
+      "topology": "closed",
+      "typed_label_kind": "binary_mask",
+      "parameters": ["cx", "cy", "radius"],
+      "primary_metrics": ["center_error_px", "radius_error_px", "fit_residual_px"],
+      "tolerance": {"center_error_px": 2.0, "radius_error_px": 2.0, "fit_residual_px": 2.0, "minimum_support": 0.80}
+    },
+    {
+      "geometry_type": "ellipse",
+      "case_track": "C1",
+      "topology": "closed",
+      "typed_label_kind": "binary_mask",
+      "parameters": ["cx", "cy", "radius_x", "radius_y", "rotation_deg"],
+      "primary_metrics": ["center_error_px", "axis_error_px", "angle_error_deg", "fit_residual_px"],
+      "tolerance": {"center_error_px": 2.0, "axis_error_px": 2.0, "angle_error_deg": 2.0, "fit_residual_px": 2.0, "minimum_support": 0.80}
+    },
+    {
+      "geometry_type": "rectangle",
+      "case_track": "C1",
+      "topology": "closed",
+      "typed_label_kind": "binary_mask",
+      "parameters": ["cx", "cy", "width", "height", "rotation_deg"],
+      "primary_metrics": ["center_error_px", "size_error_px", "angle_error_deg", "corner_error_px"],
+      "tolerance": {"center_error_px": 2.0, "size_error_px": 2.0, "angle_error_deg": 2.0, "corner_error_px": 3.0}
+    },
+    {
+      "geometry_type": "polygon",
+      "case_track": "C1",
+      "topology": "closed",
+      "typed_label_kind": "binary_mask",
+      "parameters": ["ordered_vertices", "closed_contour"],
+      "variable_length_output": true,
+      "primary_metrics": ["boundary_distance_px", "vertex_error_px", "closedness"],
+      "tolerance": {"boundary_distance_px": 2.0, "vertex_error_px": 3.0, "closedness_required": true}
+    },
+    {
+      "geometry_type": "closed_curve",
+      "case_track": "C1",
+      "topology": "closed",
+      "typed_label_kind": "binary_mask",
+      "parameters": ["ordered_closed_spline_or_polyline", "continuity", "enclosed_region"],
+      "variable_length_output": true,
+      "primary_metrics": ["chamfer_distance_px", "closedness", "inside_outside_consistency"],
+      "tolerance": {"chamfer_distance_px": 2.0, "closedness_required": true, "inside_outside_consistency_required": true}
+    },
+    {
+      "geometry_type": "line",
+      "case_track": "O1",
+      "topology": "open",
+      "typed_label_kind": "boundary_map",
+      "parameters": ["endpoint_0", "endpoint_1", "angle", "rho", "support"],
+      "primary_metrics": ["endpoint_error_px", "angle_error_deg", "fit_residual_px", "support"],
+      "tolerance": {"endpoint_error_px": 3.0, "angle_error_deg": 2.0, "fit_residual_px": 2.0, "minimum_support": 0.80}
+    },
+    {
+      "geometry_type": "arc",
+      "case_track": "O1",
+      "topology": "open",
+      "typed_label_kind": "boundary_map",
+      "parameters": ["cx", "cy", "radius", "start_angle_deg", "end_angle_deg", "direction", "endpoints"],
+      "primary_metrics": ["center_error_px", "radius_error_px", "endpoint_error_px", "boundary_distance_px"],
+      "tolerance": {"center_error_px": 2.0, "radius_error_px": 2.0, "endpoint_error_px": 3.0, "boundary_distance_px": 2.0}
+    },
+    {
+      "geometry_type": "open_curve",
+      "case_track": "O1",
+      "topology": "open",
+      "typed_label_kind": "boundary_map",
+      "parameters": ["ordered_polyline_or_spline", "endpoints", "tangent", "continuity"],
+      "variable_length_output": true,
+      "primary_metrics": ["chamfer_distance_px", "endpoint_error_px", "tangent_error_deg", "continuity"],
+      "tolerance": {"chamfer_distance_px": 2.0, "endpoint_error_px": 3.0, "tangent_error_deg": 3.0, "continuity_required": true}
+    }
+  ]
+}

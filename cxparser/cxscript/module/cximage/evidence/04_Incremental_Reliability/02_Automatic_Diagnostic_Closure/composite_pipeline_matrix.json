@@ -1,0 +1,20 @@
+{
+  "schema": "cxvision.composite_pipeline_matrix.v1",
+  "training_enabled": 0,
+  "pipelines": [
+    {
+      "pipeline_id": "hd_pill_composite_pipeline",
+      "status": "PENDING_STAGE_BINDING",
+      "execution_policy": "strict_serial",
+      "stages": [
+        {"stage_id": "object_localization", "model_track_id": "closed_instance_segmentation_v1", "output": "instance_regions"},
+        {"stage_id": "closed_region_partition", "model_track_id": "closed_semantic_segmentation_v1", "output": "closed_masks"},
+        {"stage_id": "open_boundary_partition", "model_track_id": "open_boundary_segmentation_v1", "output": "open_boundaries"},
+        {"stage_id": "region_classification", "model_track_id": "fuzzy_region_model_v1", "output": "region_class_probabilities"},
+        {"stage_id": "cximage_measurement", "model_track_id": "cximage_geometry", "output": "geometry_measurements"},
+        {"stage_id": "evidence_fusion", "model_track_id": "composite_visual_pipeline_v1", "output": "auditable_fused_decision"}
+      ],
+      "promotion_allowed": false
+    }
+  ]
+}

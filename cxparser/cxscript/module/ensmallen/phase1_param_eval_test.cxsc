@@ -1,0 +1,16 @@
+EnsmallenTuning m_tuning;
+
+m_tuning.setdataset("dataset.deeppcb.phase1.ensmallen");
+m_tuning.setbucket("G0,G1,G2,G3,G4");
+
+m_tuning.setparam("threshold", 0.72);
+m_tuning.setparam("crop_policy", "roi_center_guard");
+m_tuning.setobjective("template_alignment_error");
+
+m_tuning.run();
+m_tuning.evaluate();
+
+global_param_ref = m_tuning.param_ref();
+global_objective_ref = m_tuning.objective_ref();
+global_summary_ref = m_tuning.summary_ref();
+global_current_status = "PENDING";

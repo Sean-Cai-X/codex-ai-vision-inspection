@@ -1,0 +1,43 @@
+CxShapeTest_reset(0);
+
+CxShapeTest_addcase("point_create_click");
+CxShapeTest_settool("point_pick");
+CxShapeTest_setoperation("create_click");
+CxShapeTest_setfrom(150, 150);
+CxShapeTest_setexpected("point_visible");
+
+CxShapeTest_addcase("line_create_drag_release");
+CxShapeTest_settool("scan_line");
+CxShapeTest_setoperation("create_drag");
+CxShapeTest_setfrom(100, 150);
+CxShapeTest_setto(250, 150);
+CxShapeTest_setexpected("translate_only");
+
+CxShapeTest_addcase("rect_create_drag_release");
+CxShapeTest_settool("roi_rect");
+CxShapeTest_setoperation("create_drag");
+CxShapeTest_setfrom(100, 100);
+CxShapeTest_setto(250, 200);
+CxShapeTest_setexpected("translate_only");
+
+CxShapeTest_addcase("circle_create_drag_release");
+CxShapeTest_settool("circle_roi");
+CxShapeTest_setoperation("create_drag");
+CxShapeTest_setfrom(200, 180);
+CxShapeTest_setto(280, 180);
+CxShapeTest_setexpected("translate_only");
+
+CxShapeTest_addcase("ellipse_create_drag_release");
+CxShapeTest_settool("ellipse_manual");
+CxShapeTest_setoperation("create_drag");
+CxShapeTest_setfrom(200, 180);
+CxShapeTest_setto(280, 220);
+CxShapeTest_setexpected("translate_only");
+
+CxShapeTest_addcase("polyline_create_multi_click_finish");
+CxShapeTest_settool("boundary_polyline");
+CxShapeTest_setoperation("create_polyline");
+CxShapeTest_setinitialpoints("100,100,200,150,200,250,100,300");
+CxShapeTest_setexpected("translate_only");
+
+1+1;

@@ -1,0 +1,14 @@
+CxScriptSuite_reset(0);
+CxScriptSuite_setid("stage25_findcircle_basic_dot_ok");
+CxScriptSuite_setname("Stage25 Findcircle Basic Dot OK");
+CxScriptSuite_setcatalog("D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/cxvision_repo/cxparser/cxscript/module/cximage/catalog/cximage_catalog.cxsc");
+CxScriptSuite_setoutputroot("D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/cxscript_runs/stage25_findcircle_basic_dot_ok");
+
+CxScriptSuite_addcase("L0_basic_findcircle_basic_dot_ok");
+CxScriptSuite_case_setscriptid("findcircle_stage25_direct_ok");
+CxScriptSuite_case_setexpected("ok");
+CxScriptSuite_case_setexpectedpolicyguard("CIRCLE_MEASURE_AND_FIT_AVAILABLE");
+CxScriptSuite_case_setimage("basic_01");
+CxScriptSuite_case_settarget("basic_dot");
+CxScriptSuite_case_setparameter("findcircle_stage25_direct");
+CxScriptSuite_case_setlevel("L0_basic");

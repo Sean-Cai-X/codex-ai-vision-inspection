@@ -1,0 +1,21 @@
+Image m_image;
+TorchDetectModel m_model;
+TorchTensor m_tensor;
+TorchRawOutput m_raw;
+
+m_image.copyFromMat(global_matInput);
+
+string model_path = global_model_path;
+int input_w = 640;
+int input_h = 640;
+float confidence_threshold = 0.25;
+float iou_threshold = 0.45;
+
+m_model.load(model_path);
+m_model.set_device("cuda_or_cpu");
+m_tensor = torch.preprocess_image(&m_image, input_w, input_h);
+m_raw = m_model.infer(m_tensor);
+torch.decode_detection(m_raw, confidence_threshold, iou_threshold);
+
+global_detection_ref = m_raw;
+global_current_status = "PENDING";

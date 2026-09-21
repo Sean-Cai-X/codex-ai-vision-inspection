@@ -1,0 +1,19 @@
+{
+  "schema": "cxvision.closed_geometry_instances.v1",
+  "geometry_type": "ellipse",
+  "instance_count": 1,
+  "instances": [
+    {
+      "instance_id": 1,
+      "class_name": "ellipse",
+      "center_xy": [
+        240,
+        180
+      ],
+      "radius_x_px": 145,
+      "radius_y_px": 78,
+      "rotation_deg": 18,
+      "closed": true
+    }
+  ]
+}

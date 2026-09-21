@@ -1,0 +1,70 @@
+Image m_image;
+FindLine m_line;
+
+m_image.copyFromMat(global_matInput);
+
+m_line.setmaxelapsedms(global_max_elapsed_ms);
+m_line.setmaxscanlines(global_max_scan_lines);
+m_line.setmaxsamples(global_max_samples);
+
+int x0 = global_roi_x0;
+int y0 = global_roi_y0;
+int x1 = global_roi_x1;
+int y1 = global_roi_y1;
+
+int tool_half_width = global_tool_half_width;
+int wgap = global_wgap;
+int hgap = global_hgap;
+int linegap = global_linegap;
+int threshold = global_threshold;
+int method = global_method;
+int filterprofile = global_filterprofile;
+int selected_edge = global_findline_selected_edge;
+int objfilter = global_findline_objfilter;
+
+m_line.SetWHgap(wgap, hgap);
+m_line.setscandirection(global_findline_scan_direction);
+m_line.setlinegap(linegap);
+m_line.setline(x0, y0, x1, y1, tool_half_width);
+m_line.setmethod(method);
+m_line.setthre(threshold);
+m_line.setfilterprofile(filterprofile);
+m_line.setobjfilter(objfilter);
+m_line.setselectedgenum(selected_edge);
+m_line.setpointconsistency(global_findline_point_consistency_enabled, global_findline_point_consistency_range);
+
+if (global_metrology_boundary_preview_enabled) {
+    m_line.setboundaryresponsemode(global_metrology_boundary_response_mode);
+    m_line.setboundarypolarity(global_metrology_boundary_polarity);
+    m_line.setboundaryselection(global_metrology_boundary_selection_mode);
+    m_line.setboundarynthcandidate(global_metrology_boundary_nth_candidate);
+    m_line.setboundaryreferencepositionpermille(global_metrology_boundary_reference_position_permille);
+    m_line.setboundarysubpixel(global_metrology_boundary_subpixel_mode);
+    m_line.setboundarybaseline(global_metrology_boundary_baseline_mode);
+    m_line.setboundarydenoise(global_metrology_boundary_denoise_mode);
+    m_line.setboundarysmoothingradius(global_metrology_boundary_smoothing_radius);
+    m_line.setboundarybaselinewindow(global_metrology_boundary_baseline_window);
+    m_line.setboundarywaveletscale(global_metrology_boundary_wavelet_scale);
+    m_line.setboundarythresholdpermille(global_metrology_boundary_trigger_threshold_permille);
+    m_line.setboundarylevelpermille(global_metrology_boundary_level_permille);
+    m_line.setboundaryhysteresispermille(global_metrology_boundary_hysteresis_permille);
+    m_line.setboundarygatestartpermille(global_metrology_boundary_gate_start_permille);
+    m_line.setboundarygateendpermille(global_metrology_boundary_gate_end_permille);
+    m_line.setboundaryminplateauwidth(global_metrology_boundary_min_plateau_width);
+    m_line.setboundaryminamplitudepermille(global_metrology_boundary_min_amplitude_permille);
+    m_line.setboundarypairminwidth(global_metrology_boundary_pair_min_width);
+    m_line.setboundarypairmaxwidth(global_metrology_boundary_pair_max_width);
+    m_line.setboundarypairanchor(global_metrology_boundary_pair_anchor_mode);
+}
+
+m_line.measure(&m_image);
+m_line.fitline();
+
+global_selected_method = method;
+global_selected_threshold = threshold;
+global_selected_linegap = linegap;
+global_findline_selected_edge = selected_edge;
+global_valid_points_count = m_line.getvalidpointcount();
+global_has_fit_line = m_line.hasfitresult();
+global_avgdist = m_line.getavgdist();
+global_line_ref = m_line.get_result();

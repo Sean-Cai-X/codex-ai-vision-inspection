@@ -1,0 +1,45 @@
+Image m_image;
+
+FindCircle outer_circle;
+FindCircle inner_circle;
+
+CircleRingGauge ring_gauge;
+
+m_image.copyFromMat(global_matInput);
+
+int cx = 765;
+int cy = 471;
+
+int outer_px = 980;
+int outer_py = 471;
+
+int inner_px = 820;
+int inner_py = 471;
+
+int method = 0;
+int threshold = 20;
+int gap = 5;
+int linegap = 3;
+
+outer_circle.Setgap(gap);
+outer_circle.setlinegap(linegap);
+outer_circle.setthre(threshold);
+outer_circle.setmethod(method);
+outer_circle.setcircle(outer_py, outer_px, cy, cx);
+outer_circle.measure(&m_image);
+outer_circle.fitcircle();
+
+inner_circle.Setgap(gap);
+inner_circle.setlinegap(linegap);
+inner_circle.setthre(threshold);
+inner_circle.setmethod(method);
+inner_circle.setcircle(inner_py, inner_px, cy, cx);
+inner_circle.measure(&m_image);
+inner_circle.fitcircle();
+
+ring_gauge.settolerance(3, 5);
+ring_gauge.setouter(&outer_circle);
+ring_gauge.setinner(&inner_circle);
+ring_gauge.build();
+
+global_current_status = "PENDING";

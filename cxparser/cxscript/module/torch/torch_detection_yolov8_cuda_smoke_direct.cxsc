@@ -1,0 +1,18 @@
+Image m_image;
+TorchTask m_task;
+
+m_image.copyFromMat(global_matInput);
+
+int timeout_ms = 30000;
+
+m_task.settask("torch.smoke.yolo.gpu");
+m_task.setrequestcontext(global_torch_request_context);
+m_task.setdevice("cuda");
+m_task.settimeout(timeout_ms);
+
+m_task.run(m_image);
+
+global_headless_ok = m_task.getok();
+global_torch_ok = m_task.getok();
+global_torch_result_count = m_task.getresultcount();
+global_torch_infer_ms = m_task.getinferms();

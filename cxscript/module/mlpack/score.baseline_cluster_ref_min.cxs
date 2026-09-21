@@ -1,0 +1,7 @@
+# mlpack semantic cluster ref export
+kind=module
+layer=score
+module=mlpack
+case=baseline_cluster_ref_min
+mode=build-run
+report=on

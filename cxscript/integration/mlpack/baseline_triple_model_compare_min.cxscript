@@ -1,0 +1,63 @@
+integration mlpack;
+layer scenario;
+case baseline_triple_model_compare_min;
+
+input {
+  task = "classification";
+  feature_set = "all_v1";
+  label_column = "label";
+  train_csv = "artifacts/baseline/all_v1_train.csv";
+  val_csv = "artifacts/baseline/all_v1_val.csv";
+  test_csv = "artifacts/baseline/all_v1_test.csv";
+  logreg_model_path = "artifacts/baseline/logreg_all_v1.bin";
+  rf_model_path = "artifacts/baseline/rf_all_v1.bin";
+  knn_model_path = "artifacts/baseline/knn_all_v1.bin";
+  logreg_predictions_csv = "artifacts/baseline/logreg_all_v1_predictions.csv";
+  rf_predictions_csv = "artifacts/baseline/rf_all_v1_predictions.csv";
+  knn_predictions_csv = "artifacts/baseline/knn_all_v1_predictions.csv";
+  output_summary_csv = "artifacts/baseline/baseline_summary.csv";
+}
+
+flow {
+  call mlpack.train.baseline_logreg_flow_min;
+  call mlpack.infer.baseline_logreg_flow_min;
+  call mlpack.score.baseline_classification_flow_min;
+
+  call mlpack.train.baseline_rf_flow_min;
+  call mlpack.infer.baseline_rf_flow_min;
+  call mlpack.score.baseline_classification_flow_min;
+
+  call mlpack.train.baseline_knn_flow_min;
+  call mlpack.infer.baseline_knn_flow_min;
+  call mlpack.score.baseline_classification_flow_min;
+}
+
+check {
+  require module_case_passed("mlpack.train.baseline_logreg_flow_min");
+  require module_case_passed("mlpack.infer.baseline_logreg_flow_min");
+  require module_case_passed("mlpack.train.baseline_rf_flow_min");
+  require module_case_passed("mlpack.infer.baseline_rf_flow_min");
+  require module_case_passed("mlpack.train.baseline_knn_flow_min");
+  require module_case_passed("mlpack.infer.baseline_knn_flow_min");
+  require file_exists(logreg_model_path);
+  require file_exists(rf_model_path);
+  require file_exists(knn_model_path);
+  require file_exists(logreg_predictions_csv);
+  require file_exists(rf_predictions_csv);
+  require file_exists(knn_predictions_csv);
+}
+
+output {
+  emit logreg_model_path;
+  emit rf_model_path;
+  emit knn_model_path;
+  emit logreg_predictions_csv;
+  emit rf_predictions_csv;
+  emit knn_predictions_csv;
+  emit output_summary_csv;
+  emit compare_ok;
+}
+
+conclusion {
+  summary = "baseline_triple_model_compare_ready";
+}

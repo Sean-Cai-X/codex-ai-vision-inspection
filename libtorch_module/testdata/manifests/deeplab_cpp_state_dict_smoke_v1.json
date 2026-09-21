@@ -1,0 +1,25 @@
+{
+  "schema": "cxvision.torch_model_manifest",
+  "schema_version": 1,
+  "model_id": "deeplab_cpp_state_dict_smoke_v1",
+  "task": "segmentation",
+  "architecture": "deeplabv3plus",
+  "backbone": "mobilenet_v3_large",
+  "weights": "../../models/deeplab_cpp_state_dict_smoke_v1/weights/deeplab_cpp_state_dict_smoke.pt",
+  "weights_format": "cpp_state_dict",
+  "num_classes": 2,
+  "model_name": "deeplab_cpp_state_dict_smoke_v1",
+  "model_version": "1.0",
+  "input": {
+    "width": 512,
+    "height": 512,
+    "color": "rgb",
+    "scale": 0.003921568627,
+    "mean": [0.485, 0.456, 0.406],
+    "std": [0.229, 0.224, 0.225]
+  },
+  "postprocess": {
+    "target_class_id": 1,
+    "min_component_area": 20
+  }
+}

@@ -1,0 +1,18 @@
+Image m_image;
+FindCircle m_circle;
+
+m_image.copyFromMat(global_matInput);
+
+int cx = 640;
+int cy = 480;
+int px = 760;
+int py = 480;
+
+int gap = 5;
+int linegap = 3;
+
+m_circle.Setgap(gap);
+m_circle.setlinegap(linegap);
+m_circle.setcircle(py, px, cy, cx);
+
+global_current_status = "FRAME_PROBE_ONLY";

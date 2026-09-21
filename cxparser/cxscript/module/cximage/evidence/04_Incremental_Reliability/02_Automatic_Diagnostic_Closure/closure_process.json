@@ -1,0 +1,118 @@
+{
+  "schema": "cxvision.automatic_diagnostic_process.v1",
+  "process_id": "incremental_model_diagnostic_closure_v1",
+  "execution": "strict_serial",
+  "training_enabled": 0,
+  "human_review_role": "process_audit_rule_extraction_and_final_confirmation",
+  "stages": [
+    {
+      "index": 1,
+      "stage_id": "case_contract_preflight",
+      "status_source": "contract_assets_valid",
+      "requires": []
+    },
+    {
+      "index": 2,
+      "stage_id": "single_image_source_binding",
+      "status_source": "source_images_bound",
+      "requires": [
+        "case_contract_preflight"
+      ]
+    },
+    {
+      "index": 3,
+      "stage_id": "parent_child_runtime_binding",
+      "status_source": "runtime_models_bound",
+      "requires": [
+        "single_image_source_binding"
+      ]
+    },
+    {
+      "index": 4,
+      "stage_id": "typed_evaluator_binding",
+      "status_source": "evaluators_supported",
+      "requires": [
+        "case_contract_preflight"
+      ]
+    },
+    {
+      "index": 5,
+      "stage_id": "single_image_four_way_diagnostic",
+      "status_source": "cases_executed",
+      "requires": [
+        "parent_child_runtime_binding",
+        "typed_evaluator_binding"
+      ]
+    },
+    {
+      "index": 6,
+      "stage_id": "frozen_validation_binding",
+      "status_source": "frozen_validation_bound",
+      "requires": [
+        "single_image_four_way_diagnostic"
+      ]
+    },
+    {
+      "index": 7,
+      "stage_id": "aggregate_and_stability",
+      "status_source": "aggregate_emitted",
+      "requires": [
+        "single_image_four_way_diagnostic"
+      ]
+    },
+    {
+      "index": 8,
+      "stage_id": "typed_label_binding",
+      "status_source": "typed_labels_bound",
+      "requires": [
+        "aggregate_and_stability"
+      ]
+    },
+    {
+      "index": 9,
+      "stage_id": "promotion_gate",
+      "status_source": "promotion_gate_emitted",
+      "requires": [
+        "aggregate_and_stability",
+        "frozen_validation_binding",
+        "typed_label_binding"
+      ]
+    },
+    {
+      "index": 10,
+      "stage_id": "final_human_confirmation",
+      "status_source": "final_human_review",
+      "requires": [
+        "promotion_gate"
+      ]
+    }
+  ],
+  "phase_order": [
+    {
+      "phase": 1,
+      "case_tracks": [
+        "C1",
+        "C2",
+        "C3",
+        "O2",
+        "O1"
+      ],
+      "entry_gate": "case_contract_preflight"
+    },
+    {
+      "phase": 2,
+      "case_tracks": [
+        "R1",
+        "R2"
+      ],
+      "entry_gate": "phase_1_single_image_diagnostics_complete"
+    },
+    {
+      "phase": 3,
+      "case_tracks": [
+        "X1"
+      ],
+      "entry_gate": "required_component_tracks_stable"
+    }
+  ]
+}

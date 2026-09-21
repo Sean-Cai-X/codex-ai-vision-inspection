@@ -1,0 +1,152 @@
+{
+  "schema": "cxvision.annotation_contracts.v1",
+  "training_enabled": 0,
+  "contracts": [
+    {
+      "contract_id": "closed_regular_object_mask_v1",
+      "track_id": "C1_closed_regular_region",
+      "required_annotations": [
+        "closed_mask",
+        "closed_contour",
+        "object_class",
+        "geometry_subtype",
+        "ignore_regions"
+      ],
+      "forbidden_substitutions": [
+        "folder_label_as_mask",
+        "bbox_as_mask",
+        "cximage_candidate_as_ground_truth"
+      ]
+    },
+    {
+      "contract_id": "closed_irregular_semantic_mask_v1",
+      "track_id": "C2_closed_irregular_region",
+      "required_annotations": [
+        "semantic_class_mask",
+        "closed_contour",
+        "defect_class",
+        "ignore_regions"
+      ],
+      "optional_annotations": [
+        "soft_mask",
+        "uncertainty_band"
+      ],
+      "forbidden_substitutions": [
+        "image_class_as_pixel_label",
+        "folder_label_as_mask",
+        "cximage_candidate_as_ground_truth"
+      ]
+    },
+    {
+      "contract_id": "closed_multi_instance_mask_v1",
+      "track_id": "C3_closed_multi_instance_region",
+      "required_annotations": [
+        "instance_mask",
+        "instance_id",
+        "instance_class",
+        "occlusion_state",
+        "truncation_state"
+      ],
+      "forbidden_substitutions": [
+        "combined_binary_mask_as_instance_label",
+        "bbox_as_mask",
+        "cximage_candidate_as_ground_truth"
+      ]
+    },
+    {
+      "contract_id": "open_complex_boundary_v1",
+      "track_id": "O2_open_complex_boundary",
+      "required_annotations": [
+        "open_polyline",
+        "start_endpoint",
+        "end_endpoint",
+        "continuity_state",
+        "tolerance_band",
+        "ignore_regions"
+      ],
+      "optional_annotations": [
+        "local_width",
+        "branch_points",
+        "edge_polarity"
+      ],
+      "forbidden_substitutions": [
+        "forced_closed_mask",
+        "area_iou_only",
+        "bbox_as_boundary"
+      ]
+    },
+    {
+      "contract_id": "fuzzy_region_learning_v1",
+      "track_id": "R2_fuzzy_region_learning",
+      "required_annotations": [
+        "roi_or_polygon",
+        "region_class",
+        "positive_negative_role",
+        "confidence_or_membership"
+      ],
+      "optional_annotations": [
+        "soft_mask",
+        "uncertainty_band",
+        "hard_negative_role"
+      ],
+      "forbidden_substitutions": [
+        "whole_image_folder_label_without_roi",
+        "automatic_candidate_as_accepted_label"
+      ]
+    },
+    {
+      "contract_id": "composite_stage_annotation_v1",
+      "track_id": "X1_composite_visual_pipeline",
+      "required_annotations": [
+        "stage_id",
+        "stage_input_ref",
+        "stage_output_ref",
+        "coordinate_transform",
+        "stage_contract"
+      ],
+      "forbidden_substitutions": [
+        "final_decision_without_stage_evidence",
+        "cross_stage_coordinate_guess"
+      ]
+    },
+    {
+      "contract_id": "open_regular_boundary_measurement_v1",
+      "track_id": "O1_open_regular_boundary",
+      "required_annotations": [
+        "open_polyline",
+        "measurement_points",
+        "start_endpoint",
+        "end_endpoint",
+        "confidence"
+      ],
+      "optional_annotations": [
+        "line_fit",
+        "arc_fit",
+        "tolerance_band"
+      ],
+      "forbidden_substitutions": [
+        "forced_closed_mask",
+        "bbox_as_boundary",
+        "folder_label_as_boundary"
+      ]
+    },
+    {
+      "contract_id": "roi_region_learning_v1",
+      "track_id": "R1_roi_region_learning",
+      "required_annotations": [
+        "roi_or_polygon",
+        "region_class",
+        "positive_negative_role"
+      ],
+      "optional_annotations": [
+        "feature_vector",
+        "similarity",
+        "hard_negative_role"
+      ],
+      "forbidden_substitutions": [
+        "whole_image_folder_label_without_roi",
+        "automatic_candidate_as_accepted_label"
+      ]
+    }
+  ]
+}

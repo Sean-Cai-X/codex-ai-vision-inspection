@@ -1,0 +1,8 @@
+if (global_result_status == "PENDING_BINDING" &&
+    global_policy_guard == "EXPECTED_FILTER_FAILURE_BASELINE") {
+    global_contract_pass = 1;
+    global_contract_conclusion = "NG expected script passed: expected failure baseline confirmed";
+} else {
+    global_contract_pass = 0;
+    global_contract_conclusion = "NG expected script failed: failure did not match expected contract";
+}

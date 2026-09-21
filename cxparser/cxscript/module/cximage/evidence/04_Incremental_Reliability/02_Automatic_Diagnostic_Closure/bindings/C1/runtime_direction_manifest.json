@@ -1,0 +1,9 @@
+{
+  "schema": "cxvision.parent_child_runtime_direction.v1",
+  "case_track": "C1",
+  "selection_basis": "single closed capsule body with a binary object/background pixel contract",
+  "parent": {"status": "pending_compatible_weights", "task_id": "semantic_segmentation", "recommended_family": "DeepLabV3Plus_or_UNet_binary", "physical_output_contract": "binary_closed_object_mask", "required_training_label_kind": "binary_closed_object_mask"},
+  "child": {"status": "pending_incremental_checkpoint", "task_id": "semantic_segmentation", "recommended_family": "same_architecture_and_class_map_as_parent", "physical_output_contract": "binary_closed_object_mask", "parent_lineage_required": true},
+  "postprocess": ["largest_connected_component", "hole_check", "closed_contour_check"],
+  "training_enabled": 0
+}

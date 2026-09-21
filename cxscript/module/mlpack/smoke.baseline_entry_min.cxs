@@ -1,0 +1,7 @@
+# mlpack baseline module smoke
+kind=module
+layer=smoke
+module=mlpack
+case=baseline_entry_min
+mode=build-run
+report=on

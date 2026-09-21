@@ -1,0 +1,3 @@
+TorchSession session;
+TorchImage input_image;
+TorchInferResult result = session.infer(input_image);

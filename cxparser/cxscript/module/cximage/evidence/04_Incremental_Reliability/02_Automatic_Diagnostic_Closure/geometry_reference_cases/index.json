@@ -1,0 +1,64 @@
+{
+  "schema": "cxvision.geometry_reference_case_index.v1",
+  "training_enabled": 0,
+  "purpose": "controlled_geometry_case_coverage_before_model_binding",
+  "contracts": {
+    "typed_geometry": "geometry_typed_contracts.json",
+    "augmentation": "geometry_augmentation_contract.json",
+    "predictive_gate": "predictive_gate_policy.json",
+    "real_image_replacement": "real_image_replacement_contract.json",
+    "human_acceptance": "REAL_IMAGE_SINGLE_CLASS_ACCEPTANCE.md"
+  },
+  "case_count": 7,
+  "cases": [
+    {
+      "directory": "circle_closed_region",
+      "manifest": "circle_closed_region/case_manifest.json",
+      "review_item": "Controlled circle closed-region case",
+      "case_track": "C1",
+      "geometry_type": "circle"
+    },
+    {
+      "directory": "ellipse_closed_region",
+      "manifest": "ellipse_closed_region/case_manifest.json",
+      "review_item": "Controlled ellipse closed-region case",
+      "case_track": "C1",
+      "geometry_type": "ellipse"
+    },
+    {
+      "directory": "rectangle_closed_region",
+      "manifest": "rectangle_closed_region/case_manifest.json",
+      "review_item": "Controlled rectangle closed-region case",
+      "case_track": "C1",
+      "geometry_type": "rectangle"
+    },
+    {
+      "directory": "polygon_closed_region",
+      "manifest": "polygon_closed_region/case_manifest.json",
+      "review_item": "Controlled polygon closed-region case",
+      "case_track": "C1",
+      "geometry_type": "polygon"
+    },
+    {
+      "directory": "straight_line_boundary",
+      "manifest": "straight_line_boundary/case_manifest.json",
+      "review_item": "Controlled straight-line boundary case",
+      "case_track": "O1",
+      "geometry_type": "line"
+    },
+    {
+      "directory": "circular_arc_boundary",
+      "manifest": "circular_arc_boundary/case_manifest.json",
+      "review_item": "Controlled circular-arc boundary case",
+      "case_track": "O1",
+      "geometry_type": "arc"
+    },
+    {
+      "directory": "open_curve_boundary",
+      "manifest": "open_curve_boundary/case_manifest.json",
+      "review_item": "Controlled open-curve boundary case",
+      "case_track": "O1",
+      "geometry_type": "open_curve"
+    }
+  ]
+}

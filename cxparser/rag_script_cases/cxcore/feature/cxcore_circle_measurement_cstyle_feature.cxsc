@@ -1,0 +1,18 @@
+kind=module
+layer=feature
+module=cxcore
+case=circle_measurement
+mode=build-run
+report=on
+use Image;
+use Roi;
+use CircleMeasurementOutput;
+Image source_image;
+Roi roi_circle;
+CircleMeasurementOutput circle_result;
+measure_circle(source_image, roi_circle);
+check(success == true);
+check(task_id == "cxcore.feature.circle_measurement");
+check(scalar_result == 104.000000);
+print(task_id);
+print(summary);

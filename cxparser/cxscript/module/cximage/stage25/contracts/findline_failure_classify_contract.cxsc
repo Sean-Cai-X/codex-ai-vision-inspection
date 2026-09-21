@@ -1,0 +1,33 @@
+global_contract_pass = 0;
+global_contract_status = "findline_fail_unknown";
+global_contract_conclusion = "FindLine failure classification not determined";
+
+if (global_failure_stage == "findobject_filter_result_empty") {
+    global_contract_status = "findline_fail_filter_reject";
+    global_contract_conclusion = "FindLine failed because component filter rejected all candidates.";
+}
+
+if (global_valid_points_count > 0 && global_has_fit_line == 0) {
+    global_contract_status = "findline_fail_fit_degenerate";
+    global_contract_conclusion = "FindLine produced points but fit line was degenerate.";
+}
+
+if (global_local_support < 0.6) {
+    global_contract_status = "findline_fail_low_support";
+    global_contract_conclusion = "FindLine local evidence support is too low.";
+}
+
+if (global_valid_points_count == 0) {
+    global_contract_status = "findline_fail_no_points";
+    global_contract_conclusion = "FindLine failed to produce any valid points.";
+}
+
+if (global_failure_stage == "findline_fail_prefilter_foreground_not_visible_to_scan_rows") {
+    global_contract_status = "findline_fail_prefilter_foreground_not_visible_to_scan_rows";
+    global_contract_conclusion = "FindLine prefilter produced foreground, but scan rows did not see valid segment runs.";
+}
+
+if (global_runtime_global_result_mismatch == 1) {
+    global_contract_status = "findline_runtime_global_mismatch";
+    global_contract_conclusion = "FindLine runtime capture and script global echo are inconsistent.";
+}

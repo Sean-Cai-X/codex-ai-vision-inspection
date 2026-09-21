@@ -1,0 +1,30 @@
+// Stage25 Parameter Regression Range: FindCircle Conservative
+// This range is used after accepted circle gauge annotation.
+
+ParamRegressionTask_reset(0);
+ParamRangeSet_reset(0);
+ParamRangeSet_settool("FindCircle");
+ParamRangeSet_setid("findcircle_conservative_range");
+ParamRangeSet_setmaxcandidates(12);
+ParamRangeSet_setmaxcaseseconds(10);
+ParamRangeSet_setmaxtotalseconds(60);
+
+ParamRange_add("threshold");
+ParamRange_setvalues("8,12,20,30");
+ParamRange_setrole("formal");
+
+ParamRange_add("gap");
+ParamRange_setvalues("3,5,8,12");
+ParamRange_setrole("formal");
+
+ParamRange_add("linegap");
+ParamRange_setvalues("4,6,10");
+ParamRange_setrole("formal");
+
+ParamRange_add("method");
+ParamRange_setvalues("0,1");
+ParamRange_setrole("diagnostic");
+
+ParamRange_add("samplerate");
+ParamRange_setvalues("1,2,4");
+ParamRange_setrole("diagnostic");

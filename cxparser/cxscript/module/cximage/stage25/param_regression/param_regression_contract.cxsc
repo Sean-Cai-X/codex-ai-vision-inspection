@@ -1,0 +1,25 @@
+// Stage25 parameter regression contract semantics.
+// Contract is intentionally conservative: no automatic baseline promotion.
+
+if (case.get_bool("manual_gauge_accepted") == 0) {
+    contract.fail("manual gauge is not accepted");
+}
+
+if (case.get_int("candidate_count") <= 0) {
+    contract.fail("no parameter candidates available");
+}
+
+if (case.get_int("selected_probe_count") <= 0) {
+    contract.fail("no candidate selected for short probe");
+}
+
+if (case.get_bool("promotion_allowed") != 0) {
+    contract.fail("phase1 must not allow automatic baseline promotion");
+}
+
+if (contract.passed() == 0) {
+    contract.setstatus("param_regression_phase1_blocked");
+} else {
+    contract.setstatus("param_regression_phase1_ready");
+    contract.setconclusion("Parameter regression phase1 is ready for short probe and manual review.");
+}

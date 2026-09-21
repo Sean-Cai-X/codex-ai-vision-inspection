@@ -1,0 +1,8 @@
+CxParameterProfile_reset(0);
+CxParameterProfile_settool("TorchTask");
+
+CxParameterProfile_add("yolov8seg_backward_smoke_fixed_case_v1");
+CxParameterProfile_setrole("TORCH_YOLOV8SEG_MIN_TRAIN_CLOSED_LOOP");
+CxParameterProfile_setmethod(0);
+CxParameterProfile_setthreshold(0);
+CxParameterProfile_setdescription("YOLOv8-Seg fixed single-image class+mask+box+DFL backward smoke.");

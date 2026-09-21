@@ -1,0 +1,18 @@
+// Stage25 Parameter Regression Phase 1: three accepted anchors only.
+// This task is an orchestration asset; ManualStateTestConsole exports the first tables.
+
+ParamRegressionTask_reset(0);
+ParamRegressionTask_setid("stage25_param_regression_three_anchor_phase1");
+ParamRegressionTask_setcase("THREE_ANCHOR_PHASE1");
+ParamRegressionTask_setimage("manual_anchor_set");
+ParamRegressionTask_settarget("manual_accepted_gauge");
+ParamRegressionTask_settool("FindLine_FindCircle");
+ParamRegressionTask_setscript("param_regression_findline_probe_or_findcircle_probe");
+ParamRegressionTask_setbaseprofile("manual_gauge_seed");
+ParamRegressionTask_setmaxcandidates(12);
+ParamRegressionTask_setmaxcaseseconds(10);
+ParamRegressionTask_setmaxtotalseconds(60);
+ParamRegressionTask_requiremanualgauge(1);
+ParamRegressionTask_enablemlpackrank(1);
+ParamRegressionTask_enableensmallenopt(1);
+ParamRegressionTask_setpromotionallowed(0);

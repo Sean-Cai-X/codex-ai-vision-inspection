@@ -1,0 +1,97 @@
+{
+  "schema": "cxvision.hd_evaluator_contracts.v1",
+  "evaluators": [
+    {
+      "evaluator_id": "closed_mask_four_way_v1",
+      "case_tracks": [
+        "C1",
+        "C2"
+      ],
+      "inputs": [
+        "parent_mask",
+        "child_mask",
+        "label_mask",
+        "cximage_candidate_mask"
+      ],
+      "runtime_status": "implemented"
+    },
+    {
+      "evaluator_id": "instance_four_way_v1",
+      "case_tracks": [
+        "C3"
+      ],
+      "inputs": [
+        "parent_instances",
+        "child_instances",
+        "label_instances",
+        "cximage_candidates"
+      ],
+      "runtime_status": "pending_binding"
+    },
+    {
+      "evaluator_id": "open_boundary_four_way_v1",
+      "case_tracks": [
+        "O2"
+      ],
+      "inputs": [
+        "parent_boundary",
+        "child_boundary",
+        "label_boundary",
+        "cximage_boundary"
+      ],
+      "runtime_status": "pending_binding"
+    },
+    {
+      "evaluator_id": "fuzzy_region_four_way_v1",
+      "case_tracks": [
+        "R2"
+      ],
+      "inputs": [
+        "parent_membership",
+        "child_membership",
+        "label_membership",
+        "cximage_region_facts"
+      ],
+      "runtime_status": "pending_binding"
+    },
+    {
+      "evaluator_id": "composite_stage_gate_v1",
+      "case_tracks": [
+        "X1"
+      ],
+      "inputs": [
+        "parent_stages",
+        "child_stages",
+        "label_contracts",
+        "cximage_measurements"
+      ],
+      "runtime_status": "pending_binding"
+    },
+    {
+      "evaluator_id": "open_regular_boundary_four_way_v1",
+      "case_tracks": [
+        "O1"
+      ],
+      "inputs": [
+        "parent_boundary",
+        "child_boundary",
+        "label_boundary",
+        "cximage_measurements"
+      ],
+      "runtime_status": "pending_binding"
+    },
+    {
+      "evaluator_id": "roi_region_learning_four_way_v1",
+      "case_tracks": [
+        "R1"
+      ],
+      "inputs": [
+        "parent_region_features",
+        "child_region_features",
+        "label_region_class",
+        "cximage_region_facts"
+      ],
+      "runtime_status": "pending_binding"
+    }
+  ]
+}

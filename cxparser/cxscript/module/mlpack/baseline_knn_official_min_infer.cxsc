@@ -1,0 +1,29 @@
+Image m_image;
+MlpackFeature m_feature;
+MlpackDataset m_dataset;
+MlpackDataset m_reference;
+MlpackPrediction m_prediction;
+MlpackScore m_score;
+
+m_image.copyFromMat(global_matInput);
+
+int feature_width = 64;
+int feature_height = 64;
+int feature_channel = 1;
+int normalize_mode = 1;
+int k = global_mlpack_k;
+int distance_metric = 0;
+
+m_feature = mlpack.build_feature(&m_image, feature_width, feature_height, feature_channel);
+m_dataset = mlpack.build_dataset(m_feature);
+m_reference = mlpack.build_reference_dataset();
+m_dataset.normalize(normalize_mode);
+m_reference.normalize(normalize_mode);
+
+m_prediction = mlpack.knn_search(m_reference, m_dataset, k, distance_metric);
+m_score = mlpack.score_neighbor(m_prediction, m_reference);
+
+global_neighbor_ref = m_prediction.get_neighbor_ref();
+global_distance_ref = m_prediction.get_distance_ref();
+global_baseline_class_ref = m_prediction.get_class_ref();
+global_current_status = "PENDING";

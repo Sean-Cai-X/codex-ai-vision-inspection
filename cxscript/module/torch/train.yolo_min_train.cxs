@@ -1,0 +1,8 @@
+# cxscript module sample
+kind=module
+layer=train
+module=torch
+case=yolo_min_train
+mode=build-run
+route=batch
+report=on

@@ -1,0 +1,14 @@
+kind=module
+layer=feature
+module=cxcore
+case=line_measurement
+mode=build-run
+report=on
+input source_image;
+input roi_line;
+call measure_line();
+expect success == true;
+expect task_id == "cxcore.feature.line_measurement";
+expect scalar_result == 1031.000000;
+emit task_id;
+emit summary;

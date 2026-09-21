@@ -1,0 +1,24 @@
+Image m_image;
+MlpackFeature m_feature;
+MlpackDataset m_dataset;
+MlpackLogRegModel m_model;
+MlpackPrediction m_prediction;
+
+m_image.copyFromMat(global_matInput);
+
+int feature_width = 64;
+int feature_height = 64;
+int feature_channel = 1;
+int normalize_mode = 1;
+string model_path = global_mlpack_model_path;
+
+m_feature = mlpack.build_feature(&m_image, feature_width, feature_height, feature_channel);
+m_dataset = mlpack.build_dataset(m_feature);
+m_dataset.normalize(normalize_mode);
+
+m_model.load(model_path);
+m_prediction = m_model.predict(m_dataset);
+
+global_baseline_class_ref = m_prediction.get_class_ref();
+global_baseline_result_ref = m_prediction.get_probability_ref();
+global_current_status = "PENDING";

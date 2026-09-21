@@ -1,0 +1,8 @@
+double input_contract_ok=0;
+geom_export_roi(image_path,roi_id);
+geom_export_line(line_id);
+geom_export_pointset(pointset_id);
+geom_align_input_prior(roi_id,line_id,pointset_id);
+geom_build_torch_request(roi_id,input_prior_bundle);
+input_contract_ok=geom_check_input_ready(roi_id,input_prior_bundle);
+input_contract_ok;

@@ -1,0 +1,8 @@
+double attach_contract_ok=0;
+geom_attach_result_to_roi(roi_id,pred_class,pred_score,embedding_main);
+geom_attach_result_mask(roi_id,mask_id);
+geom_attach_result_boundary(roi_id,boundary_id);
+geom_attach_result_keypoints(roi_id,keypoints_id);
+geom_publish_attach_packet(roi_id);
+attach_contract_ok=geom_check_attach_ready(roi_id);
+attach_contract_ok;

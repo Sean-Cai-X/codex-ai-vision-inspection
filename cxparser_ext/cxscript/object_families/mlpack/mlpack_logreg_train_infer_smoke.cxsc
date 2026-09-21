@@ -1,0 +1,5 @@
+MlpackDataset dataset;
+MlpackSample sample;
+MlpackLogreg model;
+MlpackTrainResult train_result = model.train(dataset);
+MlpackInferResult infer_result = model.infer(sample);

@@ -1,0 +1,20 @@
+kind=module
+layer=feature
+module=cxcore
+case=core3_probe_suite
+mode=build-run
+report=on
+input source_image;
+input template_model_image;
+input search_image;
+input roi_line;
+input roi_circle;
+input roi_match;
+call Action.UseModuleCase("cxcore","feature","line_measurement_probe");
+call Action.UseModuleCase("cxcore","feature","circle_measurement_probe");
+call Action.UseModuleCase("cxcore","feature","template_feature_match_probe");
+expect success == true;
+expect task_id == "cxcore.feature.core3_probe_suite";
+expect scalar_result == 1073.000000;
+emit task_id;
+emit summary;

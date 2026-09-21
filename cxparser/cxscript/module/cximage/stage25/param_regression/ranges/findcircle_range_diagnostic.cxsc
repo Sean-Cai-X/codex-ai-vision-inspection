@@ -1,0 +1,30 @@
+// Stage25 Parameter Regression Range: FindCircle Diagnostic
+// Wider circle search range. Human evidence review is required before promotion.
+
+ParamRegressionTask_reset(0);
+ParamRangeSet_reset(0);
+ParamRangeSet_settool("FindCircle");
+ParamRangeSet_setid("findcircle_diagnostic_range");
+ParamRangeSet_setmaxcandidates(24);
+ParamRangeSet_setmaxcaseseconds(10);
+ParamRangeSet_setmaxtotalseconds(120);
+
+ParamRange_add("threshold");
+ParamRange_setvalues("6,8,12,20,30,45");
+ParamRange_setrole("formal");
+
+ParamRange_add("gap");
+ParamRange_setvalues("2,3,5,8,12,16");
+ParamRange_setrole("diagnostic");
+
+ParamRange_add("linegap");
+ParamRange_setvalues("2,4,6,10,14");
+ParamRange_setrole("diagnostic");
+
+ParamRange_add("method");
+ParamRange_setvalues("0,1,2");
+ParamRange_setrole("diagnostic");
+
+ParamRange_add("samplerate");
+ParamRange_setvalues("1,2,4");
+ParamRange_setrole("diagnostic");

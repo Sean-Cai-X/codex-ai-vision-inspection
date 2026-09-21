@@ -1,0 +1,42 @@
+module mlpack;
+layer score;
+case baseline_classification_flow_min;
+
+input {
+  task = "classification";
+  feature_set = "all_v1";
+  model_name = "LogisticRegression";
+  predictions_csv = "artifacts/baseline/logreg_all_v1_predictions.csv";
+  fit_time_ms_ref = "from_train";
+  infer_time_ms_ref = "from_infer";
+  feature_dim_ref = 50;
+  output_summary_csv = "artifacts/baseline/baseline_summary.csv";
+}
+
+flow {
+  action load_predictions_csv;
+  action score_classification;
+  action build_summary_row;
+  action append_summary_csv;
+}
+
+check {
+  require file_exists(predictions_csv);
+  require accuracy >= 0;
+  require accuracy <= 1;
+  require macro_f1 >= 0;
+  require macro_f1 <= 1;
+  require summary_row_created;
+}
+
+output {
+  emit accuracy;
+  emit macro_f1;
+  emit summary_row;
+  emit output_summary_csv;
+  emit score_ok;
+}
+
+conclusion {
+  summary = "baseline_score_ready";
+}

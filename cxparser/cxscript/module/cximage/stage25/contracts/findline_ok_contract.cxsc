@@ -1,0 +1,69 @@
+global_contract_pass = 1;
+global_contract_status = "findline_ok_passed";
+global_contract_conclusion = "FindLine OK: points and fitted line are available.";
+
+if (global_headless_ok == 0) {
+    global_contract_pass = 0;
+    global_contract_status = "findline_ok_failed";
+    global_contract_conclusion = "Headless execution failed";
+}
+
+if (global_algorithm_executed == 0) {
+    global_contract_pass = 0;
+    global_contract_status = "findline_not_executed";
+    global_contract_conclusion = "FindLine algorithm not executed";
+}
+
+if (global_budget_exceeded == 1) {
+    global_contract_pass = 0;
+    global_contract_status = "findline_budget_exceeded";
+    global_contract_conclusion = "FindLine budget exceeded";
+}
+
+if (global_valid_points_count < 2) {
+    global_contract_pass = 0;
+    global_contract_status = "findline_ok_failed";
+    global_contract_conclusion = "FindLine OK requires valid_points_count >= 2";
+}
+
+if (global_has_fit_line == 0) {
+    global_contract_pass = 0;
+    global_contract_status = "findline_ok_failed";
+    global_contract_conclusion = "FindLine OK requires has_fit_line == true";
+}
+
+if (global_runtime_global_valid_points_count_mismatch == 1) {
+    global_contract_pass = 0;
+    global_contract_status = "findline_runtime_global_mismatch";
+    global_contract_conclusion = "FindLine runtime capture and script global valid_points_count mismatch";
+}
+
+if (global_runtime_global_has_fit_line_mismatch == 1) {
+    global_contract_pass = 0;
+    global_contract_status = "findline_runtime_global_mismatch";
+    global_contract_conclusion = "FindLine runtime capture and script global has_fit_line mismatch";
+}
+
+if (global_rendered_measure_points_count < 1) {
+    global_contract_pass = 0;
+    global_contract_status = "findline_points_not_rendered";
+    global_contract_conclusion = "FindLine measure points not rendered";
+}
+
+if (global_rendered_result_count < 1) {
+    global_contract_pass = 0;
+    global_contract_status = "findline_fit_not_rendered";
+    global_contract_conclusion = "FindLine fit result not rendered";
+}
+
+if (global_result_overlay_changed_pixels < 32) {
+    global_contract_pass = 0;
+    global_contract_status = "findline_overlay_empty";
+    global_contract_conclusion = "FindLine overlay has insufficient changed pixels";
+}
+
+if (global_policy_guard_match == 0) {
+    global_contract_pass = 0;
+    global_contract_status = "findline_ok_failed";
+    global_contract_conclusion = "FindLine OK requires MEASURE_AND_FIT_AVAILABLE";
+}

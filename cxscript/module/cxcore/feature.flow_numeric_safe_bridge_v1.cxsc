@@ -1,0 +1,13 @@
+scenario {
+  double a=1;
+  double d=0;
+  d=d+a;
+
+  check {
+    d=d;
+  }
+
+  report {
+    d;
+  }
+}

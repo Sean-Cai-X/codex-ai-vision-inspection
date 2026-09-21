@@ -1,0 +1,20 @@
+{
+  "status": "blender_ready_waiting_nova_token",
+  "detail": "Blender live flow verified with a remote GLB sample; NOVA3D_TOKEN is still required for Nova3D generation",
+  "validation_mode": "blender_remote_glb_fallback",
+  "prompt": "a simple cabinet with a body and a door",
+  "model": "gemini",
+  "session_id": "session_live_runner",
+  "nova_token_present": "false",
+  "nova_token_source": "",
+  "nova_api_url": "https://nova3d.xyz/api",
+  "nova_repo_path": "D:\\Codex-WorkDir\\Sean_WorkDir\\analysis_workspace\\nova3d-mcp-main",
+  "blender_available": "true",
+  "blender_path": "C:\\Program Files\\Blender Foundation\\Blender 4.5\\blender.exe",
+  "blender_import_source": "glb",
+  "fallback_glb_url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Box/glTF-Binary/Box.glb",
+  "conversation_url": "",
+  "viewport_path": "D:\\Codex-WorkDir\\Sean_WorkDir\\codex-lan-agent\\3D\\runtime\\blender_sessions\\captures\\session_live_runner_viewport.png",
+  "viewport_exists": "true",
+  "report_path": "D:\\Codex-WorkDir\\Sean_WorkDir\\codex-lan-agent\\3D\\runtime\\live_validation_report.json"
+}

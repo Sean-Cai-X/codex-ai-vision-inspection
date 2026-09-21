@@ -1,0 +1,39 @@
+// Stage25 Parameter Regression Range: FindLine Conservative
+// This is a cxscript-readable task asset, not a JSON/YAML config.
+// Parameter regression starts only after ManualGaugeState is accepted.
+
+ParamRegressionTask_reset(0);
+ParamRangeSet_reset(0);
+ParamRangeSet_settool("FindLine");
+ParamRangeSet_setid("findline_conservative_range");
+ParamRangeSet_setmaxcandidates(12);
+ParamRangeSet_setmaxcaseseconds(10);
+ParamRangeSet_setmaxtotalseconds(60);
+
+ParamRange_add("threshold");
+ParamRange_setvalues("8,12,20,30");
+ParamRange_setrole("formal");
+
+ParamRange_add("linegap");
+ParamRange_setvalues("4,6,10,14");
+ParamRange_setrole("formal");
+
+ParamRange_add("wgap");
+ParamRange_setvalues("4,8,12");
+ParamRange_setrole("formal");
+
+ParamRange_add("hgap");
+ParamRange_setvalues("24,32,48");
+ParamRange_setrole("formal");
+
+ParamRange_add("filterprofile");
+ParamRange_setvalues("0,1");
+ParamRange_setrole("formal");
+
+ParamRange_add("method");
+ParamRange_setvalues("0,1");
+ParamRange_setrole("diagnostic");
+
+ParamRange_add("samplerate");
+ParamRange_setvalues("1,2");
+ParamRange_setrole("diagnostic");

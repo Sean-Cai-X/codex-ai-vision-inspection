@@ -1,0 +1,29 @@
+Image m_image;
+FastMatch m_match;
+
+m_image.copyFromMat(global_matInput);
+
+int learn_x = global_roi_x0;
+int learn_y = global_roi_y0;
+int learn_w = global_roi_x1 - global_roi_x0;
+int learn_h = global_roi_y1 - global_roi_y0;
+
+int search_x = 0;
+int search_y = 0;
+int search_w = 640;
+int search_h = 480;
+
+int threshold = global_threshold;
+int linegap = global_linegap;
+double min_score = global_min_score;
+int find_num = global_find_num;
+
+m_match.setrectxywh(learn_x, learn_y, learn_w, learn_h);
+m_match.setthre(threshold);
+m_match.setlinegap(linegap);
+m_match.learn(&m_image);
+
+m_match.setmatchrectxywh(search_x, search_y, search_w, search_h);
+m_match.setminscore(min_score);
+m_match.setfindnum(find_num);
+m_match.match(&m_image);

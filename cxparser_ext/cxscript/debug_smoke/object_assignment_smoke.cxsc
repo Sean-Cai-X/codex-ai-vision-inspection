@@ -1,0 +1,2 @@
+SourceObject source;
+Class obj = source.method();

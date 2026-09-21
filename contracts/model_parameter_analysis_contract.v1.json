@@ -1,0 +1,123 @@
+{
+  "schema": "cxvision.model_parameter_analysis_contract.v1",
+  "purpose": "Provide auditable single-variable attribution for image-feature, training, calibration, routing, boundary-adapter, and clamp-policy experiments.",
+  "required_inputs": [
+    "parent_node_id",
+    "parent_checkpoint_hash",
+    "candidate_node_id",
+    "changed_family",
+    "parameter_delta",
+    "dataset_manifest_ref",
+    "source_split_summary",
+    "inference_parameter_snapshot",
+    "evidence_root"
+  ],
+  "allowed_changed_families": [
+    "image_feature",
+    "training_optimizer",
+    "freeze_policy",
+    "calibration",
+    "route_policy",
+    "mask_to_boundary",
+    "clamp_policy"
+  ],
+  "single_variable_policy": {
+    "maximum_changed_families_per_candidate": 1,
+    "unchanged_fields_must_be_compared_to_parent": true,
+    "undeclared_delta_status": "PARAMETER_DELTA_UNDECLARED",
+    "multiple_family_delta_status": "MULTI_FAMILY_ATTRIBUTION_INVALID",
+    "preferred_first_branch_after_source_disjoint_gate": "calibration"
+  },
+  "image_feature_policy": {
+    "source_hash_required": true,
+    "generated_hash_required": true,
+    "seed_and_operation_order_required": true,
+    "geometry_transform_requires_target_transform": true,
+    "same_source_variant_role": "controlled_robustness_regression",
+    "same_source_variant_release_eligible": false,
+    "release_validation_requires_source_disjoint_originals": true
+  },
+  "comparison_stages": [
+    "raw_output",
+    "confidence_threshold",
+    "nms",
+    "coordinate_transform",
+    "canonical_boundary_adapter",
+    "precision_clamp"
+  ],
+  "required_stage_facts": {
+    "raw_output": [
+      "tensor_shape",
+      "value_min",
+      "value_max",
+      "raw_candidate_count"
+    ],
+    "confidence_threshold": [
+      "confidence_threshold",
+      "pre_threshold_count",
+      "post_threshold_count"
+    ],
+    "nms": [
+      "nms_iou_threshold",
+      "pre_nms_count",
+      "post_nms_count"
+    ],
+    "coordinate_transform": [
+      "original_width",
+      "original_height",
+      "inference_width",
+      "inference_height",
+      "scale_x",
+      "scale_y",
+      "pad_x",
+      "pad_y",
+      "letterbox_enabled"
+    ],
+    "canonical_boundary_adapter": [
+      "adapter_status",
+      "geometry_kind",
+      "topology",
+      "closure_gap_px"
+    ],
+    "precision_clamp": [
+      "clamp_status",
+      "clamp_consistency_score",
+      "geometry_parameter_delta",
+      "inverse_intervention_count"
+    ]
+  },
+  "required_outputs": [
+    "parameter_delta.json",
+    "unchanged_parameter_audit.json",
+    "stage_comparison.json",
+    "source_split_audit.json",
+    "failure_classification.json",
+    "promotion_gate_result.json"
+  ],
+  "status_values": [
+    "ANALYSIS_EXECUTION_COMPLETE",
+    "PARAMETER_DELTA_UNDECLARED",
+    "MULTI_FAMILY_ATTRIBUTION_INVALID",
+    "SOURCE_SPLIT_DECLARATION_REQUIRED",
+    "SOURCE_DISJOINT_VALIDATION_REQUIRED",
+    "PENDING_HUMAN_REVIEW",
+    "PROMOTION_BLOCKED",
+    "PROMOTION_ELIGIBLE"
+  ],
+  "promotion_invariants": [
+    "execution_success_is_not_quality_acceptance",
+    "same_source_augmentation_cannot_satisfy_source_disjoint_gate",
+    "all_required_stage_facts_are_present",
+    "clamp_consistency_is_the_primary_geometry_metric",
+    "human_review_is_accepted",
+    "promotion_is_explicit_and_reversible"
+  ],
+  "forbidden": [
+    "change_multiple_parameter_families_and_claim_single_variable_attribution",
+    "infer_parameters_from_case_or_display_name",
+    "use_map_as_the_primary_geometry_promotion_metric",
+    "silently_fill_missing_stage_facts",
+    "auto_accept_or_auto_promote",
+    "reuse_validation_sources_for_training"
+  ]
+}

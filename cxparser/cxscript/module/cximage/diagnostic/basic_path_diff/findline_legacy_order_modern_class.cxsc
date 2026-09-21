@@ -1,0 +1,33 @@
+Image m_image;
+FindLine m_line;
+
+m_image.copyFromMat(global_matInput);
+
+m_line.setmaxelapsedms(global_max_elapsed_ms);
+m_line.setmaxscanlines(global_max_scan_lines);
+m_line.setmaxsamples(global_max_samples);
+
+int x0 = global_roi_x0;
+int y0 = global_roi_y0;
+int x1 = global_roi_x1;
+int y1 = global_roi_y1;
+
+int tool_half_width = global_tool_half_width;
+int wgap = global_wgap;
+int hgap = global_hgap;
+int linegap = global_linegap;
+int threshold = global_threshold;
+int method = global_method;
+int filterprofile = global_filterprofile;
+
+m_line.SetWHgap(wgap, hgap);
+m_line.setlinegap(linegap);
+m_line.setline(x0, y0, x1, y1, tool_half_width);
+m_line.setmethod(method);
+m_line.setthre(threshold);
+m_line.setfilterprofile(filterprofile);
+
+m_line.measure(&m_image);
+m_line.fitline();
+
+global_line_ref = m_line.get_result();

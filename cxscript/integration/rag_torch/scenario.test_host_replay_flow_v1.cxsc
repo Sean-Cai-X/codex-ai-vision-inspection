@@ -1,0 +1,12 @@
+TorchTestHost task;
+
+input_case="test_host_replay";
+prepare_ok=1;
+
+task.run_core();
+action_ok=1;
+
+score=1;
+check_ok=score>0;
+
+report_text="rag_torch replay flow complete";

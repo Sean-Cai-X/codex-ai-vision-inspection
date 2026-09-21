@@ -1,0 +1,40 @@
+{
+  "schema": "cxvision.geometry_reference_case.v1",
+  "asset_role": "controlled_geometry_reference_fixture",
+  "training_enabled": 0,
+  "binding_status": "REFERENCE_CASE_READY",
+  "image_width": 480,
+  "image_height": 360,
+  "generator": {
+    "method": "deterministic_closed_region_interface_v3",
+    "ai_generated": false,
+    "reproducible_from_geometry_facts": true
+  },
+  "truth_semantics": {
+    "independent_of_model": true,
+    "production_ground_truth": false,
+    "allowed_claim": "geometry_contract_and_pipeline_reference_only",
+    "forbidden_claims": [
+      "production_accuracy",
+      "model_quality",
+      "promotion_gate_pass"
+    ]
+  },
+  "review_item": "Controlled polygon closed-region case",
+  "case_track": "C1",
+  "geometry_type": "polygon",
+  "topology": "closed",
+  "boundary_scene_semantics": "closed_interface_between_inside_and_outside_regions",
+  "input_image": "01_boundary_scene_input_v3.bmp",
+  "typed_label": "02_visible_boundary_map_v3.bmp",
+  "typed_label_kind": "binary_mask",
+  "anchor_policy_ref": "../boundary_anchor_policy_v1.json",
+  "anchor_candidates_ref": "anchor_candidates.json",
+  "required_assets": [
+    "01_boundary_scene_input_v3.bmp",
+    "02_visible_boundary_map_v3.bmp",
+    "instances.json",
+    "anchor_candidates.json"
+  ],
+  "geometry_facts_ref": "instances.json"
+}

@@ -1,0 +1,18 @@
+EnsmallenTuning m_tuning;
+
+m_tuning.setdataset("dataset.deeppcb.phase1.ensmallen");
+m_tuning.setbucket("G0,G1,G2,G3,G4");
+
+m_tuning.setparam("threshold", 0.72);
+m_tuning.setparam("linegap", 6);
+m_tuning.setparam("fitmeasuregap", 80);
+m_tuning.setobjective("fit_residual_minimize");
+
+m_tuning.run();
+
+global_param_ref = m_tuning.param_ref();
+global_objective_ref = m_tuning.objective_ref();
+global_candidate_ref = m_tuning.candidate_ref();
+global_best_ref = m_tuning.best_ref();
+global_summary_ref = m_tuning.summary_ref();
+global_current_status = "PENDING";

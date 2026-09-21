@@ -1,0 +1,12 @@
+// Negative prompt smoke: the point deliberately lands inside the baseline
+// component.  The OpenCV smoke backend must reject that component and publish
+// no result boundary.  This verifies the negative-prompt control path; it is
+// not a semantic segmentation quality claim.
+global_segmentation_threshold_percent = 50;
+global_segmentation_mode = 2;
+global_segmentation_positive_enabled = 0;
+global_segmentation_positive_x = 0;
+global_segmentation_positive_y = 0;
+global_segmentation_negative_enabled = 1;
+global_segmentation_negative_x = 595;
+global_segmentation_negative_y = 136;

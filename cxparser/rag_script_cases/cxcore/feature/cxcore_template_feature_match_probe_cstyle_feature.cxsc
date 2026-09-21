@@ -1,0 +1,20 @@
+kind=module
+layer=feature
+module=cxcore
+case=template_feature_match_probe
+mode=build-run
+report=on
+use Image;
+use Roi;
+use MatchOutput;
+Image template_model_image;
+Image search_image;
+Roi roi_match;
+MatchOutput match_result;
+learn_template_model(template_model_image);
+match_template(search_image, roi_match);
+check(success == true);
+check(task_id == "cxcore.feature.template_feature_match_probe");
+check(scalar_result == 10321.000000);
+print(task_id);
+print(summary);

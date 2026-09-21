@@ -1,0 +1,3 @@
+CxcoreImage input_image;
+CxcoreMeasure measure;
+MeasureResult result = measure.run(input_image);

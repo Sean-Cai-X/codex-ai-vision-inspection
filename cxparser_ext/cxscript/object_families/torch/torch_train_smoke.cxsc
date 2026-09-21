@@ -1,0 +1,4 @@
+TorchDataset dataset;
+TorchTrainConfig config;
+TorchSession session;
+TorchTrainResult train_result = session.train(dataset, config);

@@ -1,0 +1,23 @@
+# ensmallen_layer reusable fragment
+kind=module
+layer=feature
+module=ensmallen_layer
+case=common_baseline_vs_best_compare
+mode=build-run
+route=default
+report=on
+
+# input
+baseline_result=required
+best_result=required
+
+# call
+call_1=CompareBaselineVsBest
+
+# expect
+expect_field_1=objective_delta_abs
+expect_field_2=objective_delta_ratio
+expect_field_3=pass_fail
+
+# checkpoint
+check_1=compare_summary_defined

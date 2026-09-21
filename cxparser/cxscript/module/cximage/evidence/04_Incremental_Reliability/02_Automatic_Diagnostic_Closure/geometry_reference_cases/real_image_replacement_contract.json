@@ -1,0 +1,79 @@
+{
+  "schema": "cxvision.real_geometry_image_replacement.v1",
+  "status": "PENDING_REAL_IMAGE_SET",
+  "training_enabled": 0,
+  "replacement_unit": "one asset directory per geometry type and use case",
+  "run_root_registry": "<RUN_ROOT>/_shared/evidence_case_roots.json",
+  "evidence_case_schema": "cxvision.evidence_case.v1",
+  "required_geometry_types": [
+    "circle",
+    "ellipse",
+    "rectangle",
+    "polygon",
+    "line",
+    "arc",
+    "open_curve"
+  ],
+  "minimum_images_per_geometry_type": {
+    "target": 1,
+    "rehearsal": 3,
+    "holdout": 2
+  },
+  "required_assets": [
+    "case_manifest.json",
+    "source image",
+    "ROI or full-image declaration",
+    "typed label or explicitly provisional label",
+    "geometry facts",
+    "tolerance policy",
+    "source provenance and hashes"
+  ],
+  "required_tags": [
+    "geometry_type",
+    "application_role",
+    "lighting",
+    "contrast",
+    "blur",
+    "occlusion",
+    "background_complexity",
+    "split"
+  ],
+  "splits": ["target", "rehearsal", "holdout"],
+  "single_class_execution_order": [
+    "asset_preflight",
+    "typed_label_evaluation",
+    "non_model_baseline",
+    "candidate_generation",
+    "classical_verification_or_clamp",
+    "predictive_gate",
+    "evidence_export",
+    "human_review"
+  ],
+  "required_case_outputs": [
+    "result_summary.json",
+    "geometry_facts.json",
+    "evidence_overlay.png",
+    "source_hashes.json",
+    "review_decision.json"
+  ],
+  "allowed_automatic_conclusions": [
+    "DIRECT_MEASUREMENT",
+    "CLAMPED_MEASUREMENT",
+    "PREDICTIVE_HYPOTHESIS",
+    "UNDETERMINABLE"
+  ],
+  "measurement_allowed_for": ["DIRECT_MEASUREMENT", "CLAMPED_MEASUREMENT"],
+  "human_review_required_for": ["PREDICTIVE_HYPOTHESIS", "UNDETERMINABLE"],
+  "replacement_rules": [
+    "preserve controlled fixtures as T0 regression assets",
+    "add real assets as T1 single-class validation assets",
+    "change manifests and directories without adding C++ case-name branches",
+    "never train on holdout",
+    "retain previous evidence and create a new RUN_ID",
+    "register the case category root and recursively discover case_manifest.json below it",
+    "derive GUI display text from review_item, display_name, or the relative case folder path",
+    "keep run_id, internal_case_id, and normalized case path as separate deduplication facts",
+    "do not create a case directory until every mandatory asset exists",
+    "do not promote a real-image result until the holdout split has been reviewed"
+  ]
+}

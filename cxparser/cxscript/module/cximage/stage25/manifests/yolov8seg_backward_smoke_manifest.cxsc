@@ -1,0 +1,29 @@
+Stage25Manifest m;
+
+m.reset();
+
+m.setname("yolov8seg_backward_smoke");
+m.setoutroot("D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/cxscript_runs/yolov8seg_backward_smoke");
+m.setimageroot("D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/evidence_images");
+
+m.addimage(
+    "torch_deeppcb_g1_00041000_input",
+    "L1_fixed_train_smoke",
+    "D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/evidence_images/torch_deeppcb_g1_00041000_input.jpg");
+
+m.image_addtag("torch");
+m.image_addtag("yolov8seg");
+m.image_addtag("fixed_training_smoke");
+m.image_setexpectededge("not_claimed");
+m.image_setlighting("fixed_case");
+m.image_setcontrast("fixed_case");
+
+m.image_addfindlinetarget(
+    "deeppcb_full_image_training_anchor",
+    "1", "1",
+    "639", "639",
+    "8", "32");
+
+m.image_lasttarget_setorientation("instance_segmentation_training_smoke");
+m.image_lasttarget_settargetlevel("L1_fixed_train_smoke");
+m.image_lasttarget_settargetrole("fixed_case_anchor");

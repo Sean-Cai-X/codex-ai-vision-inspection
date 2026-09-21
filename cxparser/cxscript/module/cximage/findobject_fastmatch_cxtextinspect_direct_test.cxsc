@@ -1,0 +1,125 @@
+Image m_image;
+FindObject m_template_object;
+FindObject m_search_objects;
+FindObject m_ocr_objects;
+FastMatch m_match;
+CxTextInspect m_ocr;
+
+m_image.copyFromMat(global_matInput);
+
+int learn_x = global_learn_roi_x;
+int learn_y = global_learn_roi_y;
+int learn_w = global_learn_roi_w;
+int learn_h = global_learn_roi_h;
+int search_x = global_search_roi_x;
+int search_y = global_search_roi_y;
+int search_w = global_search_roi_w;
+int search_h = global_search_roi_h;
+
+m_template_object.setrect(learn_h, learn_w, learn_y, learn_x);
+m_template_object.setsearchtype(global_method);
+m_template_object.setdistance(global_gap);
+m_template_object.setbrow(global_object_foreground_mode);
+m_template_object.setroithre(global_object_threshold);
+m_template_object.setgeometrycalibration(
+    global_object_pixel_size_x_milli / 1000.0,
+    global_object_pixel_size_y_milli / 1000.0);
+m_template_object.setgeometryconnectivity(
+    global_object_geometry_connectivity);
+m_template_object.setminmax(global_object_min_area, 999999);
+m_template_object.setminmaxwh(0, 99999, 0, 99999);
+m_template_object.measurecc(m_image);
+
+m_search_objects.setrect(search_h, search_w, search_y, search_x);
+m_search_objects.setsearchtype(global_method);
+m_search_objects.setdistance(global_gap);
+m_search_objects.setbrow(global_object_foreground_mode);
+m_search_objects.setroithre(global_object_threshold);
+m_search_objects.setgeometrycalibration(
+    global_object_pixel_size_x_milli / 1000.0,
+    global_object_pixel_size_y_milli / 1000.0);
+m_search_objects.setgeometryconnectivity(
+    global_object_geometry_connectivity);
+m_search_objects.setminmax(global_object_min_area, 999999);
+m_search_objects.setminmaxwh(0, 99999, 0, 99999);
+m_search_objects.measurecc(m_image);
+
+m_ocr_objects.setrect(search_h, search_w, search_y, search_x);
+m_ocr_objects.setsearchtype(global_method);
+m_ocr_objects.setdistance(global_ocr_component_distance);
+m_ocr_objects.setbrow(global_ocr_foreground_mode);
+m_ocr_objects.setroithre(global_ocr_threshold);
+m_ocr_objects.setgeometrycalibration(
+    global_object_pixel_size_x_milli / 1000.0,
+    global_object_pixel_size_y_milli / 1000.0);
+m_ocr_objects.setgeometryconnectivity(
+    global_object_geometry_connectivity);
+m_ocr_objects.setminmax(global_ocr_min_area, 999999);
+m_ocr_objects.setminmaxwh(0, 99999, 0, 99999);
+m_ocr_objects.measurecc(m_image);
+
+m_match.setgeometrysourceindex(global_fastmatch_geometry_source_index);
+m_match.setgeometryweightpercent(global_fastmatch_geometry_weight_percent);
+m_match.setmaxposecandidates(global_fastmatch_max_pose_candidates);
+m_match.settemplategeometryfromobject(m_template_object);
+m_match.cleargeometrycandidates();
+m_match.addgeometrycandidatesfromobject(m_search_objects);
+
+m_match.setrectxywh(learn_x, learn_y, learn_w, learn_h);
+m_match.setmatchrectxywh(search_x, search_y, search_w, search_h);
+m_match.setobjfilter(global_objfilter);
+m_match.setwhgap(global_wgap, global_hgap);
+m_match.setthre(global_threshold);
+m_match.setlinegap(global_linegap);
+m_match.setcompgap(global_compare_gap);
+m_match.setminscore(global_min_score);
+m_match.setfindnum(global_find_num);
+m_match.matchstepgap(global_match_step_x, global_match_step_y);
+m_match.setmatchthre(global_match_thre);
+m_match.learn(m_image);
+m_match.modelzero();
+m_match.pattern2org();
+m_match.samplemodel(100);
+m_match.match(m_image);
+
+m_ocr.setrect(search_h, search_w, search_y, search_x);
+m_ocr.setsplitimage(global_ocr_threshold, 0, 0, 0, 0);
+m_ocr.setsplitobject(global_ocr_component_distance, global_method,
+                     global_ocr_foreground_mode, global_ocr_min_area, 0);
+m_ocr.setsplitobjectbg(0, 0);
+m_ocr.setlayoutdirection(global_ocr_layout_direction);
+m_ocr.setlineoverlappercent(global_ocr_line_overlap_percent);
+m_ocr.setocrthre(global_ocr_match_threshold);
+m_ocr.setb2w(global_ocr_foreground_mode);
+m_ocr.setminscore(global_ocr_min_score_percent / 100.0);
+
+if (global_ocr_glyph_source == 2)
+{
+    m_ocr.setglyphcandidatesfromobject(m_ocr_objects);
+}
+if (global_ocr_glyph_source == 1)
+{
+    if (m_match.getposecandidatecount() > 0)
+    {
+        m_ocr.setglyphcandidatesfromfastmatch(m_match);
+    }
+}
+if (global_ocr_glyph_source == 0)
+{
+    if (m_match.getposecandidatecount() > 0)
+    {
+        m_ocr.setglyphcandidatesfromfastmatch(m_match);
+    }
+    if (m_match.getposecandidatecount() <= 0)
+    {
+        m_ocr.setglyphcandidatesfromobject(m_ocr_objects);
+    }
+}
+m_ocr.areasocr(m_image);
+
+global_model_point_count = m_match.getmodelpointcount();
+global_match_count = m_match.getresultcandidatecount();
+global_candidate_count = m_ocr.getglyphcandidatecount();
+global_rendered_result_count = m_ocr.getglyphcandidatecount();
+global_valid_points_count = m_ocr_objects.getdebugacceptedcount();
+global_best_score = m_match.getresultbestscore();

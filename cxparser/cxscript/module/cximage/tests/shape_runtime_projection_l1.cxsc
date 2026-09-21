@@ -1,0 +1,27 @@
+CxShapeTest_reset(0);
+
+CxShapeTest_addcase("findline_publish_roi_scan_points_fitline");
+CxShapeTest_settool("findline_gauge");
+CxShapeTest_setoperation("runtime_publish");
+CxShapeTest_setfrom(175, 150);
+CxShapeTest_setexpected("point_visible");
+
+CxShapeTest_addcase("findcircle_publish_roi_scan_points_fitcircle");
+CxShapeTest_settool("findcircle_gauge");
+CxShapeTest_setoperation("runtime_publish");
+CxShapeTest_setfrom(200, 180);
+CxShapeTest_setexpected("point_visible");
+
+CxShapeTest_addcase("findellipse_publish_roi_result");
+CxShapeTest_settool("findellipse_gauge");
+CxShapeTest_setoperation("runtime_publish");
+CxShapeTest_setfrom(200, 180);
+CxShapeTest_setexpected("point_visible");
+
+CxShapeTest_addcase("findrect_publish_roi_result");
+CxShapeTest_settool("findrect_gauge");
+CxShapeTest_setoperation("runtime_publish");
+CxShapeTest_setfrom(175, 150);
+CxShapeTest_setexpected("point_visible");
+
+1+1;

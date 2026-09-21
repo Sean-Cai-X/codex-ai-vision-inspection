@@ -1,0 +1,36 @@
+scenario {
+  CxcoreBridge core;
+  MlpackRoute mlpack;
+  double prepare_ok=0;
+  double action_ok=0;
+  double check_ok=0;
+  double schema_ready=0;
+  double feature_ready=0;
+  trace_id="trace.integration.core_mlpack.feature.001";
+  task_kind="geometry_matching";
+  descriptor_sample_id="classical_descriptor_sample_001";
+  route_policy="structured_geometry";
+  expected_route="route_to_mlpack";
+  expected_artifact_ref="mlpack_request_payload";
+  prepare_ok=1;
+
+  if (prepare_ok) {
+    core.load_descriptor_sample(descriptor_sample_id);
+    core.route_ai_boundary(task_kind,route_policy);
+    mlpack.build_request(core);
+    action_ok=1;
+  }
+
+  check {
+    schema_ready=mlpack.has_feature_schema();
+    feature_ready=mlpack.has_feature_vector();
+    check_ok=schema_ready&&feature_ready&&core.route_equals(expected_route);
+  }
+
+  report {
+    chain_status="core_mlpack_ready";
+    artifact_ref=expected_artifact_ref;
+    request_ref=mlpack.request_ref();
+    report_text="core_mlpack feature flow ready";
+  }
+}

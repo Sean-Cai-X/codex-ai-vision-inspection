@@ -1,0 +1,27 @@
+Image m_image;
+Image m_compare_image;
+MlpackFeature m_feature;
+MlpackFeature m_compare_feature;
+MlpackDataset m_dataset;
+MlpackDataset m_compare_dataset;
+MlpackScore m_score;
+
+m_image.copyFromMat(global_matInput);
+m_compare_image.copyFromMat(global_compare_matInput);
+
+int feature_width = 64;
+int feature_height = 64;
+int feature_channel = 1;
+int normalize_mode = 1;
+
+m_feature = mlpack.build_feature(&m_image, feature_width, feature_height, feature_channel);
+m_compare_feature = mlpack.build_feature(&m_compare_image, feature_width, feature_height, feature_channel);
+m_dataset = mlpack.build_dataset(m_feature);
+m_compare_dataset = mlpack.build_dataset(m_compare_feature);
+m_dataset.normalize(normalize_mode);
+m_compare_dataset.normalize(normalize_mode);
+
+m_score = mlpack.compare_features(m_dataset, m_compare_dataset);
+
+global_compare_ref = m_score.get_compare_ref();
+global_current_status = "PENDING";

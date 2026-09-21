@@ -1,0 +1,18 @@
+# cxscript integration sample
+kind=integration
+layer=scenario
+module=cxcore
+mode=build-run
+route=default
+report=on
+type ScenarioFrame
+use ScenarioFrame
+step scenario {
+breakpoint scenario_bp
+input image = "baseline.png"
+call image_analysis(image)
+}
+expect success == true
+expect degraded == false
+checkpoint "scenario_ok"
+emit task_id

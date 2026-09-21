@@ -1,0 +1,23 @@
+global_contract_pass = 0;
+global_contract_status = "findcircle_fail_unknown";
+global_contract_conclusion = "FindCircle failure classification not determined";
+
+if (global_valid_points_count < 3) {
+    global_contract_status = "findcircle_fail_insufficient_points";
+    global_contract_conclusion = "FindCircle failed because valid points < 3.";
+}
+
+if (global_has_fit_circle == 0) {
+    global_contract_status = "findcircle_fail_no_fit_circle";
+    global_contract_conclusion = "FindCircle failed because fit circle is unavailable.";
+}
+
+if (global_avgdist > 8.0) {
+    global_contract_status = "findcircle_fail_high_residual";
+    global_contract_conclusion = "FindCircle fit residual is too high.";
+}
+
+if (global_circle_radius <= 0) {
+    global_contract_status = "findcircle_fail_invalid_radius";
+    global_contract_conclusion = "FindCircle radius is invalid or non-positive.";
+}

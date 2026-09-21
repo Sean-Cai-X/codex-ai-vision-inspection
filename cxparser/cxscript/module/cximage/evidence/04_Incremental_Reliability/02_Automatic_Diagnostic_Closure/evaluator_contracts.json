@@ -1,0 +1,105 @@
+{
+  "schema": "cxvision.evaluator_contracts.v1",
+  "evaluators": [
+    {
+      "evaluator_id": "closed_mask_four_way_v1",
+      "supported_tracks": [
+        "C1_closed_regular_region",
+        "C2_closed_irregular_region"
+      ],
+      "metrics": [
+        "iou",
+        "dice",
+        "boundary_fscore",
+        "area_delta",
+        "closure",
+        "geometry_fit_error"
+      ],
+      "runtime_binding": "implemented"
+    },
+    {
+      "evaluator_id": "instance_mask_four_way_v1",
+      "supported_tracks": [
+        "C3_closed_multi_instance_region"
+      ],
+      "metrics": [
+        "matched_instance_iou",
+        "instance_count_delta",
+        "split_error",
+        "merge_error",
+        "mask_ap"
+      ],
+      "runtime_binding": "pending"
+    },
+    {
+      "evaluator_id": "open_boundary_four_way_v1",
+      "supported_tracks": [
+        "O2_open_complex_boundary"
+      ],
+      "metrics": [
+        "boundary_fscore",
+        "chamfer_distance",
+        "hausdorff_distance",
+        "endpoint_error",
+        "break_count",
+        "continuity_rate"
+      ],
+      "runtime_binding": "pending"
+    },
+    {
+      "evaluator_id": "fuzzy_region_four_way_v1",
+      "supported_tracks": [
+        "R2_fuzzy_region_learning"
+      ],
+      "metrics": [
+        "region_recall",
+        "false_positive_rate",
+        "soft_iou",
+        "confidence_calibration",
+        "hard_negative_stability"
+      ],
+      "runtime_binding": "pending"
+    },
+    {
+      "evaluator_id": "composite_stage_gate_v1",
+      "supported_tracks": [
+        "X1_composite_visual_pipeline"
+      ],
+      "metrics": [
+        "stage_contract_pass_rate",
+        "coordinate_transform_error",
+        "failure_stage",
+        "final_decision_consistency"
+      ],
+      "runtime_binding": "pending"
+    },
+    {
+      "evaluator_id": "open_regular_boundary_four_way_v1",
+      "supported_tracks": [
+        "O1_open_regular_boundary"
+      ],
+      "metrics": [
+        "boundary_fscore",
+        "line_fit_error",
+        "arc_fit_error",
+        "endpoint_error",
+        "measurement_point_error",
+        "confidence_calibration"
+      ],
+      "runtime_binding": "pending"
+    },
+    {
+      "evaluator_id": "roi_region_learning_four_way_v1",
+      "supported_tracks": [
+        "R1_roi_region_learning"
+      ],
+      "metrics": [
+        "region_class_accuracy",
+        "feature_distance",
+        "similarity_calibration",
+        "hard_negative_stability"
+      ],
+      "runtime_binding": "pending"
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+integration mlpack;
+layer scenario;
+case baseline_route_decision_min;
+
+input {
+  task = "classification";
+  feature_set = "all_v1";
+  primary_model = "RandomForest";
+  promotion_rule = "rf_threshold_gate";
+  stay_target = "mlpack";
+  escalate_target = "torch";
+}
+
+flow {
+  call mlpack.scenario.baseline_dual_model_compare_min;
+  action inspect_summary_metrics;
+  action decide_route;
+}
+
+check {
+  require module_case_passed("mlpack.scenario.baseline_dual_model_compare_min");
+  require decision_created;
+  require route_target_is_valid(stay_target, escalate_target);
+}
+
+output {
+  emit route_target;
+  emit decision_reason;
+  emit output_summary_csv = "artifacts/baseline/baseline_summary.csv";
+  emit decision_ok;
+}
+
+conclusion {
+  summary = "baseline_route_decision_ready";
+}

@@ -1,0 +1,70 @@
+Image m_image;
+FindCircle m_circle;
+
+m_image.copyFromMat(global_matInput);
+
+m_circle.setmaxelapsedms(global_max_elapsed_ms);
+m_circle.setmaxscanlines(global_max_scan_lines);
+m_circle.setmaxsamples(global_max_samples);
+
+int cx = global_circle_cx;
+int cy = global_circle_cy;
+int px = global_circle_px;
+int py = global_circle_py;
+
+int method = global_method;
+int threshold = global_threshold;
+int gap = global_gap;
+int linegap = global_linegap;
+int findsetting = global_findcircle_findsetting;
+int selected_edge = global_findcircle_selected_edge;
+int inner_radius = global_circle_inner_radius;
+int outer_radius = global_circle_outer_radius;
+int arc_enabled = global_findcircle_arc_enabled;
+int arc_start_deg = global_findcircle_arc_start_deg;
+int arc_end_deg = global_findcircle_arc_end_deg;
+int point_consistency_enabled = global_findcircle_point_consistency_enabled;
+int point_consistency_range = global_findcircle_point_consistency_range;
+int ring_width = 0;
+
+ring_width = outer_radius - inner_radius;
+if (inner_radius <= 0) {
+    ring_width = 0;
+}
+if (outer_radius <= inner_radius) {
+    ring_width = 0;
+}
+
+if (ring_width > 0) {
+    m_circle.setannulus(cx, cy, inner_radius, outer_radius);
+}
+if (ring_width == 0) {
+    m_circle.setcircle(cx, cy, px, py);
+}
+m_circle.setscanarc(arc_start_deg, arc_end_deg, arc_enabled);
+m_circle.Setgap(gap);
+m_circle.setlinegap(linegap);
+m_circle.setthre(threshold);
+m_circle.setmethod(method);
+m_circle.setfindsetting(findsetting);
+m_circle.setselectedgenum(selected_edge);
+
+// Param_int_2 dispatches the stored arguments in reverse order.
+m_circle.setpointconsistency(point_consistency_range, point_consistency_enabled);
+
+m_circle.measure(&m_image);
+m_circle.fitcircle();
+
+global_selected_method = method;
+global_selected_threshold = threshold;
+global_selected_linegap = linegap;
+global_findcircle_selected_gap = gap;
+global_valid_points_count = m_circle.getvalidpointcount();
+global_has_fit_circle = m_circle.hasfitresult();
+global_circle_radius = m_circle.getradius();
+global_avgdist = m_circle.getavgdist();
+global_circle_effective_annulus = m_circle.hasannulus();
+global_circle_effective_inner_radius = m_circle.getannulusinner();
+global_circle_effective_outer_radius = m_circle.getannulusouter();
+global_circle_effective_ring_width = m_circle.getannuluswidth();
+global_circle_ref = m_circle.get_result();

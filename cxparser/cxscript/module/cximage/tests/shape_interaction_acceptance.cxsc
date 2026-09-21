@@ -1,0 +1,129 @@
+CxShapeTest_reset(0);
+
+CxShapeTest_addcase("point_create");
+CxShapeTest_settool("point_pick");
+CxShapeTest_setoperation("create");
+CxShapeTest_setexpected("point_visible");
+
+CxShapeTest_addcase("point_drag");
+CxShapeTest_settool("point_pick");
+CxShapeTest_setoperation("drag_handle");
+CxShapeTest_sethandle("Vertex");
+CxShapeTest_setfrom(100, 100);
+CxShapeTest_setto(130, 145);
+CxShapeTest_setexpected("target_moved_only");
+
+CxShapeTest_addcase("line_drag_start");
+CxShapeTest_settool("scan_line");
+CxShapeTest_setoperation("drag_handle");
+CxShapeTest_sethandle("Start");
+CxShapeTest_setfrom(100, 100);
+CxShapeTest_setto(130, 120);
+CxShapeTest_setexpected("start_moved_end_unchanged");
+
+CxShapeTest_addcase("line_drag_end");
+CxShapeTest_settool("scan_line");
+CxShapeTest_setoperation("drag_handle");
+CxShapeTest_sethandle("End");
+CxShapeTest_setfrom(200, 150);
+CxShapeTest_setto(240, 180);
+CxShapeTest_setexpected("end_moved_start_unchanged");
+
+CxShapeTest_addcase("line_drag_center");
+CxShapeTest_settool("scan_line");
+CxShapeTest_setoperation("drag_handle");
+CxShapeTest_sethandle("Center");
+CxShapeTest_setfrom(150, 125);
+CxShapeTest_setto(190, 160);
+CxShapeTest_setexpected("translate_only");
+
+CxShapeTest_addcase("rect_drag_corner0");
+CxShapeTest_settool("roi_rect");
+CxShapeTest_setoperation("drag_handle");
+CxShapeTest_sethandle("Corner0");
+CxShapeTest_setfrom(100, 100);
+CxShapeTest_setto(120, 120);
+CxShapeTest_setexpected("corner0_moved_others_unchanged");
+
+CxShapeTest_addcase("rect_drag_center");
+CxShapeTest_settool("roi_rect");
+CxShapeTest_setoperation("drag_handle");
+CxShapeTest_sethandle("Center");
+CxShapeTest_setfrom(150, 150);
+CxShapeTest_setto(190, 180);
+CxShapeTest_setexpected("translate_only");
+
+CxShapeTest_addcase("circle_drag_center");
+CxShapeTest_settool("circle_roi");
+CxShapeTest_setoperation("drag_handle");
+CxShapeTest_sethandle("Center");
+CxShapeTest_setfrom(200, 200);
+CxShapeTest_setto(240, 230);
+CxShapeTest_setexpected("translate_only");
+
+CxShapeTest_addcase("circle_drag_radius");
+CxShapeTest_settool("circle_roi");
+CxShapeTest_setoperation("drag_handle");
+CxShapeTest_sethandle("Radius");
+CxShapeTest_setfrom(250, 200);
+CxShapeTest_setto(280, 200);
+CxShapeTest_setexpected("outer_radius_only");
+
+CxShapeTest_addcase("polyline_drag_vertex0");
+CxShapeTest_settool("boundary_polyline");
+CxShapeTest_setoperation("drag_handle");
+CxShapeTest_sethandle("Vertex");
+CxShapeTest_setvertex(0);
+CxShapeTest_setfrom(100, 100);
+CxShapeTest_setto(120, 130);
+CxShapeTest_setexpected("vertex0_moved_others_unchanged");
+
+CxShapeTest_addcase("polyline_drag_center");
+CxShapeTest_settool("boundary_polyline");
+CxShapeTest_setoperation("drag_handle");
+CxShapeTest_sethandle("Center");
+CxShapeTest_setfrom(150, 145);
+CxShapeTest_setto(180, 175);
+CxShapeTest_setexpected("translate_only");
+
+CxShapeTest_addcase("findline_drag_center");
+CxShapeTest_settool("findline_gauge");
+CxShapeTest_setoperation("drag_handle");
+CxShapeTest_sethandle("Center");
+CxShapeTest_setfrom(200, 200);
+CxShapeTest_setto(240, 230);
+CxShapeTest_setexpected("translate_only");
+
+CxShapeTest_addcase("findline_drag_width_positive");
+CxShapeTest_settool("findline_gauge");
+CxShapeTest_setoperation("drag_handle");
+CxShapeTest_sethandle("WidthPositive");
+CxShapeTest_setfrom(190, 217);
+CxShapeTest_setto(180, 230);
+CxShapeTest_setexpected("half_width_increased");
+
+CxShapeTest_addcase("findline_drag_width_negative");
+CxShapeTest_settool("findline_gauge");
+CxShapeTest_setoperation("drag_handle");
+CxShapeTest_sethandle("WidthNegative");
+CxShapeTest_setfrom(210, 183);
+CxShapeTest_setto(210, 193);
+CxShapeTest_setexpected("half_width_decreased");
+
+CxShapeTest_addcase("findcircle_drag_center");
+CxShapeTest_settool("findcircle_gauge");
+CxShapeTest_setoperation("drag_handle");
+CxShapeTest_sethandle("Center");
+CxShapeTest_setfrom(300, 250);
+CxShapeTest_setto(340, 280);
+CxShapeTest_setexpected("translate_only");
+
+CxShapeTest_addcase("findcircle_drag_radius");
+CxShapeTest_settool("findcircle_gauge");
+CxShapeTest_setoperation("drag_handle");
+CxShapeTest_sethandle("Radius");
+CxShapeTest_setfrom(350, 250);
+CxShapeTest_setto(380, 250);
+CxShapeTest_setexpected("outer_radius_only");
+
+1+1;

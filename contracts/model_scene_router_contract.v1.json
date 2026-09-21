@@ -1,0 +1,63 @@
+{
+  "schema": "cxvision.model_scene_router_contract.v1",
+  "purpose": "asset-driven routing from generic image and boundary facts to a compatible model branch",
+  "case_name_dispatch_allowed": false,
+  "automatic_promotion_allowed": false,
+  "required_route_manifest_fields": [
+    "schema",
+    "route_policy_id",
+    "feature_schema_ref",
+    "rules",
+    "fallbacks",
+    "minimum_route_confidence",
+    "ambiguity_policy",
+    "branch_manifest_refs"
+  ],
+  "required_input_facts": [
+    "source_image_hash",
+    "roi_ref",
+    "component_count",
+    "closure_gap",
+    "closure_confidence",
+    "linearity",
+    "curvature_mean",
+    "curvature_std",
+    "curvature_sign_change_count",
+    "circle_fit_residual",
+    "ellipse_fit_residual",
+    "corner_count",
+    "convexity",
+    "solidity",
+    "aspect_ratio",
+    "boundary_length",
+    "area"
+  ],
+  "required_output_fields": [
+    "route_id",
+    "topology",
+    "primary_geometry_kind",
+    "candidate_geometry_kinds",
+    "selected_branch_id",
+    "route_confidence",
+    "fallback_branch_id",
+    "decision_facts",
+    "route_status",
+    "route_policy_ref"
+  ],
+  "route_statuses": [
+    "ROUTE_SELECTED",
+    "ROUTE_AMBIGUOUS",
+    "ROUTE_FALLBACK_SELECTED",
+    "ROUTE_NO_COMPATIBLE_BRANCH",
+    "ROUTE_ASSET_MISSING",
+    "ROUTE_POLICY_INVALID"
+  ],
+  "invariants": [
+    "rules_are_read_from_assets",
+    "branch_count_and_order_are_not_compiled_into_cpp",
+    "route_does_not_depend_on_case_id_or_display_name",
+    "ambiguous_input_remains_reviewable",
+    "selected_branch_capability_matches_geometry_kind",
+    "route_decision_is_replayable_from_recorded_facts"
+  ]
+}

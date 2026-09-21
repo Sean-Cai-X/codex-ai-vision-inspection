@@ -1,0 +1,1 @@
+CustomRecordType rec;rec.bump();rec.setname("alpha");

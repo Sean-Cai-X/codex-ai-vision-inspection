@@ -1,0 +1,44 @@
+Image m_image;
+FindRect m_rect;
+
+m_image.copyFromMat(global_matInput);
+
+int x0 = global_roi_x0;
+int y0 = global_roi_y0;
+int x1 = global_roi_x1;
+int y1 = global_roi_y1;
+
+int width = x1 - x0;
+int height = y1 - y0;
+
+int threshold = global_threshold;
+int linegap = global_linegap;
+int method = global_method;
+int compare_gap = global_compare_gap;
+int filter_min = global_gap;
+int findsetting = global_findrect_findsetting;
+
+if (compare_gap <= 0)
+{
+    compare_gap = 2;
+}
+
+if (filter_min <= 0)
+{
+    filter_min = 16;
+}
+
+m_rect.setrect(height, width, y0, x0);
+m_rect.setthre(threshold);
+m_rect.setcompgap(compare_gap);
+m_rect.setlinegap(linegap);
+m_rect.setmethod(method);
+m_rect.setgauge(0);
+m_rect.setfindsetting(findsetting);
+m_rect.setfilter(21, filter_min, 1000000);
+m_rect.setminmaxarea(16, 1000000);
+m_rect.setminmaxwh(1000000, 3, 1000000, 3);
+m_rect.setpolygonepsilon(0.04);
+m_rect.setfillratio(0.5);
+
+m_rect.measure(&m_image);

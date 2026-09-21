@@ -1,0 +1,59 @@
+CxShapeTest_reset(0);
+
+CxShapeTest_addcase("fastmatch_select_learn_roi");
+CxShapeTest_settool("FastMatch");
+CxShapeTest_setoperation("gui_pointer_select_existing");
+CxShapeTest_setimage("D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/01.jpg");
+CxShapeTest_setpointersequence("click");
+CxShapeTest_setfrom(150, 100);
+CxShapeTest_setexpectedphase("select_existing");
+CxShapeTest_setexpectedstatus("selected");
+
+CxShapeTest_addcase("fastmatch_drag_learn_roi_center_gui");
+CxShapeTest_settool("FastMatch");
+CxShapeTest_setoperation("gui_pointer_drag_existing");
+CxShapeTest_setimage("D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/01.jpg");
+CxShapeTest_setpointersequence("drag_release");
+CxShapeTest_setfrom(150, 100);
+CxShapeTest_setto(200, 150);
+CxShapeTest_setexpectedphase("drag_existing");
+CxShapeTest_setexpectedstatus("committed");
+
+CxShapeTest_addcase("fastmatch_drag_learn_roi_corner_gui");
+CxShapeTest_settool("FastMatch");
+CxShapeTest_setoperation("gui_pointer_drag_existing");
+CxShapeTest_setimage("D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/01.jpg");
+CxShapeTest_setpointersequence("drag_release");
+CxShapeTest_setfrom(180, 120);
+CxShapeTest_setto(220, 160);
+CxShapeTest_setexpectedphase("drag_existing");
+CxShapeTest_setexpectedstatus("committed");
+
+CxShapeTest_addcase("fastmatch_select_search_roi");
+CxShapeTest_settool("FastMatch");
+CxShapeTest_setoperation("gui_pointer_select_existing");
+CxShapeTest_setimage("D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/01.jpg");
+CxShapeTest_setpointersequence("click");
+CxShapeTest_setfrom(100, 100);
+CxShapeTest_setexpectedphase("select_existing");
+CxShapeTest_setexpectedstatus("selected");
+
+CxShapeTest_addcase("fastmatch_drag_search_roi_gui");
+CxShapeTest_settool("FastMatch");
+CxShapeTest_setoperation("gui_pointer_drag_existing");
+CxShapeTest_setimage("D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/01.jpg");
+CxShapeTest_setpointersequence("drag_release");
+CxShapeTest_setfrom(100, 100);
+CxShapeTest_setto(150, 150);
+CxShapeTest_setexpectedphase("drag_existing");
+CxShapeTest_setexpectedstatus("committed");
+
+CxShapeTest_addcase("fastmatch_release_outside_image");
+CxShapeTest_settool("FastMatch");
+CxShapeTest_setoperation("gui_pointer_drag_existing");
+CxShapeTest_setimage("D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/01.jpg");
+CxShapeTest_setpointersequence("drag_release");
+CxShapeTest_setfrom(150, 100);
+CxShapeTest_setto(500, 500);
+CxShapeTest_setexpectedphase("drag_existing");
+CxShapeTest_setexpectedstatus("committed");

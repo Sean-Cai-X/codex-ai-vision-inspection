@@ -1,0 +1,28 @@
+Image m_image;
+FindLine m_line;
+
+m_image.copyFromMat(global_matInput);
+
+int row_start = 100;
+int col_start = 200;
+int row_end = 1100;
+int col_end = 200;
+int method = 2;
+int threshold = 15;
+int linegap = 8;
+int filter_profile = 2;
+
+m_line.setrowstart(row_start);
+m_line.setcolstart(col_start);
+m_line.setrowend(row_end);
+m_line.setcolend(col_end);
+m_line.setmethod(method);
+m_line.setthre(threshold);
+m_line.setlinegap(linegap);
+m_line.setfilterprofile(filter_profile);
+
+m_line.measure(&m_image);
+m_line.fitline();
+
+global_line_ref = m_line.get_result();
+global_current_status = "diagnostic_executed";

@@ -1,0 +1,20 @@
+# cxscript integration sample
+kind=integration
+layer=infer
+module=torch
+mode=build-run
+route=realtime
+report=on
+type VideoFrame
+use VideoFrame
+step infer {
+breakpoint infer_bp
+input frame = "frame.jpg"
+call infer_min(frame)
+}
+expect success == true
+expect degraded == false
+expect scalar_result >= 0.7
+checkpoint "infer_ok"
+emit error_message
+emit summary

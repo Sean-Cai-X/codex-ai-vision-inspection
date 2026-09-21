@@ -1,0 +1,18 @@
+FastMatchDiagnostic fm;
+
+fm.setpolicy("readiness_only");
+fm.setsource("FindLine");
+fm.setlevel("L3_complex_boundary");
+fm.setprofile("stage25_filter20");
+
+fm.set_l1_l3_coverage_ok(1);
+fm.set_parameter_policy_valid(1);
+fm.set_product_default_changed(0);
+fm.set_original_measure_available(1);
+fm.set_local_evidence_confirmed(1);
+fm.set_component_warning(1);
+
+fm.run();
+
+global_fastmatch_ref = fm.result_ref();
+global_current_status = "PENDING";

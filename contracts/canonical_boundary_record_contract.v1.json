@@ -1,0 +1,79 @@
+{
+  "schema": "cxvision.canonical_boundary_record_contract.v1",
+  "purpose": "stable value-semantic handoff from model mask output to the precision geometry chain",
+  "parser_object_references_allowed": false,
+  "fallback_to_another_case_allowed": false,
+  "required_fields": [
+    "schema",
+    "record_id",
+    "source_image_hash",
+    "model_node_id",
+    "branch_id",
+    "route_id",
+    "geometry_kind",
+    "topology",
+    "component_id",
+    "mask_ref",
+    "threshold_policy_ref",
+    "instance_confidence",
+    "contour_points",
+    "bounds",
+    "centroid",
+    "area",
+    "perimeter",
+    "closure_gap",
+    "adapter_id",
+    "clamp_policy_ref",
+    "status",
+    "evidence_refs"
+  ],
+  "topology_values": [
+    "open",
+    "closed",
+    "uncertain"
+  ],
+  "geometry_kind_values": [
+    "straight_line",
+    "circular_arc",
+    "free_curve",
+    "polyline",
+    "generic_open_boundary",
+    "circle",
+    "ellipse",
+    "quadrilateral",
+    "polygon",
+    "generic_closed_contour",
+    "unknown"
+  ],
+  "adapter_order": [
+    "validate_mask_asset",
+    "verify_source_image_hash",
+    "verify_image_dimensions",
+    "apply_threshold_policy",
+    "extract_connected_components",
+    "filter_components_by_policy",
+    "extract_ordered_contours",
+    "classify_topology",
+    "compute_geometry_facts",
+    "write_canonical_record"
+  ],
+  "statuses": [
+    "CANONICAL_RECORD_PASS",
+    "MASK_ASSET_MISSING",
+    "MASK_DIMENSION_MISMATCH",
+    "SOURCE_IMAGE_HASH_MISMATCH",
+    "NO_VALID_COMPONENT",
+    "MULTIPLE_COMPONENT_REVIEW_REQUIRED",
+    "BOUNDARY_EXTRACTION_FAIL",
+    "TOPOLOGY_AMBIGUOUS",
+    "ASSET_REFERENCE_OUTSIDE_RUN_ROOT"
+  ],
+  "invariants": [
+    "contour_points_are_image_coordinates",
+    "mask_and_source_image_dimensions_match",
+    "every_asset_reference_is_inside_run_root",
+    "record_identity_is_independent_of_display_name",
+    "uncertain_topology_is_not_forced_to_open_or_closed",
+    "geometry_kind_is_derived_from_route_facts_not_case_name"
+  ]
+}

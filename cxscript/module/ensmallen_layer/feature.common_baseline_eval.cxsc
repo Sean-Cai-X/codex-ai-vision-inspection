@@ -1,0 +1,24 @@
+# ensmallen_layer reusable fragment
+kind=module
+layer=feature
+module=ensmallen_layer
+case=common_baseline_eval
+mode=build-run
+route=default
+report=on
+
+# input
+sample_id=required
+default_params=required
+objective_config=required
+
+# call
+call_1=RunBaselineMeasurement
+call_2=RunObjectiveEval
+
+# expect
+expect_field_1=baseline_objective
+expect_field_2=baseline_metrics
+
+# checkpoint
+check_1=baseline_objective_defined

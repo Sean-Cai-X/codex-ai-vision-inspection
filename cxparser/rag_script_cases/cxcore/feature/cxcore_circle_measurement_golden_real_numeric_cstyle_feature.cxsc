@@ -1,0 +1,34 @@
+kind=module
+layer=feature
+module=cxcore
+case=circle_measurement_golden
+mode=build-run
+report=on
+use Image;
+use Roi;
+use CircleMeasurementOutput;
+Image source_image;
+Roi roi_circle;
+CircleMeasurementOutput circle_result;
+measure_circle(source_image, roi_circle);
+compile("sampling");
+check(readresult("sampling.status") == "compiled");
+check(readresult("sampling.circle_sample_points") >= 0.000000);
+compile("filter");
+check(readresult("filter.status") == "compiled");
+check(success == true);
+check(bridge_enabled == true);
+check(result_object == "CircleMeasurementOutput");
+check(input_sample == "synthetic.circle.primary;roi=(18,16,36,36);stable_arc");
+check(metrics == "center_x,center_y,radius,avg_distance,sample_points");
+check(circle_sample_points_value > 0.000000);
+check(circle_center_x_value > 0.000000);
+check(circle_center_y_value > 0.000000);
+check(circle_radius_value > 0.000000);
+check(circle_avg_distance_value >= 0.000000);
+check(circle_used_fallback_value == 0.000000);
+check(readresult("output.failure_mode") == "none");
+check(runtime_ms >= 0.000000);
+check(failure_mode == "none");
+print(task_id);
+print(summary);

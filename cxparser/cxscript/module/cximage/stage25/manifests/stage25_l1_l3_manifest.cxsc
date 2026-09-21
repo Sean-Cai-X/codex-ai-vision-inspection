@@ -1,0 +1,245 @@
+Stage25Manifest m;
+
+m.reset();
+
+m.setname("stage25_l1_l3");
+m.setoutroot("D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/cxscript_runs/stage_2_5_l1_l3_v3");
+m.setimageroot("D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/test_images");
+
+m.setminimagesforstability(3);
+m.setminlevelsforstability(2);
+
+m.addimage(
+    "line_high_contrast_001",
+    "L1_high_contrast",
+    "D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/test_images/L1_high_contrast/line_high_contrast_001.jpg");
+
+m.image_addtag("line");
+m.image_addtag("high_contrast");
+m.image_addtag("clear_edge");
+m.image_setexpectededge("clear");
+m.image_setlighting("normal");
+m.image_setcontrast("high");
+
+m.image_addfindlinetarget(
+    "plate_top_edge",
+    "82", "183",
+    "1210", "183",
+    "8", "32");
+
+m.addimage(
+    "circle_high_contrast_001",
+    "L1_high_contrast",
+    "D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/test_images/L1_high_contrast/circle_high_contrast_001.jpg");
+
+m.image_addtag("circle");
+m.image_addtag("high_contrast");
+m.image_addtag("clear_edge");
+
+m.image_addfindcircletarget(
+    "isolated_plate_circle",
+    "498", "704",
+    "563", "704",
+    "5",
+    "3");
+
+m.addimage(
+    "line_low_contrast_001",
+    "L2_low_contrast_illumination",
+    "D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/test_images/L2_low_contrast_illumination/line_low_contrast_001.jpg");
+
+m.image_addtag("line");
+m.image_addtag("low_contrast");
+m.image_addtag("ambient_illumination");
+m.image_setexpectededge("weak_but_visible");
+m.image_setlighting("ambient");
+m.image_setcontrast("low");
+
+m.image_addfindlinetarget(
+    "weak_vertical_scratch",
+    "181", "20",
+    "244", "407",
+    "8", "24");
+
+m.addimage(
+    "circle_low_contrast_001",
+    "L2_low_contrast_illumination",
+    "D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/test_images/L2_low_contrast_illumination/circle_low_contrast_001.jpg");
+
+m.image_addtag("circle");
+m.image_addtag("low_contrast");
+m.image_addtag("ambient_illumination");
+
+m.image_addfindcircletarget(
+    "cap_outer_boundary",
+    "635", "516",
+    "932", "516",
+    "6",
+    "3");
+
+m.addimage(
+    "line_complex_boundary_001",
+    "L3_complex_boundary",
+    "D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/test_images/L3_complex_boundary/line_complex_boundary_001.jpg");
+
+m.image_addtag("line");
+m.image_addtag("complex_boundary");
+m.image_addtag("interference");
+m.image_setexpectededge("complex_nearby_edges");
+m.image_setlighting("complex");
+m.image_setcontrast("medium");
+
+m.image_addfindlinetarget(
+    "central_screw_shaft_edge",
+    "1440", "555",
+    "1625", "1300",
+    "10", "34");
+
+m.addimage(
+    "circle_complex_boundary_001",
+    "L3_complex_boundary",
+    "D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/test_images/L3_complex_boundary/circle_complex_boundary_001.jpg");
+
+m.image_addtag("circle");
+m.image_addtag("complex_boundary");
+m.image_addtag("interference");
+
+m.image_addfindcircletarget(
+    "brake_disk_inner_circle",
+    "704", "522",
+    "960", "522",
+    "6",
+    "3");
+
+m.addfindlineprofile("legacy_default");
+m.findline_setmethod(0);
+m.findline_setthreshold(20);
+m.findline_setlinegap(6);
+m.findline_setfitmode(1);
+m.findline_setscript_scale(1);
+m.findline_setfilterprofile(0);
+m.findline_setpolicy("LEGACY_COMPARE");
+m.findline_setparameterpolicyid("legacy_default");
+m.findline_setparameterrole("PRODUCT_LEGACY_DEFAULT");
+m.findline_setisproductdefault(1);
+m.findline_setisstage25default(0);
+
+m.addfindlineprofile("stage25_filter20");
+m.findline_setmethod(0);
+m.findline_setthreshold(20);
+m.findline_setlinegap(6);
+m.findline_setfitmode(1);
+m.findline_setscript_scale(1);
+m.findline_setfilterprofile(1);
+m.findline_setpolicy("FILTER_POLICY_CANDIDATE");
+m.findline_setparameterpolicyid("stage25_filter20");
+m.findline_setparameterrole("STAGE25_RECOMMENDED_TEMPLATE");
+m.findline_setisproductdefault(0);
+m.findline_setisstage25default(1);
+
+m.addfindlineprofile("threshold8");
+m.findline_setmethod(0);
+m.findline_setthreshold(8);
+m.findline_setlinegap(6);
+m.findline_setfitmode(1);
+m.findline_setscript_scale(1);
+m.findline_setfilterprofile(0);
+m.findline_setpolicy("LOW_CONTRAST_CANDIDATE");
+m.findline_setparameterpolicyid("threshold8");
+m.findline_setparameterrole("SCENARIO_CANDIDATE");
+m.findline_setisproductdefault(0);
+m.findline_setisstage25default(0);
+
+m.addfindlineprofile("linegap10");
+m.findline_setmethod(0);
+m.findline_setthreshold(20);
+m.findline_setlinegap(10);
+m.findline_setfitmode(1);
+m.findline_setscript_scale(1);
+m.findline_setfilterprofile(0);
+m.findline_setpolicy("SPARSE_SAMPLE_CANDIDATE");
+m.findline_setparameterpolicyid("linegap10");
+m.findline_setparameterrole("SCENARIO_CANDIDATE");
+m.findline_setisproductdefault(0);
+m.findline_setisstage25default(0);
+
+m.addfindlineprofile("filter_relax_min1");
+m.findline_setmethod(0);
+m.findline_setthreshold(20);
+m.findline_setlinegap(6);
+m.findline_setfitmode(1);
+m.findline_setscript_scale(1);
+m.findline_setfilterprofile(0);
+m.findline_setobjfilter(1);
+m.findline_setfilter("21", "1", "100000");
+m.findline_setpolicy("DEBUG_ONLY");
+m.findline_setparameterpolicyid("filter_relax_min1");
+m.findline_setparameterrole("DEBUG_ONLY");
+m.findline_setisproductdefault(0);
+m.findline_setisstage25default(0);
+
+m.addfindlineprofile("gamma");
+m.findline_setmethod(0);
+m.findline_setthreshold(20);
+m.findline_setlinegap(6);
+m.findline_setfitmode(1);
+m.findline_setscript_scale(1);
+m.findline_setfilterprofile(0);
+m.findline_setgamarate(1);
+m.findline_setpolicy("RISK_CANDIDATE");
+m.findline_setparameterpolicyid("gamma");
+m.findline_setparameterrole("RISK_CANDIDATE");
+m.findline_setisproductdefault(0);
+m.findline_setisstage25default(0);
+
+m.addfindcircleprofile("direct");
+m.findcircle_setmethod(0);
+m.findcircle_setthreshold(20);
+m.findcircle_setgap(5);
+m.findcircle_setlinegap(3);
+m.findcircle_setpolicy("DEFAULT_POLICY");
+m.findcircle_setparameterpolicyid("direct");
+m.findcircle_setparameterrole("PRODUCT_LEGACY_DEFAULT");
+m.findcircle_setisproductdefault(1);
+m.findcircle_setisstage25default(0);
+
+m.addfindcircleprofile("threshold8");
+m.findcircle_setmethod(0);
+m.findcircle_setthreshold(8);
+m.findcircle_setgap(5);
+m.findcircle_setlinegap(3);
+m.findcircle_setpolicy("LOW_CONTRAST_CANDIDATE");
+m.findcircle_setparameterpolicyid("threshold8");
+m.findcircle_setparameterrole("SCENARIO_CANDIDATE");
+m.findcircle_setisproductdefault(0);
+m.findcircle_setisstage25default(0);
+
+m.addfindcircleprofile("method1");
+m.findcircle_setmethod(1);
+m.findcircle_setthreshold(20);
+m.findcircle_setgap(5);
+m.findcircle_setlinegap(3);
+m.findcircle_setpolicy("POLARITY_RISK");
+m.findcircle_setparameterpolicyid("method1");
+m.findcircle_setparameterrole("RISK_CANDIDATE");
+m.findcircle_setisproductdefault(0);
+m.findcircle_setisstage25default(0);
+
+m.addfindcircleprofile("filter_relax");
+m.findcircle_setmethod(0);
+m.findcircle_setthreshold(20);
+m.findcircle_setgap(5);
+m.findcircle_setlinegap(3);
+m.findcircle_setfindsetting(1);
+m.findcircle_setfilter("21", "1", "100000");
+m.findcircle_setpolicy("INTERFERENCE_CHECK");
+m.findcircle_setparameterpolicyid("filter_relax");
+m.findcircle_setparameterrole("DEBUG_ONLY");
+m.findcircle_setisproductdefault(0);
+m.findcircle_setisstage25default(0);
+
+m.addevidenceprofile("normal");
+m.evidence_setnearestpointsupportpx(3.0);
+m.evidence_setlinedistancesupportpx(3.0);
+m.evidence_setmingradient(6.0);
+m.evidence_setmingradientratio(0.35);

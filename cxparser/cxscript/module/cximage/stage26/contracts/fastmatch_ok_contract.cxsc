@@ -1,0 +1,34 @@
+contract.reset();
+
+if (case.get_bool("headless_ok") == 0) {
+    contract.fail("headless execution failed");
+}
+
+if (case.get_bool("model_available") == 0) {
+    contract.fail("FastMatch model is unavailable");
+}
+
+if (case.get_int("candidate_count") <= 0) {
+    contract.fail("FastMatch has no match candidate");
+}
+
+if (case.get_double("best_score") <= 0) {
+    contract.fail("FastMatch best score is unavailable");
+}
+
+if (case.file_exists("result_overlay_path") == 0) {
+    contract.fail("missing result overlay");
+}
+
+if (case.file_exists("tool_display_path") == 0) {
+    contract.fail("missing tool display");
+}
+
+if (contract.failed()) {
+    contract.setstatus("fastmatch_failed");
+    return;
+}
+
+contract.pass();
+contract.setstatus("fastmatch_passed");
+contract.setconclusion("FastMatch model, candidate and display evidence are available.");

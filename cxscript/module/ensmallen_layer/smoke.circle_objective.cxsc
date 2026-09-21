@@ -1,0 +1,35 @@
+# ensmallen_layer module cxscript
+kind=module
+layer=smoke
+module=ensmallen_layer
+case=circle_objective
+mode=build-run
+route=default
+report=on
+
+# input
+sample_id=fit_circle.circle_double
+input_image=phase1.fit_circle.circle_double
+roi_circle=40,80,160,96
+gt_circle=center:88,128;radius:34
+param_init=thre:8;comparegap:2;gap:6;linesamplerate:0.004;fitmeasuregap:80
+objective_weights=center:3;radius:2;avg_dist:2;invalid:4;stability:1.5
+
+# call
+call_1=FindCircle.Measure
+call_2=ExportCircleMeasurement
+call_3=EnsmallenCircleObjectiveEval
+
+# expect
+expect_output_1=CircleMeasurementOutput
+expect_output_2=EnsmallenObjectiveResult
+expect_field_1=objective_value
+expect_field_2=circle_center_x
+expect_field_3=circle_center_y
+expect_field_4=circle_radius
+expect_field_5=circle_avg_dist
+
+# checkpoint
+check_1=objective_value_defined
+check_2=objective_value_ge_0
+check_3=circle_metrics_defined

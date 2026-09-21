@@ -1,0 +1,50 @@
+kind=integration
+layer=scenario
+module=mlpack
+case=baseline_pair_compare_min
+mode=build-run
+report=on
+
+input {
+  task = "classification";
+  feature_set = "all_v1";
+  label_column = "label";
+  train_csv = "artifacts/baseline/all_v1_train.csv";
+  val_csv = "artifacts/baseline/all_v1_val.csv";
+  test_csv = "artifacts/baseline/all_v1_test.csv";
+  logreg_model_path = "artifacts/baseline/logreg_all_v1.bin";
+  knn_model_path = "artifacts/baseline/knn_all_v1.bin";
+  logreg_predictions_csv = "artifacts/baseline/logreg_all_v1_predictions.csv";
+  knn_predictions_csv = "artifacts/baseline/knn_all_v1_predictions.csv";
+  output_summary_csv = "artifacts/baseline/baseline_summary.csv";
+}
+
+flow {
+  call mlpack.train.baseline_logreg_flow_min;
+  call mlpack.infer.baseline_logreg_flow_min;
+  call mlpack.score.baseline_classification_flow_min;
+
+  call mlpack.train.baseline_knn_flow_min;
+  call mlpack.infer.baseline_knn_flow_min;
+  call mlpack.score.baseline_classification_flow_min;
+}
+
+check {
+  expect train_ok == true;
+  expect infer_ok == true;
+  expect score_ok == true;
+  expect output_summary_csv == "artifacts/baseline/baseline_summary.csv";
+}
+
+output {
+  emit model_path;
+  emit predictions_csv;
+  emit output_summary_csv;
+  emit artifact_ref = "mlpack_baseline_pair_compare_packet";
+  emit request_ref = "mlpack_pair_compare_request";
+  emit summary;
+}
+
+conclusion {
+  summary = "baseline_pair_compare_ready";
+}

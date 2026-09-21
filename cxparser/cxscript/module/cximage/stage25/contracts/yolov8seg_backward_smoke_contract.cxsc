@@ -1,0 +1,33 @@
+global_contract_pass = 1;
+global_contract_status = "yolov8seg_backward_smoke_box_dfl_closed_loop_ready";
+global_contract_conclusion = "YOLOv8-Seg class+mask+box+DFL backward smoke exported checkpoint and reused it through inference.";
+
+if (global_headless_ok == 0) {
+    global_contract_pass = 0;
+    global_contract_status = "yolov8seg_backward_smoke_headless_failed";
+    global_contract_conclusion = "YOLOv8-Seg backward smoke headless execution failed";
+}
+
+if (global_algorithm_executed == 0) {
+    global_contract_pass = 0;
+    global_contract_status = "yolov8seg_backward_smoke_not_executed";
+    global_contract_conclusion = "YOLOv8-Seg backward smoke did not execute";
+}
+
+if (global_budget_exceeded == 1) {
+    global_contract_pass = 0;
+    global_contract_status = "yolov8seg_backward_smoke_budget_exceeded";
+    global_contract_conclusion = "YOLOv8-Seg backward smoke exceeded execution budget";
+}
+
+if (global_torch_ok == 0) {
+    global_contract_pass = 0;
+    global_contract_status = "yolov8seg_backward_smoke_torch_failed";
+    global_contract_conclusion = "TorchTask did not return success";
+}
+
+if (global_torch_result_count < 1) {
+    global_contract_pass = 0;
+    global_contract_status = "yolov8seg_backward_smoke_no_trained_inference_instances";
+    global_contract_conclusion = "Trained checkpoint inference did not return projected instances";
+}

@@ -1,0 +1,31 @@
+Image m_image;
+RegionPatternTool m_region_pattern;
+
+m_image.copyFromMat(global_matInput);
+
+m_region_pattern.setrect(
+    global_region_roi_x,
+    global_region_roi_y,
+    global_region_roi_w,
+    global_region_roi_h);
+m_region_pattern.setnormalized(
+    global_region_normalized_width,
+    global_region_normalized_height);
+m_region_pattern.setpooling(
+    global_region_pooling_rows,
+    global_region_pooling_cols);
+m_region_pattern.setbinary(global_region_use_binary);
+m_region_pattern.setthreshold(global_region_threshold);
+m_region_pattern.setforegrounddark(global_region_foreground_dark);
+m_region_pattern.setmaxoverlays(global_region_max_overlays);
+m_region_pattern.analyze(&m_image);
+
+global_region_status = m_region_pattern.getstatuscode();
+global_region_descriptor_dim = m_region_pattern.getdescriptordim();
+global_region_foreground_permille = m_region_pattern.getforegroundpermille();
+global_region_mean_permille = m_region_pattern.getmeanpermille();
+global_region_std_permille = m_region_pattern.getstdpermille();
+global_region_pooling_rows_out = m_region_pattern.getpoolingrows();
+global_region_pooling_cols_out = m_region_pattern.getpoolingcols();
+global_region_overlay_count = m_region_pattern.getoverlaycount();
+global_region_overlay_truncated = m_region_pattern.getoverlaytruncated();

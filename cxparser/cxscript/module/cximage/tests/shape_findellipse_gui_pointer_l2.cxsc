@@ -1,0 +1,49 @@
+CxShapeTest_reset(0);
+
+CxShapeTest_addcase("findellipse_create_drag_release");
+CxShapeTest_settool("findellipse_gauge");
+CxShapeTest_setoperation("gui_pointer_create");
+CxShapeTest_setpointersequence("drag_release");
+CxShapeTest_setfrom(100, 100);
+CxShapeTest_setto(180, 140);
+CxShapeTest_setexpectedshapedelta(1);
+CxShapeTest_setexpectedcreatedkind("EllipseShape");
+CxShapeTest_setexpectedphase("create_shape");
+CxShapeTest_setexpectedstatus("created");
+
+CxShapeTest_addcase("findellipse_select_existing");
+CxShapeTest_settool("findellipse_gauge");
+CxShapeTest_setoperation("gui_pointer_select_existing");
+CxShapeTest_setpointersequence("click");
+CxShapeTest_setfrom(150, 100);
+CxShapeTest_setexpectedphase("select_existing");
+CxShapeTest_setexpectedstatus("selected");
+
+CxShapeTest_addcase("findellipse_drag_existing_center");
+CxShapeTest_settool("findellipse_gauge");
+CxShapeTest_setoperation("gui_pointer_drag_existing");
+CxShapeTest_setpointersequence("drag_release");
+CxShapeTest_setfrom(150, 100);
+CxShapeTest_setto(210, 145);
+CxShapeTest_setexpectedphase("drag_existing");
+CxShapeTest_setexpectedstatus("committed");
+
+CxShapeTest_addcase("findellipse_drag_existing_radius");
+CxShapeTest_settool("findellipse_gauge");
+CxShapeTest_setoperation("gui_pointer_drag_existing");
+CxShapeTest_setpointersequence("drag_release");
+CxShapeTest_setfrom(180, 100);
+CxShapeTest_setto(230, 100);
+CxShapeTest_setexpectedphase("drag_existing");
+CxShapeTest_setexpectedstatus("committed");
+
+CxShapeTest_addcase("findellipse_create_too_small_rejected");
+CxShapeTest_settool("findellipse_gauge");
+CxShapeTest_setoperation("gui_pointer_create");
+CxShapeTest_setpointersequence("drag_release");
+CxShapeTest_setfrom(100, 100);
+CxShapeTest_setto(101, 101);
+CxShapeTest_setexpectedshapedelta(0);
+CxShapeTest_setexpectedstatus("draft_too_small");
+
+1+1;

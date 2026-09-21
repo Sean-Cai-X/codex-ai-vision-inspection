@@ -1,0 +1,19 @@
+{
+  "schema": "cxvision.closed_geometry_instances.v1",
+  "geometry_type": "rectangle",
+  "instance_count": 1,
+  "instances": [
+    {
+      "instance_id": 1,
+      "class_name": "rectangle",
+      "center_xy": [
+        240,
+        180
+      ],
+      "width_px": 270,
+      "height_px": 164,
+      "rotation_deg": -12,
+      "closed": true
+    }
+  ]
+}

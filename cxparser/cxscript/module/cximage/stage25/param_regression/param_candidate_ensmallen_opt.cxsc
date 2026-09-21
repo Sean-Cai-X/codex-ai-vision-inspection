@@ -1,0 +1,16 @@
+// Stage25 ensmallen bounded suggestion placeholder.
+// ensmallen proposes candidates inside limited ranges only.
+
+ParamCandidate_add("ensmallen_bounded_threshold12_linegap10");
+ParamCandidate_setsource("ensmallen_opt");
+ParamCandidate_setthreshold(12);
+ParamCandidate_setlinegap(10);
+ParamCandidate_setwgap(8);
+ParamCandidate_sethgap(32);
+ParamCandidate_setgap(5);
+ParamCandidate_setfilterprofile(1);
+ParamCandidate_setmethod(0);
+ParamCandidate_setpredictedquality(0.68);
+ParamCandidate_setpredictedrisk(0.35);
+ParamCandidate_setpredictedfailureclass("bounded_search_candidate");
+ParamCandidate_setselectedforprobe(1);

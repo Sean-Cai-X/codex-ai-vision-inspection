@@ -1,0 +1,1 @@
+report=TorchTestHost().run_current_profile_report();TorchTestHost::format_report_line(report);

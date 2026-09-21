@@ -1,0 +1,36 @@
+kind=module
+layer=feature
+module=cxcore
+case=line_measurement_golden
+mode=build-run
+report=on
+use Image;
+use Roi;
+use LineMeasurementOutput;
+Image source_image;
+Roi roi_line;
+LineMeasurementOutput line_result;
+measure_line(source_image, roi_line);
+compile("sampling");
+check(readresult("sampling.status") == "compiled");
+check(readresult("sampling.line_chain_length") >= 0.000000);
+check(readresult("sampling.line_edgeband_count") >= 0.000000);
+compile("fit");
+check(readresult("fit.status") == "compiled");
+check(readresult("fit.line_angle") >= 0.000000);
+check(success == true);
+check(bridge_enabled == true);
+check(result_object == "LineMeasurementOutput");
+check(input_sample == "synthetic.line.primary;roi=(12,36,72,24);stable_edge");
+check(metrics == "horizontal_samples,vertical_samples,measure_bounds");
+check(point_count_value > 0.000000);
+check(fit_error_avg_value >= 0.000000);
+check(fit_error_max_value >= 0.000000);
+check(line_angle_value >= 0.000000);
+check(line_offset_value > 0.000000);
+check(subpixel_adjust_avg_value >= 0.000000);
+check(readresult("output.failure_mode") == "none");
+check(runtime_ms >= 0.000000);
+check(failure_mode == "none");
+print(task_id);
+print(summary);

@@ -1,0 +1,155 @@
+{
+  "schema": "cxvision.hd_case_taxonomy.v1",
+  "purpose": "case_and_model_direction_partition_before_runtime_binding",
+  "tracks": [
+    {
+      "track_id": "C1",
+      "name": "closed_regular_region",
+      "geometry": [
+        "circle",
+        "ellipse",
+        "rectangle",
+        "polygon"
+      ],
+      "output": "semantic_object_mask"
+    },
+    {
+      "track_id": "C2",
+      "name": "closed_irregular_region",
+      "geometry": [
+        "irregular_closed_contour"
+      ],
+      "output": "semantic_defect_mask"
+    },
+    {
+      "track_id": "C3",
+      "name": "multi_instance_closed_region",
+      "geometry": [
+        "multiple_closed_instances"
+      ],
+      "output": "instance_masks"
+    },
+    {
+      "track_id": "O2",
+      "name": "open_region_boundary",
+      "geometry": [
+        "open_curve",
+        "crack",
+        "edge"
+      ],
+      "output": "boundary_map_and_measurement"
+    },
+    {
+      "track_id": "R2",
+      "name": "fuzzy_region_learning",
+      "geometry": [
+        "soft_membership_region"
+      ],
+      "output": "membership_map_and_region_class"
+    },
+    {
+      "track_id": "X1",
+      "name": "composite_visual_pipeline",
+      "geometry": [
+        "mixed"
+      ],
+      "output": "stage_outputs_and_fused_decision"
+    },
+    {
+      "track_id": "O1",
+      "name": "open_regular_boundary",
+      "geometry": [
+        "line",
+        "arc",
+        "open_curve"
+      ],
+      "output": "polyline_measurement_points_and_endpoints"
+    },
+    {
+      "track_id": "R1",
+      "name": "roi_region_learning",
+      "geometry": [
+        "roi",
+        "polygon_roi"
+      ],
+      "output": "roi_features_class_and_similarity"
+    }
+  ],
+  "case_assignments": [
+    {
+      "case_id": "hd_pill_body_closed_region_reference",
+      "track_id": "C1",
+      "phase": 1
+    },
+    {
+      "case_id": "hd_pill_contamination_irregular_region_reference",
+      "track_id": "C2",
+      "phase": 1
+    },
+    {
+      "case_id": "hd_pill_bag_multi_instance_reference",
+      "track_id": "C3",
+      "phase": 1
+    },
+    {
+      "case_id": "hd_pill_crack_open_boundary_reference",
+      "track_id": "O2",
+      "phase": 1
+    },
+    {
+      "case_id": "hd_pill_fuzzy_region_learning_reference",
+      "track_id": "R2",
+      "phase": 2
+    },
+    {
+      "case_id": "hd_pill_composite_pipeline_reference",
+      "track_id": "X1",
+      "phase": 3
+    },
+    {
+      "case_id": "line_high_contrast_open_regular_boundary_reference",
+      "track_id": "O1",
+      "phase": 1
+    },
+    {
+      "case_id": "hd_pill_roi_region_learning_reference",
+      "track_id": "R1",
+      "phase": 2
+    },
+    {
+      "case_id": "geometry_circle_closed_region_reference",
+      "track_id": "C1",
+      "phase": 1
+    },
+    {
+      "case_id": "geometry_ellipse_closed_region_reference",
+      "track_id": "C1",
+      "phase": 1
+    },
+    {
+      "case_id": "geometry_rectangle_closed_region_reference",
+      "track_id": "C1",
+      "phase": 1
+    },
+    {
+      "case_id": "geometry_polygon_closed_region_reference",
+      "track_id": "C1",
+      "phase": 1
+    },
+    {
+      "case_id": "geometry_straight_line_boundary_reference",
+      "track_id": "O1",
+      "phase": 1
+    },
+    {
+      "case_id": "geometry_circular_arc_boundary_reference",
+      "track_id": "O1",
+      "phase": 1
+    },
+    {
+      "case_id": "geometry_open_curve_boundary_reference",
+      "track_id": "O1",
+      "phase": 1
+    }
+  ]
+}

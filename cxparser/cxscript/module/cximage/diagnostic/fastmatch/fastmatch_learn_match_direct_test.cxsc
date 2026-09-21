@@ -1,0 +1,104 @@
+Image m_image;
+FastMatch m_match;
+
+m_image.copyFromMat(global_matInput);
+
+int learn_x = global_learn_roi_x;
+int learn_y = global_learn_roi_y;
+int learn_w = global_learn_roi_w;
+int learn_h = global_learn_roi_h;
+
+int search_x = global_search_roi_x;
+int search_y = global_search_roi_y;
+int search_w = global_search_roi_w;
+int search_h = global_search_roi_h;
+
+int threshold = global_threshold;
+int linegap = global_linegap;
+int wgap = global_wgap;
+int hgap = global_hgap;
+int compare_gap = global_compare_gap;
+int objfilter = global_objfilter;
+double min_score = global_min_score;
+int min_score_percent = global_min_score_percent;
+int find_num = global_find_num;
+int match_step_x = global_match_step_x;
+int match_step_y = global_match_step_y;
+int match_threshold = global_match_thre;
+int fastmatch_action = global_fastmatch_action;
+
+if (min_score_percent > 0)
+{
+    min_score = min_score_percent / 100.0;
+}
+if (fastmatch_action <= 0)
+{
+    fastmatch_action = 3;
+}
+if (find_num <= 0)
+{
+    find_num = 1;
+}
+if (compare_gap <= 0)
+{
+    compare_gap = 20;
+}
+if (objfilter <= 0)
+{
+    objfilter = 1;
+}
+if (match_step_x <= 0)
+{
+    match_step_x = 10;
+}
+if (match_step_y <= 0)
+{
+    match_step_y = 10;
+}
+if (match_threshold <= 0)
+{
+    match_threshold = 10;
+}
+
+m_match.setrectxywh(learn_x, learn_y, learn_w, learn_h);
+m_match.setobjfilter(objfilter);
+m_match.setwhgap(wgap, hgap);
+m_match.setthre(threshold);
+m_match.setlinegap(linegap);
+m_match.setcompgap(compare_gap);
+
+m_match.setmatchrectxywh(search_x, search_y, search_w, search_h);
+m_match.matchstepgap(match_step_x, match_step_y);
+m_match.setmatchthre(match_threshold);
+m_match.setminscore(min_score);
+m_match.setfindnum(find_num);
+
+m_match.learn(&m_image);
+m_match.modelzero();
+m_match.pattern2org();
+m_match.samplemodel(100);
+
+global_learn_a_count = m_match.getlearnacount();
+global_learn_b_count = m_match.getlearnbcount();
+global_learn_a2_count = m_match.getlearna2count();
+global_learn_b2_count = m_match.getlearnb2count();
+global_learn_status_code = m_match.getlearnstatuscode();
+global_model_point_count = m_match.getmodelpointcount();
+global_match_count = 0;
+global_candidate_count = 0;
+global_best_score = 0;
+
+int should_match = 1;
+if (fastmatch_action == 1)
+{
+    should_match = 0;
+}
+
+if (should_match == 1)
+{
+    m_match.match(&m_image);
+
+    global_match_count = m_match.getresultcandidatecount();
+    global_candidate_count = global_match_count;
+    global_best_score = m_match.getresultbestscore();
+}

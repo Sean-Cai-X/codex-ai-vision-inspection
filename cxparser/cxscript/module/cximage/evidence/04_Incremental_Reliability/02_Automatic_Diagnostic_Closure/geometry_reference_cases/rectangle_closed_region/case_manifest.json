@@ -1,0 +1,36 @@
+{
+  "schema": "cxvision.geometry_reference_case.v1",
+  "asset_role": "controlled_geometry_reference_fixture",
+  "training_enabled": 0,
+  "binding_status": "REFERENCE_CASE_READY",
+  "image_width": 480,
+  "image_height": 360,
+  "generator": {
+    "method": "deterministic_raster_geometry_v1",
+    "ai_generated": false,
+    "reproducible_from_geometry_facts": true
+  },
+  "truth_semantics": {
+    "independent_of_model": true,
+    "production_ground_truth": false,
+    "allowed_claim": "geometry_contract_and_pipeline_reference_only",
+    "forbidden_claims": [
+      "production_accuracy",
+      "model_quality",
+      "promotion_gate_pass"
+    ]
+  },
+  "review_item": "Controlled rectangle closed-region case",
+  "case_track": "C1",
+  "geometry_type": "rectangle",
+  "topology": "closed",
+  "input_image": "01_input.bmp",
+  "typed_label": "02_label_mask.bmp",
+  "typed_label_kind": "binary_mask",
+  "required_assets": [
+    "01_input.bmp",
+    "02_label_mask.bmp",
+    "instances.json"
+  ],
+  "geometry_facts_ref": "instances.json"
+}

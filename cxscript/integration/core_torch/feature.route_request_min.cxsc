@@ -1,0 +1,37 @@
+scenario {
+  CxcoreBridge core;
+  TorchRoute torch_route;
+  double prepare_ok=0;
+  double action_ok=0;
+  double check_ok=0;
+  double tensor_ready=0;
+  double roi_ready=0;
+  trace_id="trace.integration.core_torch.feature.001";
+  task_kind="region_classification";
+  image_path="data/infer/sample_001.png";
+  route_policy="image_backed_learning";
+  expected_route="upgrade_to_torch_module";
+  expected_artifact_ref="torch_request_payload";
+  prepare_ok=1;
+
+  if (prepare_ok) {
+    core.load_image(image_path);
+    core.route_ai_boundary(task_kind,route_policy);
+    torch_route.build_request(core);
+    torch_route.run_preprocess();
+    action_ok=1;
+  }
+
+  check {
+    tensor_ready=torch_route.has_tensor_shape();
+    roi_ready=torch_route.has_roi_payload();
+    check_ok=tensor_ready&&roi_ready&&core.route_equals(expected_route);
+  }
+
+  report {
+    chain_status="core_torch_ready";
+    artifact_ref=expected_artifact_ref;
+    request_ref=torch_route.request_ref();
+    report_text="core_torch feature flow ready";
+  }
+}

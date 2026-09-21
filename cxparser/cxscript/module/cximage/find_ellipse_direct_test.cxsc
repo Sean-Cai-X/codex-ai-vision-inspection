@@ -1,0 +1,35 @@
+Image m_image;
+FindEllipse m_ellipse;
+
+m_image.copyFromMat(global_matInput);
+
+int gap = global_gap;
+int linegap = global_linegap;
+int min_edge_run_width_px = global_min_edge_run_width_px;
+int threshold = global_threshold;
+int method = global_method;
+int findsetting = global_findellipse_findsetting;
+int selected_edge = global_findellipse_selected_edge;
+int point_consistency_enabled = global_findellipse_point_consistency_enabled;
+int point_consistency_range = global_findellipse_point_consistency_range;
+int inner_scale_percent = global_findellipse_inner_scale_percent;
+
+m_ellipse.setbboxx0(global_ellipse_x0);
+m_ellipse.setbboxy0(global_ellipse_y0);
+m_ellipse.setbboxx1(global_ellipse_x1);
+m_ellipse.setbboxy1(global_ellipse_y1);
+m_ellipse.buildbbox();
+m_ellipse.setinnerpercent(inner_scale_percent);
+m_ellipse.setgap(gap);
+m_ellipse.setlinegap(linegap);
+m_ellipse.setminedgerunwidth(min_edge_run_width_px);
+m_ellipse.setthre(threshold);
+m_ellipse.setmethod(method);
+m_ellipse.setfindsetting(findsetting);
+m_ellipse.setselectedgenum(selected_edge);
+m_ellipse.setpointconsistency(point_consistency_enabled, point_consistency_range);
+
+m_ellipse.measure(&m_image);
+m_ellipse.fitellipse();
+
+1+1;

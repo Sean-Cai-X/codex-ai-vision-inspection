@@ -1,0 +1,9 @@
+{
+  "schema": "cxvision.parent_child_runtime_direction.v1",
+  "case_track": "C3",
+  "selection_basis": "multiple pill instances with overlap, low contrast, transparent packaging and per-instance identity",
+  "parent": {"status": "pending_compatible_weights", "task_id": "instance_segmentation", "recommended_family": "YOLOv8-seg_or_MaskRCNN", "physical_output_contract": "instance_id_mask_with_class", "required_training_label_kind": "instance_id_mask_with_class"},
+  "child": {"status": "pending_incremental_checkpoint", "task_id": "instance_segmentation", "recommended_family": "same_architecture_and_class_map_as_parent", "physical_output_contract": "instance_id_mask_with_class", "parent_lineage_required": true},
+  "postprocess": ["mask_level_nms", "instance_id_rasterization", "class_companion_export"],
+  "training_enabled": 0
+}

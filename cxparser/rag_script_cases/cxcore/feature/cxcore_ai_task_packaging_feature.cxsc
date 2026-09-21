@@ -1,0 +1,6 @@
+kind=module
+layer=feature
+module=cxcore
+case=ai_task_packaging
+mode=build-run
+report=on

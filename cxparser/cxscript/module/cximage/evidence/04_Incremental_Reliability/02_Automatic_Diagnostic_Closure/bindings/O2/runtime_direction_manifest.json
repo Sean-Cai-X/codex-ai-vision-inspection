@@ -1,0 +1,10 @@
+{
+  "schema": "cxvision.parent_child_runtime_direction.v1",
+  "case_track": "O2",
+  "selection_basis": "a chipped boundary intersects the host outline and must remain an open curve with two endpoints",
+  "parent": {"status": "pending_compatible_weights", "task_id": "open_boundary_segmentation", "recommended_family": "UNet_edge_head_or_boundary_probability_network", "physical_output_contract": "open_boundary_polyline_with_endpoints", "required_training_label_kind": "open_boundary_polyline_with_endpoints"},
+  "child": {"status": "pending_incremental_checkpoint", "task_id": "open_boundary_segmentation", "recommended_family": "same_architecture_and_boundary_contract_as_parent", "physical_output_contract": "open_boundary_polyline_with_endpoints", "parent_lineage_required": true},
+  "postprocess": ["boundary_probability_threshold", "open_polyline_vectorization", "endpoint_detection", "cximage_geometric_measurement"],
+  "forbidden_output": ["forced_closed_mask"],
+  "training_enabled": 0
+}

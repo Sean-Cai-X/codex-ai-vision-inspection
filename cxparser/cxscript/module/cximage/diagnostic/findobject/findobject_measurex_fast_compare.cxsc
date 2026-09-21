@@ -1,0 +1,35 @@
+Image m_image;
+FindObject m_object;
+
+m_image.copyFromMat(global_matInput);
+
+int x0 = global_roi_x0;
+int y0 = global_roi_y0;
+int x1 = global_roi_x1;
+int y1 = global_roi_y1;
+
+int width = x1 - x0;
+int height = y1 - y0;
+
+m_object.setrect(height, width, y0, x0);
+m_object.setsearchtype(global_method);
+m_object.setdistance(global_gap);
+m_object.setbrow(global_filterprofile);
+m_object.sethsogap(global_hgap, global_wgap, global_gap);
+m_object.setminmax(999999, global_threshold);
+m_object.setminmaxwh(99999, 0, 99999, 0);
+
+m_object.measurexfast(&m_image);
+global_match_count = m_object.getresultobjsnum();
+global_candidate_count = m_object.getdebugcomponentcount();
+global_rendered_result_count = m_object.getdebugacceptedcount();
+global_valid_points_count = m_object.getdebugrejectedcount();
+global_debug_max_component_area = m_object.getdebugmaxcomponentarea();
+global_debug_max_component_w = m_object.getdebugmaxcomponentw();
+global_debug_max_component_h = m_object.getdebugmaxcomponenth();
+if (global_match_count > 0) {
+    global_best_x = m_object.getresultx(0);
+    global_best_y = m_object.getresulty(0);
+    global_expected_rect_w = m_object.getresultw(0);
+    global_expected_rect_h = m_object.getresulth(0);
+}

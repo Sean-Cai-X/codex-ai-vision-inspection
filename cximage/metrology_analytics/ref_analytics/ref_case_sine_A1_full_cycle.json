@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "case_kind": "sine1d",
+  "generator_params": {
+    "A": 1.0,
+    "lambda_px": 10000.0,
+    "axis": 0,
+    "size_x": 10000,
+    "size_y": 1
+  },
+  "phys_unit": {
+    "x_unit": "Pixel",
+    "x_scale": 1.0,
+    "y_unit": "Pixel",
+    "y_scale": 1.0,
+    "z_unit": "Pixel",
+    "z_scale": 1.0
+  },
+  "golden_asserts": {
+    "roughness_1d.Ra": { "value": 0.6366197723675813, "abs_tol": 0.001 },
+    "roughness_1d.Rq": { "value": 0.7071067811865475, "abs_tol": 0.001 }
+  }
+}

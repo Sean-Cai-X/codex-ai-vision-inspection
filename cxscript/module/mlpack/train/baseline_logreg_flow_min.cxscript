@@ -1,0 +1,42 @@
+module mlpack;
+layer train;
+case baseline_logreg_flow_min;
+
+input {
+  task = "classification";
+  feature_set = "all_v1";
+  model_name = "LogisticRegression";
+  label_column = "label";
+  train_csv = "artifacts/baseline/all_v1_train.csv";
+  val_csv = "artifacts/baseline/all_v1_val.csv";
+  output_model_path = "artifacts/baseline/logreg_all_v1.bin";
+}
+
+flow {
+  action load_train_csv;
+  action load_val_csv;
+  action select_feature_set;
+  action encode_labels;
+  action train_model;
+}
+
+check {
+  require file_exists(train_csv);
+  require file_exists(val_csv);
+  require column_exists(label_column);
+  require feature_set_supported(feature_set);
+  require model_file_created(output_model_path);
+  require fit_time_ms >= 0;
+  require feature_dim == 50;
+}
+
+output {
+  emit model_path = output_model_path;
+  emit fit_time_ms;
+  emit feature_dim;
+  emit train_ok;
+}
+
+conclusion {
+  summary = "baseline_logreg_train_ready";
+}

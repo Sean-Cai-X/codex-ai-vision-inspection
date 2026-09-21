@@ -1,0 +1,17 @@
+kind=integration
+layer=smoke
+module=integration
+case=template_match_smoke
+mode=build-run
+report=on
+Flow.Begin("integration.template_match_smoke");
+Input.Image("source_image","synthetic.integration.template_match");
+Input.Model("template_model","template.basic.rect");
+Action.UseModuleCase("cximage","matcher","fastmatch_template");
+Action.UseModuleCase("cxcore","smoke","template_feature_match");
+Check.ScalarGe("candidate_count",1);
+Check.CountGe("candidates",1);
+Output.Emit("FastMatchCandidates");
+Output.Emit("MatchOutput");
+Output.Conclusion("integration_template_match_status","pass_if_checks_ok");
+Flow.End();

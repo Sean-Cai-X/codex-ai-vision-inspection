@@ -1,0 +1,7 @@
+# mlpack minimal infer probe
+kind=module
+layer=infer
+module=mlpack
+case=minimal_infer
+mode=build-run
+report=on

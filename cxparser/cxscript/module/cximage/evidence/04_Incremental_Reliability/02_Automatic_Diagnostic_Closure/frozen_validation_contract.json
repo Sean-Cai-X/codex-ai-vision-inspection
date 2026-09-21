@@ -1,0 +1,10 @@
+{
+  "schema": "cxvision.frozen_validation_contract.v1",
+  "required_item_fields": ["case_id", "case_track", "image_path", "typed_label_path", "content_hash", "split"],
+  "minimum_case_count_source": "diagnostic_matrix.promotion_gate.minimum_case_count",
+  "immutability": ["stable_case_id", "recorded_content_hash", "no_overwrite_of_previous_run", "same_parent_child_pair_within_run"],
+  "required_reports": ["frozen_validation_aggregate.json", "stability_analysis.json", "promotion_gate.json"],
+  "gate_order": ["all_single_image_contracts_complete", "frozen_set_bound", "aggregate_complete", "stability_complete", "promotion_thresholds_evaluated", "final_human_confirmation"],
+  "automatic_promotion_allowed": false,
+  "training_enabled": 0
+}

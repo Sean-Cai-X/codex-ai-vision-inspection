@@ -1,0 +1,23 @@
+Image m_image;
+MlpackFeature m_feature;
+MlpackDataset m_dataset;
+MlpackScore m_score;
+
+m_image.copyFromMat(global_matInput);
+
+int feature_width = 64;
+int feature_height = 64;
+int feature_channel = 1;
+int normalize_mode = 1;
+double threshold_start = global_threshold_start;
+double threshold_end = global_threshold_end;
+double threshold_step = global_threshold_step;
+
+m_feature = mlpack.build_feature(&m_image, feature_width, feature_height, feature_channel);
+m_dataset = mlpack.build_dataset(m_feature);
+m_dataset.normalize(normalize_mode);
+
+m_score = mlpack.threshold_probe(m_dataset, threshold_start, threshold_end, threshold_step);
+
+global_threshold_ref = m_score.get_threshold_ref();
+global_current_status = "PENDING";

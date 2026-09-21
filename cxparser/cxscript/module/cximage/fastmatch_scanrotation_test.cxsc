@@ -1,0 +1,204 @@
+Image m_image;
+FastMatch m_match;
+
+m_image.copyFromMat(global_matInput);
+
+int learn_x = global_learn_roi_x;
+int learn_y = global_learn_roi_y;
+int learn_w = global_learn_roi_w;
+int learn_h = global_learn_roi_h;
+
+int search_x = global_search_roi_x;
+int search_y = global_search_roi_y;
+int search_w = global_search_roi_w;
+int search_h = global_search_roi_h;
+
+int threshold = global_threshold;
+int linegap = global_linegap;
+int wgap = global_wgap;
+int hgap = global_hgap;
+int compare_gap = global_compare_gap;
+int objfilter = global_objfilter;
+int learn_wgap_0 = global_fastmatch_learn_wgap_0;
+int learn_hgap_0 = global_fastmatch_learn_hgap_0;
+int learn_method_0 = global_fastmatch_learn_method_0;
+int learn_threshold_0 = global_fastmatch_learn_threshold_0;
+int learn_linegap_0 = global_fastmatch_learn_linegap_0;
+int learn_objfilter_0 = global_fastmatch_learn_objfilter_0;
+int learn_compare_gap_0 = global_fastmatch_learn_compare_gap_0;
+int learn_edge_count_0 = global_fastmatch_learn_edge_count_0;
+int learn_selected_edge_0 = global_fastmatch_learn_selected_edge_0;
+int learn_wgap_1 = global_fastmatch_learn_wgap_1;
+int learn_hgap_1 = global_fastmatch_learn_hgap_1;
+int learn_method_1 = global_fastmatch_learn_method_1;
+int learn_threshold_1 = global_fastmatch_learn_threshold_1;
+int learn_linegap_1 = global_fastmatch_learn_linegap_1;
+int learn_objfilter_1 = global_fastmatch_learn_objfilter_1;
+int learn_compare_gap_1 = global_fastmatch_learn_compare_gap_1;
+int learn_edge_count_1 = global_fastmatch_learn_edge_count_1;
+int learn_selected_edge_1 = global_fastmatch_learn_selected_edge_1;
+int learn_wgap_2 = global_fastmatch_learn_wgap_2;
+int learn_hgap_2 = global_fastmatch_learn_hgap_2;
+int learn_method_2 = global_fastmatch_learn_method_2;
+int learn_threshold_2 = global_fastmatch_learn_threshold_2;
+int learn_linegap_2 = global_fastmatch_learn_linegap_2;
+int learn_objfilter_2 = global_fastmatch_learn_objfilter_2;
+int learn_compare_gap_2 = global_fastmatch_learn_compare_gap_2;
+int learn_edge_count_2 = global_fastmatch_learn_edge_count_2;
+int learn_selected_edge_2 = global_fastmatch_learn_selected_edge_2;
+int learn_wgap_3 = global_fastmatch_learn_wgap_3;
+int learn_hgap_3 = global_fastmatch_learn_hgap_3;
+int learn_method_3 = global_fastmatch_learn_method_3;
+int learn_threshold_3 = global_fastmatch_learn_threshold_3;
+int learn_linegap_3 = global_fastmatch_learn_linegap_3;
+int learn_objfilter_3 = global_fastmatch_learn_objfilter_3;
+int learn_compare_gap_3 = global_fastmatch_learn_compare_gap_3;
+int learn_edge_count_3 = global_fastmatch_learn_edge_count_3;
+int learn_selected_edge_3 = global_fastmatch_learn_selected_edge_3;
+double min_score = global_min_score;
+int min_score_percent = global_min_score_percent;
+int find_num = global_find_num;
+int match_step_x = global_match_step_x;
+int fastmatch_action = global_fastmatch_action;
+int scan_rotation_deg = global_fastmatch_scan_rotation_deg;
+
+int match_threshold = global_match_thre;
+int fastmatch_action = global_fastmatch_action;
+
+if (min_score_percent > 0)
+{
+    min_score = min_score_percent / 100.0;
+}
+if (fastmatch_action <= 0)
+{
+    fastmatch_action = 3;
+}
+if (find_num <= 0)
+{
+    find_num = 1;
+}
+if (compare_gap <= 0)
+{
+    compare_gap = 20;
+}
+if (objfilter <= 0)
+{
+    objfilter = 1;
+}
+if (learn_wgap_0 <= 0) { learn_wgap_0 = wgap; }
+if (learn_hgap_0 <= 0) { learn_hgap_0 = hgap; }
+if (learn_threshold_0 <= 0) { learn_threshold_0 = threshold; }
+if (learn_linegap_0 <= 0) { learn_linegap_0 = linegap; }
+if (learn_objfilter_0 <= 0) { learn_objfilter_0 = objfilter; }
+if (learn_compare_gap_0 <= 0) { learn_compare_gap_0 = compare_gap; }
+if (learn_wgap_1 <= 0) { learn_wgap_1 = wgap; }
+if (learn_hgap_1 <= 0) { learn_hgap_1 = hgap; }
+if (learn_threshold_1 <= 0) { learn_threshold_1 = threshold; }
+if (learn_linegap_1 <= 0) { learn_linegap_1 = linegap; }
+if (learn_objfilter_1 <= 0) { learn_objfilter_1 = objfilter; }
+if (learn_compare_gap_1 <= 0) { learn_compare_gap_1 = compare_gap; }
+if (learn_wgap_2 <= 0) { learn_wgap_2 = wgap; }
+if (learn_hgap_2 <= 0) { learn_hgap_2 = hgap; }
+if (learn_threshold_2 <= 0) { learn_threshold_2 = threshold; }
+if (learn_linegap_2 <= 0) { learn_linegap_2 = linegap; }
+if (learn_objfilter_2 <= 0) { learn_objfilter_2 = objfilter; }
+if (learn_compare_gap_2 <= 0) { learn_compare_gap_2 = compare_gap; }
+if (learn_wgap_3 <= 0) { learn_wgap_3 = wgap; }
+if (learn_hgap_3 <= 0) { learn_hgap_3 = hgap; }
+if (learn_threshold_3 <= 0) { learn_threshold_3 = threshold; }
+if (learn_linegap_3 <= 0) { learn_linegap_3 = linegap; }
+if (learn_objfilter_3 <= 0) { learn_objfilter_3 = objfilter; }
+if (learn_compare_gap_3 <= 0) { learn_compare_gap_3 = compare_gap; }
+if (match_step_x <= 0)
+{
+    match_step_x = 10;
+}
+if (match_step_y <= 0)
+{
+    match_step_y = 10;
+}
+if (match_threshold <= 0)
+{
+    match_threshold = 10;
+}
+
+m_match.setrectxywh(learn_x, learn_y, learn_w, learn_h);
+m_match.setscanrotation(15);
+m_match.setobjfilter(objfilter);
+m_match.setwhgap(wgap, hgap);
+m_match.setthre(threshold);
+m_match.setlinegap(linegap);
+m_match.setcompgap(compare_gap);
+m_match.setlearnwgap(0, learn_wgap_0);
+m_match.setlearnhgap(0, learn_hgap_0);
+m_match.setlearnmethod(0, learn_method_0);
+m_match.setscanrotation(scan_rotation_deg);
+
+m_match.setlearnlinegap(0, learn_linegap_0);
+m_match.setlearnobjfilter(0, learn_objfilter_0);
+m_match.setlearncompgap(0, learn_compare_gap_0);
+m_match.setlearnedgecount(0, learn_edge_count_0);
+m_match.setlearnselectededge(0, learn_selected_edge_0);
+m_match.setlearnwgap(1, learn_wgap_1);
+m_match.setlearnhgap(1, learn_hgap_1);
+m_match.setlearnmethod(1, learn_method_1);
+m_match.setlearnthre(1, learn_threshold_1);
+m_match.setlearnlinegap(1, learn_linegap_1);
+m_match.setlearnobjfilter(1, learn_objfilter_1);
+m_match.setlearncompgap(1, learn_compare_gap_1);
+m_match.setlearnedgecount(1, learn_edge_count_1);
+m_match.setlearnselectededge(1, learn_selected_edge_1);
+m_match.setlearnwgap(2, learn_wgap_2);
+m_match.setlearnhgap(2, learn_hgap_2);
+m_match.setlearnmethod(2, learn_method_2);
+m_match.setlearnthre(2, learn_threshold_2);
+m_match.setlearnlinegap(2, learn_linegap_2);
+m_match.setlearnobjfilter(2, learn_objfilter_2);
+m_match.setlearncompgap(2, learn_compare_gap_2);
+m_match.setlearnedgecount(2, learn_edge_count_2);
+m_match.setlearnselectededge(2, learn_selected_edge_2);
+m_match.setlearnwgap(3, learn_wgap_3);
+m_match.setlearnhgap(3, learn_hgap_3);
+m_match.setlearnmethod(3, learn_method_3);
+m_match.setlearnthre(3, learn_threshold_3);
+m_match.setlearnlinegap(3, learn_linegap_3);
+m_match.setlearnobjfilter(3, learn_objfilter_3);
+m_match.setlearncompgap(3, learn_compare_gap_3);
+m_match.setlearnedgecount(3, learn_edge_count_3);
+m_match.setlearnselectededge(3, learn_selected_edge_3);
+
+m_match.setmatchrectxywh(search_x, search_y, search_w, search_h);
+m_match.matchstepgap(match_step_x, match_step_y);
+m_match.setmatchthre(match_threshold);
+m_match.setminscore(min_score);
+m_match.setfindnum(find_num);
+
+m_match.learn(&m_image);
+m_match.modelzero();
+m_match.pattern2org();
+m_match.samplemodel(100);
+
+global_learn_a_count = m_match.getlearnacount();
+global_learn_b_count = m_match.getlearnbcount();
+global_learn_a2_count = m_match.getlearna2count();
+global_learn_b2_count = m_match.getlearnb2count();
+global_learn_status_code = m_match.getlearnstatuscode();
+global_model_point_count = m_match.getmodelpointcount();
+global_match_count = 0;
+global_candidate_count = 0;
+global_best_score = 0;
+
+int should_match = 1;
+if (fastmatch_action == 1)
+{
+    should_match = 0;
+}
+
+if (should_match == 1)
+{
+    m_match.match(&m_image);
+
+    global_match_count = m_match.getresultcandidatecount();
+    global_candidate_count = global_match_count;
+    global_best_score = m_match.getresultbestscore();
+}

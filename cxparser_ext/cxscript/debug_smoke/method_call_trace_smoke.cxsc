@@ -1,0 +1,3 @@
+SourceObject source;
+InputObject input;
+source.method(input);

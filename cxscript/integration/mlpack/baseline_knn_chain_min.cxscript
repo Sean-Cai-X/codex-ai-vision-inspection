@@ -1,0 +1,49 @@
+kind=integration
+layer=scenario
+module=mlpack
+case=baseline_knn_chain_min
+mode=build-run
+report=on
+
+input {
+  task = "classification";
+  feature_set = "all_v1";
+  model_name = "kNN";
+  label_column = "label";
+  train_csv = "artifacts/baseline/all_v1_train.csv";
+  val_csv = "artifacts/baseline/all_v1_val.csv";
+  test_csv = "artifacts/baseline/all_v1_test.csv";
+  output_model_path = "artifacts/baseline/knn_all_v1.bin";
+  output_predictions_csv = "artifacts/baseline/knn_all_v1_predictions.csv";
+  output_summary_csv = "artifacts/baseline/baseline_summary.csv";
+  output_artifact_ref = "mlpack_baseline_knn_packet";
+  output_request_ref = "mlpack_knn_chain_request";
+}
+
+flow {
+  call mlpack.train.baseline_knn_flow_min;
+  call mlpack.infer.baseline_knn_flow_min;
+  call mlpack.score.baseline_classification_flow_min;
+}
+
+check {
+  expect train_ok == true;
+  expect infer_ok == true;
+  expect score_ok == true;
+  expect model_path == "artifacts/baseline/knn_all_v1.bin";
+  expect predictions_csv == "artifacts/baseline/knn_all_v1_predictions.csv";
+  expect output_summary_csv == "artifacts/baseline/baseline_summary.csv";
+}
+
+output {
+  emit model_path;
+  emit predictions_csv;
+  emit output_summary_csv;
+  emit artifact_ref = "mlpack_baseline_knn_packet";
+  emit request_ref = "mlpack_knn_chain_request";
+  emit summary;
+}
+
+conclusion {
+  summary = "baseline_knn_chain_ready";
+}

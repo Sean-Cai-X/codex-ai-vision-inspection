@@ -1,0 +1,33 @@
+kind=module
+layer=feature
+module=cxcore
+case=region_boundary_analysis_noise
+mode=build-run
+report=on
+use Image;
+use Roi;
+use ImageAnalysisOutput;
+Image source_image;
+Roi roi_main;
+ImageAnalysisOutput region_result;
+analyze_region_boundary(source_image, roi_main);
+compile("sampling");
+check(readresult("sampling.status") == "compiled");
+check(readresult("sampling.raw_connected_components") >= 0.000000);
+compile("filter");
+check(readresult("filter.status") == "compiled");
+check(readresult("filter.region_foreground_ratio") >= 0.000000);
+check(success == true);
+check(bridge_enabled == true);
+check(result_object == "ImageAnalysisOutput");
+check(input_sample == "synthetic.component.noisy;roi=(16,24,48,32);noise+blur+brightness_shift");
+check(metrics == "connected_components,width,height,bounds_count");
+check(region_connected_components_value > 0.000000);
+check(region_width_value >= 0.000000);
+check(region_height_value >= 0.000000);
+check(region_bounds_count_value > 0.000000);
+check(readresult("output.failure_mode") == "handled_noise_condition");
+check(runtime_ms >= 0.000000);
+check(failure_mode == "handled_noise_condition");
+print(task_id);
+print(summary);

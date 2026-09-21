@@ -1,0 +1,7 @@
+# cxscript module sample
+kind=module
+layer=infer
+module=mlpack
+case=min_infer
+mode=build-run
+report=on

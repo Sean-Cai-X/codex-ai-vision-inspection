@@ -1,0 +1,5 @@
+﻿# cxcore to mlpack GUI integration handoff
+# runtime_entry=cxparser_ext_cxscript_cli --script cxparser/cxscript/module/mlpack/observe.mlpack_handoff_case.cxs
+# capture_entry=dev_analysis_gui_shell.exe --chain cxcore_to_mlpack --case mlpack_handoff_case --load-result <result.json> --capture-dir <capture_output_dir>
+# current_blocker=dev_analysis_gui_shell.exe is missing from D:\Codex-WorkDir\Sean_WorkDir\cxparser\build\Release as verified on 2026-06-23
+case mlpack_handoff_case;

@@ -1,0 +1,14 @@
+CxScriptSuite_reset(0);
+CxScriptSuite_setid("findsegmentation_yolov8n_seg_pill_bag_l1");
+CxScriptSuite_setname("FindSegmentation YOLOv8n-Seg Pill Bag L1 Evidence");
+CxScriptSuite_setcatalog("cxparser/cxscript/module/cximage/catalog/cximage_catalog.cxsc");
+CxScriptSuite_setoutputroot("D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/cxscript_runs/findsegmentation_yolov8n_seg_pill_bag_l1");
+
+CxScriptSuite_addcase("L1_findsegmentation_yolov8n_seg_pill_bag_review");
+CxScriptSuite_case_setscriptid("find_segmentation_yolov8n_seg_cpu_direct");
+CxScriptSuite_case_setexpected("pending_human_review");
+CxScriptSuite_case_setexpectedpolicyguard("FINDSEGMENTATION_YOLOV8N_SEG_EVIDENCE_V1_SEMANTIC_QUALITY_NOT_CLAIMED");
+CxScriptSuite_case_setimage("pill_bag_001");
+CxScriptSuite_case_settarget("pill_bag_full_image");
+CxScriptSuite_case_setparameter("yolov8n_seg_coco_v1_findsegmentation");
+CxScriptSuite_case_setlevel("L1_model_evidence");

@@ -1,0 +1,39 @@
+global_contract_pass = 1;
+global_contract_status = "findsegmentation_yolov8n_seg_artifacts_ready";
+global_contract_conclusion = "FindSegmentation YOLOv8n-Seg produced instance evidence for human review.";
+
+if (global_headless_ok == 0) {
+    global_contract_pass = 0;
+    global_contract_status = "findsegmentation_yolov8n_seg_headless_failed";
+    global_contract_conclusion = "FindSegmentation YOLOv8n-Seg headless execution failed";
+}
+
+if (global_algorithm_executed == 0) {
+    global_contract_pass = 0;
+    global_contract_status = "findsegmentation_yolov8n_seg_not_executed";
+    global_contract_conclusion = "FindSegmentation YOLOv8n-Seg was not executed";
+}
+
+if (global_budget_exceeded == 1) {
+    global_contract_pass = 0;
+    global_contract_status = "findsegmentation_yolov8n_seg_budget_exceeded";
+    global_contract_conclusion = "FindSegmentation YOLOv8n-Seg exceeded the execution budget";
+}
+
+if (global_valid_points_count < 1) {
+    global_contract_pass = 0;
+    global_contract_status = "findsegmentation_yolov8n_seg_no_instances";
+    global_contract_conclusion = "FindSegmentation YOLOv8n-Seg requires at least one contour-backed instance";
+}
+
+if (global_rendered_result_count < 1) {
+    global_contract_pass = 0;
+    global_contract_status = "findsegmentation_yolov8n_seg_not_rendered";
+    global_contract_conclusion = "FindSegmentation YOLOv8n-Seg instance geometry was not rendered";
+}
+
+if (global_result_overlay_changed_pixels < 1) {
+    global_contract_pass = 0;
+    global_contract_status = "findsegmentation_yolov8n_seg_overlay_blank";
+    global_contract_conclusion = "FindSegmentation YOLOv8n-Seg result overlay did not change the image";
+}

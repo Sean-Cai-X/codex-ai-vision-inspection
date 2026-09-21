@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "case_kind": "flat",
+  "generator_params": {
+    "z0": 5.0,
+    "size_x": 10,
+    "size_y": 10
+  },
+  "phys_unit": {
+    "x_unit": "Pixel",
+    "x_scale": 1.0,
+    "y_unit": "Pixel",
+    "y_scale": 1.0,
+    "z_unit": "Pixel",
+    "z_scale": 1.0
+  },
+  "golden_asserts": {
+    "basic_stats.mean": { "value": 5.0, "abs_tol": 1e-12 },
+    "basic_stats.rms": { "value": 0.0, "abs_tol": 1e-12 },
+    "surface_area.area_ratio": { "value": 1.0, "abs_tol": 1e-12 }
+  }
+}
+

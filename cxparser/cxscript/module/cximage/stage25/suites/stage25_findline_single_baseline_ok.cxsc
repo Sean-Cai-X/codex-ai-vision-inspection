@@ -1,0 +1,14 @@
+CxScriptSuite_reset(0);
+CxScriptSuite_setid("stage25_findline_single_baseline_ok");
+CxScriptSuite_setname("Stage25 Findline Single Baseline OK");
+CxScriptSuite_setcatalog("cxparser/cxscript/module/cximage/catalog/cximage_catalog.cxsc");
+CxScriptSuite_setoutputroot("D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/cxscript_runs/stage25_findline_single_baseline_ok");
+
+CxScriptSuite_addcase("L1_line_high_contrast_001_findline_threshold8_ok");
+CxScriptSuite_case_setscriptid("findline_stage25_profile_ok");
+CxScriptSuite_case_setimage("line_high_contrast_001");
+CxScriptSuite_case_settarget("plate_top_edge");
+CxScriptSuite_case_setparameter("findline_threshold8_baseline");
+CxScriptSuite_case_setlevel("L1_high_contrast");
+CxScriptSuite_case_setexpected("ok");
+CxScriptSuite_case_setexpectedpolicyguard("MEASURE_AND_FIT_AVAILABLE");

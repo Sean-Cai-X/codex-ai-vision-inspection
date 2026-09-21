@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "description": "Reference analytic case schema for cxvision metrology_analytics smoke.",
+  "required": [
+    "schema_version",
+    "case_kind",
+    "generator_params",
+    "phys_unit",
+    "golden_asserts"
+  ],
+  "policy": "independent cxvision implementation; no GPL source copy or translation"
+}
+

@@ -1,0 +1,24 @@
+scenario {
+  prepare_ok = 0;
+  action_ok = 0;
+  check_ok = 0;
+  report_text = "";
+
+  packet = "OptimizeSummary";
+  summary = "<from_ensmallen>";
+
+  LoadOptimizeSummary();
+  prepare_ok = 1;
+
+  ExplainTuningResult();
+  WriteBackTuningNote();
+  action_ok = 1;
+
+  check(summary);
+  check(short_explanation);
+  check(rag_writeback_note);
+  check_ok = 1;
+
+  output(RagWritebackNote);
+  report_text = "match_score_writeback_contract_ready";
+}

@@ -1,0 +1,28 @@
+Image m_image;
+FindSegmentation m_seg;
+
+m_image.copyFromMat(global_matInput);
+
+int threshold_percent = global_threshold;
+double threshold = threshold_percent * 0.01;
+
+m_seg.setbackend("libtorch_segmentation");
+m_seg.settask("torch.infer.instance_segmentation.yolov8.v1");
+m_seg.setmodelid("yolov8n_seg_coco_v1");
+m_seg.setmodelpackage("libtorch_module/models/yolov8n_seg_coco_v1/model_manifest.json");
+m_seg.setmanifest("libtorch_module/models/yolov8n_seg_coco_v1/model_manifest.json");
+m_seg.setoutputroot(global_torch_request_context);
+m_seg.setpostprocessprofile("yolov8n_seg_instance_artifact_v1");
+m_seg.setparameterprofile("yolov8n_seg_coco_v1_findsegmentation");
+m_seg.setdevice("cpu");
+m_seg.setthreshold(threshold);
+m_seg.setgeometrytype("oriented_box");
+
+m_seg.segment(&m_image);
+m_seg.extractboundary();
+m_seg.buildoverlay(&m_image);
+
+global_headless_ok = m_seg.status_code();
+global_valid_points_count = m_seg.get_contour_count();
+global_torch_ok = m_seg.status_code();
+global_torch_result_count = m_seg.get_contour_count();

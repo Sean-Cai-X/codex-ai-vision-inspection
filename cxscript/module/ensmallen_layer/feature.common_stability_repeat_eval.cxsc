@@ -1,0 +1,29 @@
+# ensmallen_layer reusable fragment
+kind=module
+layer=feature
+module=ensmallen_layer
+case=common_stability_repeat_eval
+mode=build-run
+route=default
+report=on
+
+# input
+sample_id=required
+baseline_params=required
+best_params=required
+repeat_count=required
+
+# call
+call_1=RepeatBaselineEval
+call_2=RepeatBestEval
+call_3=CompareStability
+
+# expect
+expect_field_1=baseline_mean
+expect_field_2=baseline_std
+expect_field_3=optimized_mean
+expect_field_4=optimized_std
+expect_field_5=stability_delta
+
+# checkpoint
+check_1=stability_summary_defined

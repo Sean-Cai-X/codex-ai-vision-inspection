@@ -1,0 +1,20 @@
+flow: cximage_find_circle_explore
+description: weak node-to-script view; no parameter or data transport
+
+node: N0
+stage: Run
+module: cximage
+title: direct find circle test
+script: cxparser/cxscript/module/cximage/find_circle_direct_test.cxsc
+status_from: global_current_status
+
+node: N1
+stage: Observe
+module: cximage
+title: inspect direct statement trace
+script: none
+status_from: global_current_status
+
+edge: N0 -> N1
+condition: global_current_status == "PASS" || global_current_status == "PENDING"
+type: normal

@@ -1,0 +1,57 @@
+Stage25Manifest m;
+
+m.reset();
+
+m.setname("stage25_l0_regression");
+m.setoutroot("D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/cxscript_runs/stage_2_5_l0_regression");
+m.setimageroot("D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/test_images");
+
+m.setminimagesforstability(1);
+m.setminlevelsforstability(1);
+
+m.addimage(
+    "basic_01",
+    "L0_basic",
+    "D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/test_images/L0_basic/basic_01.jpg");
+
+m.image_addtag("line");
+m.image_addtag("circle");
+m.image_addtag("basic");
+m.image_setexpectededge("clear");
+m.image_setlighting("normal");
+m.image_setcontrast("high");
+
+m.image_addfindlinetarget(
+    "main_line_edge",
+    "120", "240",
+    "980", "240",
+    "8", "32");
+
+m.image_addfindcircletarget(
+    "basic_dot",
+    "407", "483",
+    "420", "483",
+    "5",
+    "3");
+
+m.addfindlineprofile("stage25_filter20");
+m.findline_setmethod(0);
+m.findline_setthreshold(20);
+m.findline_setlinegap(6);
+m.findline_setfitmode(1);
+m.findline_setscript_scale(1);
+m.findline_setfilterprofile(1);
+m.findline_setpolicy("FILTER_POLICY_CANDIDATE");
+
+m.addfindcircleprofile("direct");
+m.findcircle_setmethod(0);
+m.findcircle_setthreshold(20);
+m.findcircle_setgap(5);
+m.findcircle_setlinegap(3);
+m.findcircle_setpolicy("DEFAULT_POLICY");
+
+m.addevidenceprofile("normal");
+m.evidence_setnearestpointsupportpx(3.0);
+m.evidence_setlinedistancesupportpx(3.0);
+m.evidence_setmingradient(6.0);
+m.evidence_setmingradientratio(0.35);

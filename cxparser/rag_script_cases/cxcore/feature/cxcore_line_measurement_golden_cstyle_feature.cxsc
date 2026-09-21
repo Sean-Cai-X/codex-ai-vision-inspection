@@ -1,0 +1,21 @@
+kind=module
+layer=feature
+module=cxcore
+case=line_measurement_golden
+mode=build-run
+report=on
+use Image;
+use Roi;
+use LineMeasurementOutput;
+Image source_image;
+Roi roi_line;
+LineMeasurementOutput line_result;
+measure_line(source_image, roi_line);
+check(success == true);
+check(task_id == "cxcore.feature.line_measurement_golden");
+check(result_object == "LineMeasurementOutput");
+check(runtime_ms >= 0.000000);
+check(failure_mode == "none");
+check(summary == "task validated lane=default scalar=10313.000000");
+print(task_id);
+print(summary);

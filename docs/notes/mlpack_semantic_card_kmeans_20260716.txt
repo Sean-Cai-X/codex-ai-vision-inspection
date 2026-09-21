@@ -1,0 +1,20 @@
+algorithm_name: kmeans
+source_method_file: mlpack-master/src/mlpack/methods/kmeans/kmeans.hpp
+source_test_file: mlpack-master/src/mlpack/tests/kmeans_test.cpp
+task_type: cluster
+input_shape: [n_samples, n_features]
+required_parameters:
+  - k: number of clusters, default 5
+  - max_iterations: maximum iterations, default 1000
+  - tolerance: convergence tolerance, default 1e-10
+  - initialization: random/kmeans++/custom, default kmeans++
+cluster_call: KMeans<>::Cluster(input, k, assignments)
+score_or_assertion: assignment_count == sample_count, assignments in [0, k)
+expected_behavior: each point assigned to exactly one cluster
+edge_cases: empty input, k=1, all points same, k > n_samples
+project_field_mapping:
+  assignments -> global_cluster_ref
+  centroids -> global_cluster_centroid_ref
+  within_cluster_distance -> global_cluster_distance_ref
+cxscript_target_case: baseline_kmeans_official_min_cluster.cxsc
+contract_target: baseline_kmeans_contract.cxsc

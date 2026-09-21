@@ -1,0 +1,38 @@
+scenario {
+  StageResult stage_result;
+  RagStore rag;
+  ManagementGate gate;
+  double prepare_ok=0;
+  double action_ok=0;
+  double check_ok=0;
+  double replay_ready=0;
+  double gate_ready=0;
+  trace_id="trace.integration.result_management.scenario.001";
+  stage_name="phase1_link_validation";
+  result_case_id="parser_core_torch_rag_stage_001";
+  replay_bucket="phase1_batch1";
+  review_focus="stage_gate";
+  expected_artifact_ref="stage_gate_packet";
+  prepare_ok=1;
+
+  if (prepare_ok) {
+    stage_result.load(result_case_id,stage_name);
+    rag.store(stage_result,replay_bucket);
+    gate.publish(stage_result,rag,review_focus);
+    action_ok=1;
+  }
+
+  check {
+    replay_ready=rag.has_replay_key();
+    gate_ready=gate.has_decision_inputs();
+    check_ok=replay_ready&&gate_ready;
+  }
+
+  report {
+    chain_status="rag_management_ready";
+    artifact_ref=expected_artifact_ref;
+    replay_key=rag.replay_key();
+    packet_ref=gate.packet_ref();
+    report_text="result_management scenario flow ready";
+  }
+}

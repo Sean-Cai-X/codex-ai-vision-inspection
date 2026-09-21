@@ -1,0 +1,13 @@
+scenario {
+  ImageProbe probe;
+  probe.Load("image.png");
+  probe.Detect(0.8);
+
+  check {
+    probe.Score();
+  }
+
+  report {
+    probe.Score();
+  }
+}

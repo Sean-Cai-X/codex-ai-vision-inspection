@@ -1,0 +1,31 @@
+{
+  "schema": "cxvision.predictive_geometry_gate.v1",
+  "training_enabled": 0,
+  "states": [
+    "DIRECT_MEASUREMENT",
+    "CLAMPED_MEASUREMENT",
+    "PREDICTIVE_HYPOTHESIS",
+    "UNDETERMINABLE"
+  ],
+  "required_facts": [
+    "geometry_type",
+    "source",
+    "model_confidence",
+    "confidence_calibration_ref",
+    "evidence_strength",
+    "independent_image_evidence_verified",
+    "image_evidence_ref",
+    "classical_fit_residual_px",
+    "support",
+    "tolerance_policy_ref"
+  ],
+  "direct_measurement_rule": "calibrated confidence, image evidence, residual and support all satisfy the typed tolerance policy",
+  "clamped_measurement_rule": "model hypothesis is accepted only after positive_negative evidence sampling or classical geometry verification",
+  "predictive_rule": "retain hypothesis and uncertainty when geometry is plausible but measurement evidence is insufficient",
+  "undeterminable_rule": "return no measurement when neither model nor image evidence satisfies minimum admissibility",
+  "forbidden": [
+    "promote by model confidence alone",
+    "report predictive hypothesis as measurement PASS",
+    "replace missing evidence with another case asset"
+  ]
+}

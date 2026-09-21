@@ -1,0 +1,14 @@
+ImageProbe probe;
+
+input_path="image.png";
+threshold=0.8;
+probe.Load(input_path);
+prepare_ok=1;
+
+probe.Detect(threshold);
+action_ok=1;
+
+score=probe.Score();
+check_ok=score>0.0;
+
+report_text="cxcore image probe flow complete";

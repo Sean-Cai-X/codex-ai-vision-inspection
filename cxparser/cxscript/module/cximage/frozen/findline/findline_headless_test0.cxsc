@@ -1,0 +1,2 @@
+Image m_image;
+m_image.copyFromMat(global_matInput);

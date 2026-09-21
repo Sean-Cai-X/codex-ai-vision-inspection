@@ -1,0 +1,6 @@
+global_return_before = 1;
+global_return_after = 0;
+
+return 1;
+
+global_return_after = 1;

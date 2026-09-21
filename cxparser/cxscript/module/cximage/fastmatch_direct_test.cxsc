@@ -1,0 +1,368 @@
+Image m_image;
+FastMatch m_match;
+
+// fastmatch_normal_trace_binding_version: 3
+// Version 3 follows the confirmed fixed-int Param_int_N dispatch order.
+// Version 2 follows the confirmed fixed-int Param_int_N dispatch order.
+
+m_image.copyFromMat(global_matInput);
+
+int learn_x = global_learn_roi_x;
+int learn_y = global_learn_roi_y;
+int learn_w = global_learn_roi_w;
+int learn_h = global_learn_roi_h;
+
+int search_x = global_search_roi_x;
+int search_y = global_search_roi_y;
+int search_w = global_search_roi_w;
+int search_h = global_search_roi_h;
+
+int threshold = global_threshold;
+int linegap = global_linegap;
+int wgap = global_wgap;
+int hgap = global_hgap;
+int compare_gap = global_compare_gap;
+int objfilter = global_objfilter;
+int learn_wgap_0 = global_fastmatch_learn_wgap_0;
+int learn_hgap_0 = global_fastmatch_learn_hgap_0;
+int learn_method_0 = global_fastmatch_learn_method_0;
+int learn_threshold_0 = global_fastmatch_learn_threshold_0;
+int learn_linegap_0 = global_fastmatch_learn_linegap_0;
+int learn_objfilter_0 = global_fastmatch_learn_objfilter_0;
+int learn_compare_gap_0 = global_fastmatch_learn_compare_gap_0;
+int learn_edge_count_0 = global_fastmatch_learn_edge_count_0;
+int learn_selected_edge_0 = global_fastmatch_learn_selected_edge_0;
+int learn_wgap_1 = global_fastmatch_learn_wgap_1;
+int learn_hgap_1 = global_fastmatch_learn_hgap_1;
+int learn_method_1 = global_fastmatch_learn_method_1;
+int learn_threshold_1 = global_fastmatch_learn_threshold_1;
+int learn_linegap_1 = global_fastmatch_learn_linegap_1;
+int learn_objfilter_1 = global_fastmatch_learn_objfilter_1;
+int learn_compare_gap_1 = global_fastmatch_learn_compare_gap_1;
+int learn_edge_count_1 = global_fastmatch_learn_edge_count_1;
+int learn_selected_edge_1 = global_fastmatch_learn_selected_edge_1;
+int learn_wgap_2 = global_fastmatch_learn_wgap_2;
+int learn_hgap_2 = global_fastmatch_learn_hgap_2;
+int learn_method_2 = global_fastmatch_learn_method_2;
+int learn_threshold_2 = global_fastmatch_learn_threshold_2;
+int learn_linegap_2 = global_fastmatch_learn_linegap_2;
+int learn_objfilter_2 = global_fastmatch_learn_objfilter_2;
+int learn_compare_gap_2 = global_fastmatch_learn_compare_gap_2;
+int learn_edge_count_2 = global_fastmatch_learn_edge_count_2;
+int learn_selected_edge_2 = global_fastmatch_learn_selected_edge_2;
+int learn_wgap_3 = global_fastmatch_learn_wgap_3;
+int learn_hgap_3 = global_fastmatch_learn_hgap_3;
+int learn_method_3 = global_fastmatch_learn_method_3;
+int learn_threshold_3 = global_fastmatch_learn_threshold_3;
+int learn_linegap_3 = global_fastmatch_learn_linegap_3;
+int learn_objfilter_3 = global_fastmatch_learn_objfilter_3;
+int learn_compare_gap_3 = global_fastmatch_learn_compare_gap_3;
+int learn_edge_count_3 = global_fastmatch_learn_edge_count_3;
+int learn_selected_edge_3 = global_fastmatch_learn_selected_edge_3;
+double min_score = global_min_score;
+int min_score_percent = global_min_score_percent;
+int find_num = global_find_num;
+int match_step_x = global_match_step_x;
+int match_step_y = global_match_step_y;
+int match_threshold = global_match_thre;
+int fastmatch_action = global_fastmatch_action;
+int scan_rotation_deg = global_fastmatch_scan_rotation_deg;
+int transform_enabled = global_fastmatch_transform_enabled;
+int transform_center_x = global_fastmatch_transform_center_x;
+int transform_center_y = global_fastmatch_transform_center_y;
+int transform_half_u = global_fastmatch_transform_half_u;
+int transform_half_v = global_fastmatch_transform_half_v;
+int transform_angle_deg = global_fastmatch_transform_angle_deg;
+int transform_scale_x_permille = global_fastmatch_transform_scale_x_permille;
+int transform_scale_y_permille = global_fastmatch_transform_scale_y_permille;
+int transform_scale_range_percent = global_fastmatch_transform_scale_range_percent;
+int transform_angle_range_deg = global_fastmatch_transform_angle_range_deg;
+int transform_coarse_steps = global_fastmatch_transform_coarse_steps;
+int transform_fine_range_percent = global_fastmatch_transform_fine_range_percent;
+int transform_fine_angle_range_deg = global_fastmatch_transform_fine_angle_range_deg;
+int transform_max_candidates = global_fastmatch_transform_max_candidates;
+int transform_max_samples = global_fastmatch_transform_max_samples;
+int transform_max_elapsed_ms = global_fastmatch_transform_max_elapsed_ms;
+int transform_shear_range_permille = global_fastmatch_transform_shear_range_permille;
+int transform_projective_range_permille = global_fastmatch_transform_projective_range_permille;
+int calibration_test_enabled = global_fastmatch_calibration_test_enabled;
+double calibration_reprojection_rmse_px = global_fastmatch_calibration_reprojection_rmse_milli_px / 1000.0;
+
+if (min_score_percent > 0)
+{
+    min_score = min_score_percent / 100.0;
+}
+if (fastmatch_action <= 0)
+{
+    fastmatch_action = 3;
+}
+if (find_num <= 0)
+{
+    find_num = 1;
+}
+if (compare_gap <= 0)
+{
+    compare_gap = 20;
+}
+if (objfilter <= 0)
+{
+    objfilter = 1;
+}
+if (learn_wgap_0 <= 0) { learn_wgap_0 = wgap; }
+if (learn_hgap_0 <= 0) { learn_hgap_0 = hgap; }
+if (learn_threshold_0 <= 0) { learn_threshold_0 = threshold; }
+if (learn_linegap_0 <= 0) { learn_linegap_0 = linegap; }
+if (learn_objfilter_0 <= 0) { learn_objfilter_0 = objfilter; }
+if (learn_compare_gap_0 <= 0) { learn_compare_gap_0 = compare_gap; }
+if (learn_wgap_1 <= 0) { learn_wgap_1 = wgap; }
+if (learn_hgap_1 <= 0) { learn_hgap_1 = hgap; }
+if (learn_threshold_1 <= 0) { learn_threshold_1 = threshold; }
+if (learn_linegap_1 <= 0) { learn_linegap_1 = linegap; }
+if (learn_objfilter_1 <= 0) { learn_objfilter_1 = objfilter; }
+if (learn_compare_gap_1 <= 0) { learn_compare_gap_1 = compare_gap; }
+if (learn_wgap_2 <= 0) { learn_wgap_2 = wgap; }
+if (learn_hgap_2 <= 0) { learn_hgap_2 = hgap; }
+if (learn_threshold_2 <= 0) { learn_threshold_2 = threshold; }
+if (learn_linegap_2 <= 0) { learn_linegap_2 = linegap; }
+if (learn_objfilter_2 <= 0) { learn_objfilter_2 = objfilter; }
+if (learn_compare_gap_2 <= 0) { learn_compare_gap_2 = compare_gap; }
+if (learn_wgap_3 <= 0) { learn_wgap_3 = wgap; }
+if (learn_hgap_3 <= 0) { learn_hgap_3 = hgap; }
+if (learn_threshold_3 <= 0) { learn_threshold_3 = threshold; }
+if (learn_linegap_3 <= 0) { learn_linegap_3 = linegap; }
+if (learn_objfilter_3 <= 0) { learn_objfilter_3 = objfilter; }
+if (learn_compare_gap_3 <= 0) { learn_compare_gap_3 = compare_gap; }
+if (match_step_x <= 0)
+{
+    match_step_x = 10;
+}
+if (match_step_y <= 0)
+{
+    match_step_y = 10;
+}
+if (match_threshold <= 0)
+{
+    match_threshold = 10;
+}
+if (transform_center_x <= 0) { transform_center_x = search_x + search_w / 2; }
+if (transform_center_y <= 0) { transform_center_y = search_y + search_h / 2; }
+if (transform_half_u <= 0) { transform_half_u = learn_w / 2; }
+if (transform_half_v <= 0) { transform_half_v = learn_h / 2; }
+if (transform_scale_x_permille <= 0) { transform_scale_x_permille = 1000; }
+if (transform_scale_y_permille <= 0) { transform_scale_y_permille = 1000; }
+if (transform_scale_range_percent < 0) { transform_scale_range_percent = 15; }
+if (transform_angle_range_deg < 0) { transform_angle_range_deg = 15; }
+if (transform_coarse_steps <= 0) { transform_coarse_steps = 3; }
+if (transform_fine_range_percent < 0) { transform_fine_range_percent = 3; }
+if (transform_fine_angle_range_deg < 0) { transform_fine_angle_range_deg = 3; }
+if (transform_max_candidates <= 0) { transform_max_candidates = 27; }
+if (transform_max_samples <= 0) { transform_max_samples = 200000; }
+if (transform_max_elapsed_ms <= 0) { transform_max_elapsed_ms = 100; }
+
+m_match.setrectxywh(learn_x, learn_y, learn_w, learn_h);
+m_match.setscanrotation(scan_rotation_deg);
+m_match.setobjfilter(objfilter);
+m_match.setwhgap(wgap, hgap);
+m_match.setthre(threshold);
+m_match.setlinegap(linegap);
+m_match.setcompgap(compare_gap);
+m_match.setlearnwgap(0, learn_wgap_0);
+m_match.setlearnhgap(0, learn_hgap_0);
+m_match.setlearnmethod(0, learn_method_0);
+m_match.setlearnthre(0, learn_threshold_0);
+m_match.setlearnlinegap(0, learn_linegap_0);
+m_match.setlearnobjfilter(0, learn_objfilter_0);
+m_match.setlearncompgap(0, learn_compare_gap_0);
+m_match.setlearnedgecount(0, learn_edge_count_0);
+m_match.setlearnselectededge(0, learn_selected_edge_0);
+m_match.setlearnwgap(1, learn_wgap_1);
+m_match.setlearnhgap(1, learn_hgap_1);
+m_match.setlearnmethod(1, learn_method_1);
+m_match.setlearnthre(1, learn_threshold_1);
+m_match.setlearnlinegap(1, learn_linegap_1);
+m_match.setlearnobjfilter(1, learn_objfilter_1);
+m_match.setlearncompgap(1, learn_compare_gap_1);
+m_match.setlearnedgecount(1, learn_edge_count_1);
+m_match.setlearnselectededge(1, learn_selected_edge_1);
+m_match.setlearnwgap(2, learn_wgap_2);
+m_match.setlearnhgap(2, learn_hgap_2);
+m_match.setlearnmethod(2, learn_method_2);
+m_match.setlearnthre(2, learn_threshold_2);
+m_match.setlearnlinegap(2, learn_linegap_2);
+m_match.setlearnobjfilter(2, learn_objfilter_2);
+m_match.setlearncompgap(2, learn_compare_gap_2);
+m_match.setlearnedgecount(2, learn_edge_count_2);
+m_match.setlearnselectededge(2, learn_selected_edge_2);
+m_match.setlearnwgap(3, learn_wgap_3);
+m_match.setlearnhgap(3, learn_hgap_3);
+m_match.setlearnmethod(3, learn_method_3);
+m_match.setlearnthre(3, learn_threshold_3);
+m_match.setlearnlinegap(3, learn_linegap_3);
+m_match.setlearnobjfilter(3, learn_objfilter_3);
+m_match.setlearncompgap(3, learn_compare_gap_3);
+m_match.setlearnedgecount(3, learn_edge_count_3);
+m_match.setlearnselectededge(3, learn_selected_edge_3);
+
+m_match.setmatchrectxywh(search_x, search_y, search_w, search_h);
+m_match.matchstepgap(match_step_x, match_step_y);
+m_match.setmatchthre(match_threshold);
+m_match.setminscore(min_score);
+m_match.setfindnum(find_num);
+m_match.settransformsearchenabled(transform_enabled);
+m_match.settransformcenter(transform_center_x, transform_center_y);
+m_match.settransformextent(transform_half_u, transform_half_v);
+m_match.settransformangle(transform_angle_deg);
+m_match.settransformscalepermille(transform_scale_x_permille, transform_scale_y_permille);
+m_match.settransformscalerangepercent(transform_scale_range_percent);
+m_match.settransformanglerange(transform_angle_range_deg);
+m_match.settransformcoarsesteps(transform_coarse_steps);
+m_match.settransformfinerangepercent(transform_fine_range_percent);
+m_match.settransformfineanglerange(transform_fine_angle_range_deg);
+m_match.settransformmaxcandidates(transform_max_candidates);
+m_match.settransformmaxsamples(transform_max_samples);
+m_match.settransformmaxelapsedms(transform_max_elapsed_ms);
+m_match.settransformshearrangepermille(transform_shear_range_permille);
+m_match.settransformprojectiverangepermille(transform_projective_range_permille);
+m_match.setnormaltraceenabled(global_fastmatch_normaltrace_enabled);
+// Fixed-int CxScript member dispatch stores arguments in source order and
+// invokes Param_int_N in reverse. Keep FastMatch's C++ API unchanged and list
+// the source arguments in dispatch order so the C++ object receives the
+// operator-facing order documented in Key Parameter Controls.
+// compare_gap is the authoritative keypoint-to-A/B offset for both the
+// directional Point Column and Normal-Trace learn paths (total A-B is 2x).
+// The legacy
+// global_fastmatch_normaltrace_pair_offset_px remains loadable in old
+// snapshots but must not override the operator's compare-gap edit.
+m_match.setnormaltraceparams(compare_gap,
+    global_fastmatch_normaltrace_max_nodes,
+    global_fastmatch_normaltrace_min_gradient,
+    global_fastmatch_normaltrace_overlap_radius_px);
+m_match.setnormaltracecosts(
+    global_fastmatch_normaltrace_max_trace_gap_px,
+    global_fastmatch_normaltrace_gap_weight_permille,
+    global_fastmatch_normaltrace_turn_weight_permille,
+    global_fastmatch_normaltrace_gradient_weight_permille);
+m_match.setnormaltraceknn(global_fastmatch_normaltrace_knn_neighbors);
+m_match.setnormaltraceann(
+    global_fastmatch_normaltrace_ann_min_component_coverage_percent,
+    global_fastmatch_normaltrace_ann_min_component_points,
+    global_fastmatch_normaltrace_ann_normal_deviation_deg,
+    global_fastmatch_normaltrace_ann_tangent_deviation_deg,
+    global_fastmatch_normaltrace_ann_radius_px);
+m_match.setnormaltracegeometry(
+    global_fastmatch_normaltrace_tangent_step_px,
+    global_fastmatch_normaltrace_corner_rejection_px,
+    global_fastmatch_normaltrace_polarity,
+    global_fastmatch_normaltrace_min_length_px,
+    global_fastmatch_normaltrace_angle_tolerance_deg);
+m_match.setnormaltracedomain(
+    global_fastmatch_normaltrace_min_keypoints_per_domain,
+    global_fastmatch_normaltrace_xy_compression_bin_px,
+    global_fastmatch_normaltrace_anchor_radius_px);
+m_match.setnormaltracejunction(
+    global_fastmatch_normaltrace_junction_join_spacing_multiplier_percent,
+    global_fastmatch_normaltrace_junction_max_extrapolation_percent,
+    global_fastmatch_normaltrace_junction_min_cross_angle_deg,
+    global_fastmatch_normaltrace_junction_tangent_window_points,
+    global_fastmatch_normaltrace_endpoint_spike_ratio_percent);
+m_match.setformfitenabled(global_fastmatch_formfit_enabled);
+// Fixed-int dispatch is reversed at Param_int_N; source order below therefore
+// preserves the operator-facing order in FastMatch's C++ API.
+m_match.setformfitdenseparams(
+    global_fastmatch_formfit_curvature_threshold_millideg,
+    global_fastmatch_formfit_min_gradient,
+    global_fastmatch_formfit_profile_step_milli_px,
+    global_fastmatch_formfit_profile_half_width_milli_px,
+    global_fastmatch_formfit_dense_step_milli_px);
+m_match.setformfitannparams(
+    global_fastmatch_formfit_max_iterations,
+    global_fastmatch_formfit_min_mutual_pairs,
+    global_fastmatch_formfit_trim_percent,
+    global_fastmatch_formfit_normal_tolerance_deg,
+    global_fastmatch_formfit_ann_radius_milli_px);
+m_match.setformfitbudget(
+    global_fastmatch_formfit_allow_affine,
+    global_fastmatch_formfit_max_anchors,
+    global_fastmatch_formfit_max_elapsed_ms);
+m_match.setcalibrationtestenabled(calibration_test_enabled);
+if (calibration_test_enabled == 1)
+{
+    m_match.setcalibrationtestxytransformscaled(
+        global_fastmatch_calibration_scale_x_ppm,
+        global_fastmatch_calibration_scale_y_ppm,
+        global_fastmatch_calibration_offset_x_milliunit,
+        global_fastmatch_calibration_offset_y_milliunit,
+        global_fastmatch_calibration_rotation_millideg,
+        global_fastmatch_calibration_shear_x_ppm,
+        global_fastmatch_calibration_shear_y_ppm);
+    m_match.setcalibrationtestreprojectionrmse(calibration_reprojection_rmse_px);
+}
+
+m_match.learn(&m_image);
+m_match.modelzero();
+m_match.pattern2org();
+m_match.samplemodel(100);
+
+global_learn_a_count = m_match.getlearnacount();
+global_learn_b_count = m_match.getlearnbcount();
+global_learn_a2_count = m_match.getlearna2count();
+global_learn_b2_count = m_match.getlearnb2count();
+global_learn_status_code = m_match.getlearnstatuscode();
+global_model_point_count = m_match.getmodelpointcount();
+global_normal_trace_candidate_count = m_match.getnormaltracecandidatecount();
+global_normal_trace_deduplicated_count = m_match.getnormaltracededuplicatedcount();
+global_normal_trace_point_count = m_match.getnormaltracepointcount();
+global_normal_trace_pair_count = m_match.getnormaltracepaircount();
+global_match_count = 0;
+global_candidate_count = 0;
+global_best_score = 0;
+
+int should_match = 1;
+if (fastmatch_action == 1)
+{
+    should_match = 0;
+}
+
+if (should_match == 1)
+{
+    if (transform_enabled == 1)
+    {
+        m_match.transformmatch(&m_image);
+    }
+    else
+    {
+        m_match.match(&m_image);
+    }
+
+    global_match_count = m_match.getresultcandidatecount();
+    global_candidate_count = global_match_count;
+    global_best_score = m_match.getresultbestscore();
+    global_fastmatch_transform_executed = m_match.gettransformsearchexecuted();
+    global_fastmatch_transform_converged = m_match.gettransformsearchconverged();
+    global_fastmatch_transform_budget_exceeded = m_match.gettransformsearchbudgetexceeded();
+    global_fastmatch_transform_candidate_count = m_match.gettransformsearchcandidatecount();
+    global_fastmatch_transform_sample_count = m_match.gettransformsearchsamplecount();
+    global_fastmatch_transform_elapsed_ms = m_match.gettransformsearchelapsedms();
+    global_fastmatch_transform_best_score_permille = m_match.gettransformsearchscore() * 1000;
+    global_fastmatch_transform_best_scale_x_permille = m_match.gettransformsearchscalex() * 1000;
+    global_fastmatch_transform_best_scale_y_permille = m_match.gettransformsearchscaley() * 1000;
+    global_fastmatch_transform_best_angle_deg = m_match.gettransformsearchangle();
+    global_fastmatch_transform_best_shear_permille = m_match.gettransformsearchshear() * 1000;
+    global_fastmatch_transform_best_projective_u_permille = m_match.gettransformsearchprojectiveu() * 1000;
+    global_fastmatch_transform_best_projective_v_permille = m_match.gettransformsearchprojectivev() * 1000;
+    global_fastmatch_transform_gradient_score_permille = m_match.gettransformsearchgradientscore() * 1000;
+    global_fastmatch_transform_geometric_residual_milli_px = m_match.gettransformsearchresidual() * 1000;
+    global_fastmatch_transform_rigid_baseline_score_permille = m_match.gettransformsearchrigidbaselinescore() * 1000;
+    global_fastmatch_transform_calibration_applied = m_match.gettransformsearchcalibrationapplied();
+    global_fastmatch_transform_calibration_reprojection_rmse_milli_px = m_match.gettransformsearchcalibrationreprojectionrmse() * 1000;
+    global_fastmatch_transform_best_physical_cx_milliunit = m_match.gettransformsearchphysicalcx() * 1000;
+    global_fastmatch_transform_best_physical_cy_milliunit = m_match.gettransformsearchphysicalcy() * 1000;
+}
+
+global_fastmatch_formfit_status_code = m_match.getformfitstatuscode();
+global_fastmatch_formfit_reference_count = m_match.getformfitreferencecount();
+global_fastmatch_formfit_observed_count = m_match.getformfitobservedcount();
+global_fastmatch_formfit_mutual_count = m_match.getformfitmutualcount();
+global_fastmatch_formfit_anchor_count = m_match.getformfitanchorcount();
+global_fastmatch_formfit_score_permille = m_match.getformfitscore() * 1000;
+global_fastmatch_formfit_residual_milli_px = m_match.getformfitresidual() * 1000;

@@ -1,0 +1,43 @@
+scenario {
+  ParserEntry parser;
+  CxcoreBridge core;
+  TorchRoute torch_route;
+  RagStore rag;
+  ManagementGate gate;
+  double prepare_ok=0;
+  double action_ok=0;
+  double check_ok=0;
+  double infer_ready=0;
+  double replay_ready=0;
+  trace_id="trace.integration.parser_core_torch_rag.infer.001";
+  task_id="integration_full_replay_infer";
+  route_hint="default";
+  image_path="data/infer/sample_001.png";
+  replay_bucket="phase1_batch1";
+  expected_artifact_ref="replay_packet";
+  prepare_ok=1;
+
+  if (prepare_ok) {
+    parser.dispatch(task_id,trace_id,route_hint,image_path);
+    core.build_classical_output(parser,"roi_main");
+    torch_route.build_request(core);
+    torch_route.run_infer();
+    rag.store(torch_route,replay_bucket);
+    gate.prepare_replay(parser,core,torch_route,rag);
+    action_ok=1;
+  }
+
+  check {
+    infer_ready=torch_route.has_raw_output();
+    replay_ready=gate.has_replay_packet();
+    check_ok=infer_ready&&replay_ready&&rag.has_replay_key();
+  }
+
+  report {
+    chain_status="infer_replay_ready";
+    artifact_ref=expected_artifact_ref;
+    replay_key=rag.replay_key();
+    packet_ref=gate.packet_ref();
+    report_text="parser_core_torch_rag infer replay flow ready";
+  }
+}

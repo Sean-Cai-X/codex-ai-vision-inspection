@@ -1,0 +1,21 @@
+# cxscript module sample
+kind=module
+layer=smoke
+module=cxcore
+mode=build-run
+report=on
+type ImageFrame
+use ImageFrame
+step prepare {
+breakpoint prepare_bp
+input image = "image.png"
+call minimal_binding()
+}
+step check
+expect success == true
+expect degraded == false
+expect scalar_result >= 8
+checkpoint "after_smoke"
+step conclude
+emit error_message
+emit summary

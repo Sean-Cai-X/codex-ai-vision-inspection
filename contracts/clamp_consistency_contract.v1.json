@@ -1,0 +1,70 @@
+{
+  "schema": "cxvision.clamp_consistency_contract.v1",
+  "purpose": "evaluate a model branch by agreement with the precision-chain clamp rather than by detection metrics alone",
+  "map_is_primary_promotion_metric": false,
+  "automatic_human_decision_allowed": false,
+  "required_policy_fields": [
+    "schema",
+    "policy_id",
+    "normalization_scales",
+    "component_weights",
+    "minimum_supported_point_ratio",
+    "maximum_normal_error_p95",
+    "maximum_clamp_intervention_ratio",
+    "minimum_consistency_score",
+    "topology_change_allowed",
+    "human_review_required"
+  ],
+  "required_result_fields": [
+    "schema",
+    "record_id",
+    "model_node_id",
+    "branch_id",
+    "route_id",
+    "canonical_boundary_record_ref",
+    "precision_chain_result_ref",
+    "clamp_policy_ref",
+    "valid_sample_count",
+    "supported_point_ratio",
+    "normal_error_mean",
+    "normal_error_p95",
+    "normal_error_max",
+    "topology_changed",
+    "geometry_parameter_delta",
+    "removed_point_count",
+    "inserted_point_count",
+    "clamp_intervention_ratio",
+    "consistency_components",
+    "consistency_score",
+    "execution_status",
+    "quality_status",
+    "failure_stage",
+    "evidence_refs",
+    "promotion_allowed"
+  ],
+  "consistency_components": [
+    "boundary_support",
+    "normal_residual",
+    "topology_consistency",
+    "geometry_parameter_consistency",
+    "inverse_clamp_intervention"
+  ],
+  "execution_statuses": [
+    "CLAMP_CONSISTENCY_EXECUTION_PASS",
+    "CLAMP_CONSISTENCY_EXECUTION_FAIL"
+  ],
+  "quality_statuses": [
+    "CLAMP_CONSISTENCY_PASS",
+    "CLAMP_CONSISTENCY_FAIL",
+    "CLAMP_CONSISTENCY_PENDING_HUMAN_REVIEW"
+  ],
+  "promotion_invariants": [
+    "source_disjoint_validation_is_complete",
+    "canonical_boundary_record_is_valid",
+    "precision_chain_result_is_replayable",
+    "component_weights_come_from_policy_asset",
+    "no_topology_change_unless_policy_explicitly_allows_it",
+    "execution_pass_is_not_quality_pass",
+    "human_acceptance_is_saved_separately"
+  ]
+}

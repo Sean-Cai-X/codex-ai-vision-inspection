@@ -1,0 +1,40 @@
+scenario {
+  prepare_ok = 0;
+  action_ok = 0;
+  check_ok = 0;
+  report_text = "";
+
+  sample_id = "template_match.template_scene | template_match.template_scene_rotated";
+  image = "<resolved_by_cxparser>";
+  template_image = "<resolved_by_cxparser>";
+  roi_main = "<resolved_by_cxparser>";
+  gt = "<resolved_by_cxparser>";
+  params = "<resolved_by_cxparser>";
+  replay_log_path = "replay_log.jsonl";
+  rag_writeback_case = "feature.match_score_writeback";
+
+  ResolveTuningCase();
+  RunBaselineEval();
+  prepare_ok = 1;
+
+  RunMatchScoreTuning();
+  CompareBaselineVsBest();
+  ExportReplayLog();
+  BuildRagExplainPacket();
+  RouteToRagWriteback(rag_writeback_case);
+  action_ok = 1;
+
+  check(sample_id);
+  check(template_image);
+  check(baseline_result);
+  check(best_result);
+  check(compare_result);
+  check(replay_log_path);
+  check(rag_packet);
+  check_ok = 1;
+
+  output(OptimizeSummary);
+  output(CompareSummary);
+  output(RagWritebackNote);
+  report_text = "match_score_tuning_contract_ready";
+}

@@ -1,0 +1,7 @@
+{
+  "schema": "cxvision.yolov8n_geometry_scale_plan.v1",
+  "scale_factors": [0.85, 1.15],
+  "max_sources_per_split_geometry": 1,
+  "human_review_required": true,
+  "promotion_allowed": false
+}

@@ -1,0 +1,17 @@
+case "cxcore.match_score_opt";
+layer "feature";
+module "ensmallen_layer";
+
+input sample_id = "template_match.template_scene_rotated";
+input image = "<resolved_by_cxparser>";
+input template_image = "<resolved_by_cxparser>";
+input roi_main = "<resolved_by_cxparser>";
+input gt = "<resolved_by_cxparser>";
+input params = "<resolved_by_cxparser>";
+
+do RedirectTo("feature.match_score_tuning");
+
+check sample_id defined;
+check redirect target "feature.match_score_tuning" defined;
+
+output RedirectNotice;

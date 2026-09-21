@@ -1,0 +1,35 @@
+# ensmallen_layer module cxscript
+kind=module
+layer=scenario
+module=ensmallen_layer
+case=phase1_param_replay
+mode=build-run
+route=default
+report=on
+
+# input
+dataset=dataset.cxcore.phase1.ensmallen
+sample_list=fit_circle.circle_double|fit_ellipse.ellipse_rotated|template_match.template_scene|template_match.template_scene_rotated
+repeat_count=3
+replay_enable=1
+compare_enable=1
+
+# call
+call_1=ResolvePhase1SampleBundle
+call_2=EnsmallenCircleOptimize
+call_3=EnsmallenEllipseOptimize
+call_4=EnsmallenMatchOptimize
+call_5=EnsmallenScenarioReplay
+call_6=EnsmallenScenarioCompare
+
+# expect
+expect_output_1=ScenarioOptimizeSummary
+expect_output_2=ScenarioReplayBundle
+expect_field_1=sample_summaries
+expect_field_2=pass_fail
+expect_artifact_1=scenario_compare.json
+expect_artifact_2=replay_log.jsonl
+
+# checkpoint
+check_1=sample_summaries_count_ge_4
+check_2=scenario_compare_generated

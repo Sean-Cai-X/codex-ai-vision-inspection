@@ -1,0 +1,8 @@
+scenario {
+  double a=1;
+  double d=0;
+  if (a>0) {
+    d=d+1;
+  }
+  d;
+}

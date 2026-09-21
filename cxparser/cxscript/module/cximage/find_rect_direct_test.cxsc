@@ -1,0 +1,30 @@
+Image m_image;
+FindRect m_rect;
+
+m_image.copyFromMat(global_matInput);
+
+int x0 = global_roi_x0;
+int y0 = global_roi_y0;
+int x1 = global_roi_x1;
+int y1 = global_roi_y1;
+int x = x0;
+int y = y0;
+int width = x1 - x0;
+int height = y1 - y0;
+
+int threshold = global_threshold;
+int linegap = global_linegap;
+int method = global_method;
+int gauge = global_tool_half_width;
+int findsetting = global_findrect_findsetting;
+
+m_rect.setrect(height, width, y, x);
+m_rect.setthre(threshold);
+m_rect.setlinegap(linegap);
+m_rect.setmethod(method);
+m_rect.setgauge(gauge);
+m_rect.setfindsetting(findsetting);
+
+m_rect.measure(&m_image);
+
+1+1;

@@ -1,0 +1,27 @@
+Image m_image;
+MlpackFeature m_feature;
+MlpackDataset m_dataset;
+MlpackLogRegModel m_model;
+
+m_image.copyFromMat(global_matInput);
+
+int feature_width = 64;
+int feature_height = 64;
+int feature_channel = 1;
+int normalize_mode = 1;
+double lambda = global_mlpack_lambda;
+int max_iterations = global_mlpack_max_iterations;
+double tolerance = global_mlpack_tolerance;
+
+m_feature = mlpack.build_feature(&m_image, feature_width, feature_height, feature_channel);
+m_dataset = mlpack.build_dataset(m_feature);
+m_dataset.normalize(normalize_mode);
+
+m_model.setlambda(lambda);
+m_model.setmaxiter(max_iterations);
+m_model.settolerance(tolerance);
+m_model.train(m_dataset);
+
+global_baseline_result_ref = m_model.get_model_ref();
+global_baseline_class_ref = m_model.get_class_ref();
+global_current_status = "PENDING";

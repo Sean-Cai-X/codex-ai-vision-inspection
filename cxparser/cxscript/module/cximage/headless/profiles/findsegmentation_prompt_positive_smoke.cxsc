@@ -1,0 +1,13 @@
+// Manual/Headless smoke profile: an explicit foreground prompt inside the
+// supplied ROI. It verifies prompt-shape publication; it does not claim
+// EdgeSAM semantic quality.
+global_segmentation_threshold_percent = 50;
+global_segmentation_mode = 2;
+global_segmentation_positive_enabled = 1;
+// Coordinates are from the OpenCV baseline contour in 01.jpg.  Keeping this
+// profile evidence-derived makes the prompt smoke reproducible.
+global_segmentation_positive_x = 595;
+global_segmentation_positive_y = 136;
+global_segmentation_negative_enabled = 0;
+global_segmentation_negative_x = 0;
+global_segmentation_negative_y = 0;

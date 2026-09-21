@@ -1,0 +1,12 @@
+global_torch_task = "torch.infer.deeplab.unified";
+global_torch_device = "auto";
+global_torch_input_image = "";
+global_torch_dataset_root = "";
+
+global_current_status = "torch_deeplab_start";
+
+if (global_torch_input_image != "") {
+    global_current_status = "torch_deeplab_input_available";
+}
+
+global_current_status = "torch_deeplab_completed";

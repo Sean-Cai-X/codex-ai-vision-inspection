@@ -1,0 +1,39 @@
+kind=module
+layer=feature
+module=cxcore
+case=template_feature_match_noise
+mode=build-run
+report=on
+use Image;
+use Roi;
+use MatchOutput;
+Image template_model_image;
+Image search_image;
+Roi roi_match;
+MatchOutput match_result;
+learn_template_model(template_model_image);
+match_template(search_image, roi_match);
+compile("sampling");
+check(readresult("sampling.status") == "compiled");
+check(readresult("sampling.template_main_candidate_count") >= 0.000000);
+compile("fit");
+check(readresult("fit.status") == "compiled");
+check(readresult("fit.template_main_top_score") >= 0.000000);
+check(success == true);
+check(bridge_enabled == true);
+check(result_object == "MatchOutput");
+check(input_sample == "synthetic.template.noisy+search;roi=(20,20,40,28);noise+blur+brightness_shift");
+check(metrics == "candidate_count,top_score,max_score,match_center");
+check(match_candidate_count_value > 0.000000);
+check(match_top_score_value > 0.000000);
+check(match_max_score_value >= 0.000000);
+check(match_center_x_value > 0.000000);
+check(match_center_y_value > 0.000000);
+check(template_used_fallback_value == 0.000000);
+check(readresult("primary.template_learn_path_a_count") >= 0.000000);
+check(readresult("primary.template_learn_path_b_count") >= 0.000000);
+check(readresult("output.failure_mode") == "handled_noise_condition");
+check(runtime_ms >= 0.000000);
+check(failure_mode == "handled_noise_condition");
+print(task_id);
+print(summary);

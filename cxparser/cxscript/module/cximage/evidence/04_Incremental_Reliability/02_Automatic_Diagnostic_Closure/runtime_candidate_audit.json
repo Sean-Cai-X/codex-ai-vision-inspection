@@ -1,0 +1,11 @@
+{
+  "schema": "cxvision.runtime_model_candidate_audit.v1",
+  "training_enabled": 0,
+  "candidates": [
+    {"manifest_path": "libtorch_module/models/deeplab_defect_v1/model_manifest.json", "task": "segmentation", "decision": "REJECTED", "reason": "no HD pill dataset provenance or class-to-output contract"},
+    {"manifest_path": "D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/cxscript_runs/headless/run_20260817_173400_deeplab_incremental/deeplab_incremental_cpu/deeplab_incremental_model/model_manifest.json", "task": "segmentation", "decision": "REJECTED", "reason": "training evidence declares mask_source=bbox_xywh_norm"},
+    {"manifest_path": "libtorch_module/models/yolov8n_seg_coco_v1/model_manifest.json", "task": "instance_segmentation", "decision": "REJECTED", "reason": "COCO classes do not define the HD pill-bag instance contract"},
+    {"manifest_path": "libtorch_module/models/edgesam_3x_torchscript/model_manifest.json", "task": "prompt_segmentation", "decision": "REJECTED_PENDING_EXPORT", "reason": "export_status=PENDING_BINDING and output is not an open-boundary polyline contract"}
+  ],
+  "result": "NO_COMPATIBLE_HD_PARENT_CHILD_PAIR"
+}

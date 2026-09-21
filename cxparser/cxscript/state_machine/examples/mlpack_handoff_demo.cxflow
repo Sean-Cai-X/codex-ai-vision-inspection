@@ -1,0 +1,46 @@
+flow: mlpack_handoff_demo
+description: cxcore to mlpack observe handoff demo
+
+node: S0
+stage: Select
+module: cxcore
+title: select image and script
+script: cxparser/cxscript/integration/cxcore_to_mlpack/mlpack_handoff_case.cxsc
+status: ready
+
+node: R0
+stage: Run
+module: mlpack
+title: run observe handoff
+script: cxparser/cxscript/module/mlpack/observe.mlpack_handoff_case.cxs
+status: ready
+
+node: O0
+stage: Observe
+module: cximage
+title: observe image and result
+script: none
+status: ready
+
+node: J0
+stage: Judge
+module: cxscript
+title: judge pending or blocked
+script: none
+status: ready
+
+edge: S0 -> R0
+condition: manual_ready
+type: normal
+
+edge: R0 -> O0
+condition: result_available_or_pending
+type: artifact
+
+edge: O0 -> J0
+condition: human_observed
+type: normal
+
+edge: J0 -> R0
+condition: human_feedback
+type: feedback

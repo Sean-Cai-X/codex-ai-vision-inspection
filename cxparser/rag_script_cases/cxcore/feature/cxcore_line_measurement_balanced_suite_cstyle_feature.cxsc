@@ -1,0 +1,20 @@
+kind=module
+layer=feature
+module=cxcore
+case=line_measurement_balanced_suite
+mode=build-run
+report=on
+use Image;
+use Roi;
+use LineMeasurementOutput;
+Image source_image;
+Roi roi_line;
+LineMeasurementOutput line_result;
+measure_line_balanced(source_image, roi_line);
+check(success == true);
+check(task_id == "cxcore.feature.line_measurement_balanced_suite");
+check(scalar_result == 103122.000000);
+check(metrics == "fit_error_avg,fit_error_max,line_angle,line_offset,subpixel_adjust_avg,chain_switch_count,neighbor_inconsistency_count");
+check(summary == "task validated metrics=fit_error_avg,fit_error_max,line_angle,line_offset,subpixel_adjust_avg,chain_switch_count,neighbor_inconsistency_count lane=default scalar=103122.000000");
+print(task_id);
+print(summary);

@@ -1,0 +1,8 @@
+Image m_image;
+FindLine m_line;
+
+m_image.copyFromMat(global_matInput);
+
+m_line.setline(100, 100, 300, 300, 20);
+m_line.measure(&m_image);
+m_line.fitline();
