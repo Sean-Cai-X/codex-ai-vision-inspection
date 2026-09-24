@@ -1,0 +1,28 @@
+import("//build/config/deps.gni")
+import("//build/config/cxvision_sources.gni")
+group("default") {
+  deps = [ ":gn_configuration" ]
+}
+group("gn_configuration") {
+}
+
+# Opt-in inventory target; the default target intentionally does not compile it.
+source_set("cxvision_source_inventory") {
+  sources = cxvision_default_sources + [ glad_root + "/src/gl.c" ]
+  configs = [ "//build/config:common", "//build/config:platform" ]
+}
+
+# Linux/Windows application link target. Third-party binaries remain external
+# inputs selected by GN args; this target contains source and build metadata only.
+executable("cxvision_imgui_acceptance") {
+  deps = [ ":cxvision_source_inventory" ]
+  configs = [ "//build/config:common", "//build/config:platform" ]
+  libs = [ "torch", "torch_cpu", "c10" ]
+}
+if (enable_libtorch_smoke) {
+  executable("libtorch_minimal_smoke") {
+    sources = [ "libtorch_module/torch_minimal_smoke.cpp" ]
+    configs = [ "//build/config:common", "//build/config:platform" ]
+    libs = [ "torch", "torch_cpu", "c10" ]
+  }
+}

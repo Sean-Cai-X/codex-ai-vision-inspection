@@ -708,6 +708,8 @@ bool BuildEvidenceImageBatch(
             cv::INTER_NEAREST);
         cv::compare(binary, target_class_id, binary, cv::CMP_EQ);
         binary /= 255;
+        if (config.num_classes > 2 && target_class_id >= 0)
+            binary *= (target_class_id + 1);
         foreground_pixels += static_cast<double>(cv::countNonZero(binary));
         total_pixels += static_cast<double>(binary.rows * binary.cols);
         auto mask_tensor = torch::from_blob(
@@ -780,7 +782,10 @@ bool BuildSegmentationLifecycleRealImageBatch(
             SelectEvidenceSplitImages(manifest_images, "val");
         if (validation_images.empty())
             validation_images = SelectEvidenceSplitImages(manifest_images, "test");
-        if (train_images.empty())
+        const bool business_incremental =
+            request.task == TorchRuntimeTaskIds::SegmentationBusinessIncremental;
+        if (train_images.empty() ||
+            (business_incremental && validation_images.empty()))
             return false;
 
         if (!BuildEvidenceImageBatch(
@@ -808,7 +813,8 @@ bool BuildSegmentationLifecycleRealImageBatch(
         {
             return false;
         }
-        if (eval_images.defined() && eval_images.size(0) == 1)
+        if (!business_incremental &&
+            eval_images.defined() && eval_images.size(0) == 1)
         {
             eval_images = torch::cat({eval_images, eval_images.clone()}, 0);
             eval_masks = torch::cat({eval_masks, eval_masks.clone()}, 0);
@@ -967,7 +973,7 @@ TorchTaskResultCpp RunSegmentationTrainingLifecycleTask(
             make_segmentation_mainline_runner_config(
                 "deeplabv3plus",
                 "mobilenet_v3_large",
-                2,
+                business_incremental ? 8 : 2,
                 128,
                 2);
 
@@ -1158,7 +1164,7 @@ TorchTaskResultCpp RunSegmentationTrainingLifecycleTask(
                 << "\"backbone\":\"mobilenet_v3_large\","
                 << "\"weights\":\"weights/deeplab_incremental.pt\","
                 << "\"weights_format\":\"cpp_state_dict\","
-                << "\"num_classes\":2,"
+                << "\"num_classes\":" << runner_config.num_classes << ","
                 << "\"target_geometry_class_id\":" << target_class_id << ","
                 << "\"trial_state\":\"CANDIDATE\","
                 << "\"model_name\":\"deeplab_incremental\","
@@ -1169,7 +1175,9 @@ TorchTaskResultCpp RunSegmentationTrainingLifecycleTask(
                 << "\"mean\":[0.0,0.0,0.0],"
                 << "\"std\":[1.0,1.0,1.0]},"
                 << "\"postprocess\":{"
-                << "\"target_class_id\":1,\"min_component_area\":20}"
+                << "\"target_class_id\":"
+                << (business_incremental ? target_class_id + 1 : 1)
+                << ",\"min_component_area\":20}"
                 << "}\n";
         }
 

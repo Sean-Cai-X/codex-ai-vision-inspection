@@ -8,6 +8,8 @@ struct TorchRuntimeCoreConfig
     std::string output_root;
     std::string device;
     std::string log_level;
+    std::string business_asset_root;
+    std::string business_trial_root;
 };
 
 struct TorchTaskRequestCpp

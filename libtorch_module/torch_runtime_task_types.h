@@ -51,6 +51,9 @@ inline constexpr const char* SegmentationTrainingLifecycle =
 // for the smoke task and are never a production activation capability.
 inline constexpr const char* SegmentationBusinessIncremental =
     "torch.train.segmentation.business_incremental.v1";
+
+inline constexpr const char* SegmentationBusinessIsolatedInference =
+    "torch.infer.segmentation.business_isolated.v1";
 }
 
 enum class TorchProductionTaskKind
