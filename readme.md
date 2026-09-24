@@ -12,7 +12,10 @@
 
 本次将原 `cxvision` 代码库的 `codex/cxcore-integration` 分支完整迁移至独立仓库 `codex-ai-vision-inspection`，核心目的是**终结开发阶段的临时命名耦合，建立完全独立的开源项目标识与技术体系，为后续面向大模型视觉推理、AI 自动开发的演进路线提供独立的开源承载主体**。
 
-本次迁移不是简单的仓库改名，而是项目定位从「特定厂商 SDK 的二次开发分支」升级为「通用端侧视觉检测开源框架」的正式起点，所有品牌标识、命名体系、架构边界都将以独立开源项目的标准完成重构。
+本次迁移是标明当前代码库的定位和路线,本代码库的构成主要由前大模型产生和代码生成
+主要覆盖Codex(gpt) Gemini Seedcode Tongyi ,以CODEX开发为主,涉及到vision ai inspection
+没有涉及任何第三方工具库和开发包,包含大量开源库和组件,包括OCCT IMGUI GLFW OPENCV OPENCL MUPARSER 
+早期版本包含QT,开源协议GPL,QT当前转换成IMGUI,遵守开源协议GPL
 
 ## 二、品牌与归属独立声明
 
