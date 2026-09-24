@@ -153,6 +153,49 @@ AGENTS.md.bak_*
 build/
 toolchains/
 *.jsonl
+
+# Local-only runtime, model, image, case and archive payloads.
+# These paths stay on the controlled workstation and must never enter GitHub.
+/evidence_assets/
+/evidence_images/
+/3D/runtime/
+/cases/
+/Evidence/
+**/geometry_reference_cases/
+*.dll
+*.lib
+*.a
+*.so
+*.so.*
+*.dylib
+*.exe
+*.pdb
+*.obj
+*.o
+*.pyd
+*.pt
+*.pth
+*.onnx
+*.engine
+*.bin
+*.png
+*.jpg
+*.jpeg
+*.bmp
+*.gif
+*.webp
+*.tif
+*.tiff
+*.zip
+*.7z
+*.rar
+*.tar
+*.tgz
+*.gz
+*.bz2
+*.xz
+*.cab
+*.msi
 \n
 
 # Generated native/runtime payloads: keep outside GitHub
@@ -182,4 +225,3 @@ toolchains/
 *.pth
 *.onnx
 *.jsonl
-
