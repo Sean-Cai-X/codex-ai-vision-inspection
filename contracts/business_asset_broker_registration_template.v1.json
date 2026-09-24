@@ -1,0 +1,32 @@
+{
+  "schema": "visionai.business.asset_broker_registration.v1",
+  "purpose": "Confidential local registration input for RND-VAI-001/002; never send this file, image paths or image bytes to the business-service request channel.",
+  "normalized_asset_root_ref": "TO_BE_ASSIGNED_BY_CONTROLLED_ASSET_BROKER",
+  "case_id": "TO_BE_ASSIGNED",
+  "project_id": "TO_BE_ASSIGNED",
+  "project_geometry_class": "one of arc|circle|ellipse|line|open_curve|polygon|closed_curve",
+  "project_geometry_class_id": "0..6 matching project_geometry_class",
+  "dataset_revision": "TO_BE_ASSIGNED",
+  "dataset_sha256": "TO_BE_COMPUTED_AFTER_MANIFEST_FREEZE",
+  "geometry_contract": ["arc", "circle", "ellipse", "line", "open_curve", "polygon", "closed_curve"],
+  "assets": [],
+  "required_asset_record": {
+    "asset_ref": "opaque broker reference",
+    "image_sha256": "sha256 of original controlled image",
+    "class_id": "0..6",
+    "class_name": "one fixed geometry class",
+    "split": "train|valid|verify",
+    "annotation_receipt_digest": "sha256",
+    "real_mask_manifest_digest": "sha256",
+    "source_path": "BROKER_INTERNAL_ONLY; never copied into request, receipt, log or ticket"
+  },
+  "broker_acceptance_rules": [
+    "One business project contains exactly one declared target geometry class; every completed Train and Valid record in that project must match it.",
+    "A project-scoped trial requires at least two Train records, one Valid record and one unmarked VERIFY asset for its declared target class. VERIFY never enters that same revision's Train or Valid split.",
+    "The model ontology remains the fixed ordered seven-class contract even when one project supplies only one class. All seven classes are required only for a separate cross-project full-ontology evaluation, never as a per-project entry condition.",
+    "No rectangle, unknown class, inferred class or reordered class is accepted.",
+    "Every record has a human-confirmed annotation receipt and a verified real-mask manifest.",
+    "The broker verifies source_path remains under its registered normalized root, but never exports it.",
+    "Dataset digest is computed only after the immutable manifest is frozen."
+  ]
+}

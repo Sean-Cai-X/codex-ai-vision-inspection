@@ -121,6 +121,12 @@ bool ParseUnifiedLogArgs(
             std::filesystem::path cxvision_root = std::filesystem::current_path();
             while (!cxvision_root.empty() && cxvision_root.filename() != "cxvisionai")
             {
+                if (std::filesystem::exists(cxvision_root / "CMakeLists.txt") &&
+                    std::filesystem::exists(cxvision_root / "cximage") &&
+                    std::filesystem::exists(cxvision_root / "cxparser"))
+                {
+                    break;
+                }
                 const std::filesystem::path parent = cxvision_root.parent_path();
                 // parent_path() of a filesystem root equals the root itself.
                 // Stop there instead of looping forever when the project is

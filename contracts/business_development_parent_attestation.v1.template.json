@@ -1,0 +1,19 @@
+{
+  "schema": "visionai.business.development_parent_attestation.v1",
+  "development_parent_model_id": "TO_BE_ASSIGNED_BY_LINEAGE_REGISTRY",
+  "checkpoint_sha256": "sha256:TO_BE_COMPUTED_FROM_THE_EXACT_PARENT_CHECKPOINT",
+  "source_lineage_sha256": "sha256:TO_BE_COMPUTED_FROM_THE_APPROVED_LINEAGE_NODE",
+  "parent_manifest_sha256": "sha256:TO_BE_COMPUTED_FROM_THE_SOURCE_MODEL_MANIFEST",
+  "parent_usage": "DEVELOPMENT_ONLY",
+  "trial_only": true,
+  "production_allowed": false,
+  "geometry_contract": [
+    "arc",
+    "circle",
+    "ellipse",
+    "line",
+    "open_curve",
+    "polygon",
+    "closed_curve"
+  ]
+}

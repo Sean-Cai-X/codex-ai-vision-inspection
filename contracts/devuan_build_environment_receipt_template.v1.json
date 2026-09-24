@@ -1,0 +1,25 @@
+{
+  "schema": "visionai.devuan.build_environment_receipt.v1",
+  "status": "TEMPLATE_NOT_INSTALLED",
+  "host": {"hostname": "", "os_release": "", "kernel": "", "architecture": ""},
+  "workspace": {
+    "source_root": "/media/devuan/249C15F29C15BF6C/Codex-WorkDir/Sean_WorkDir/codex-ai-vision/codex-ai-vision-inspection",
+    "toolchain_root": "/media/devuan/249C15F29C15BF6C/Codex-WorkDir/Sean_WorkDir/codex-ai-vision/toolchains"
+  },
+  "toolchain": {"cmake": "", "ninja": "", "gcc": "", "gxx": "", "python": "", "opencv": ""},
+  "cuda": {"nvcc": "", "driver": "", "toolkit_root": "/usr/local/cuda-12.1"},
+  "libtorch": {
+    "required_version": "2.2.2+cu121",
+    "archive_sha256": "",
+    "install_root": "",
+    "torch_config_present": false
+  },
+  "verification": {
+    "cpu_configure": "NOT_RUN",
+    "cpu_build": "NOT_RUN",
+    "ctest": "NOT_RUN",
+    "cuda_configure": "NOT_RUN",
+    "model_load_parity": "NOT_RUN"
+  },
+  "forbidden_claims_until_verified": ["windows_binary_runs_on_linux", "linux_binary_runs_on_windows", "cross_platform_model_parity", "production_model_release"]
+}

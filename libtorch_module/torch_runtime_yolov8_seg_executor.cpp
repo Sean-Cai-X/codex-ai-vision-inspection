@@ -11,9 +11,12 @@
 #include <chrono>
 #include <cctype>
 #include <cmath>
+#include <cstdint>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
+#include <limits>
 #include <numeric>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
@@ -21,6 +24,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <torch/cuda.h>
+#include <unordered_map>
 
 namespace
 {
@@ -3718,5 +3722,2038 @@ TorchTaskResultCpp ExecuteTorchYoloV8SegBackwardSmokeTask(
     catch (const std::exception& error)
     {
         return SegFailure("exception", error.what());
+    }
+}
+
+namespace
+{
+// Business trial execution deliberately owns a narrow data boundary.  It
+// consumes only the immutable geometry-segmentation materialization produced
+// after a business asset broker has frozen its revision; it does not discover
+// arbitrary folders, labels or reference evidence cases.
+constexpr std::array<const char*, 7> kBusinessGeometryClasses{
+    "arc", "circle", "ellipse", "line",
+    "open_curve", "polygon", "closed_curve"};
+
+struct BusinessTrialSettings
+{
+    unsigned training_split_percent = 0;
+    unsigned epoch_count = 0;
+    unsigned iteration_count = 0;
+    unsigned batch_size = 0;
+    std::string trial_model_id;
+    std::string annotation_click_mode;
+    std::string dataset_manifest_sha256;
+    std::string dataset_revision_id;
+    std::string case_id;
+    std::string project_geometry_class;
+    int project_geometry_class_id = -1;
+
+    // The broker serializes its frozen semantic decision alongside the
+    // editable request values.  The executor requires the two views to agree
+    // so a stale UI value can never silently reuse a different revision's
+    // annotation semantics.
+    unsigned frozen_training_split_percent = 0;
+    std::string frozen_annotation_click_mode;
+    std::set<std::string> allowed_annotation_click_modes;
+    std::string frozen_project_geometry_class;
+    int frozen_project_geometry_class_id = -1;
+
+    // A development parent is identified by the lineage identity and its
+    // SHA-256 attestation, rather than by the legacy source manifest's FNV
+    // checksum or source-model ID.
+    std::string business_parent_attestation_path;
+    std::string business_parent_attestation_sha256;
+
+    // Optimizer values are executor-owned facts, not editable business UI
+    // parameters.  They are reported on every epoch through the typed sink.
+    double learning_rate = 1.0e-4;
+    double min_learning_rate = 1.0e-6;
+    std::string lr_schedule = "cosine";
+    double weight_decay = 0.0;
+};
+
+struct BusinessMaterializedAsset
+{
+    std::string image_id;
+    std::string split;
+    std::filesystem::path image_relative;
+    std::filesystem::path mask_relative;
+    std::string image_digest;
+    std::string mask_digest;
+    bool has_image = false;
+    bool has_mask = false;
+};
+
+struct BusinessMaterializedDataset
+{
+    std::string manifest_sha256;
+    std::string snapshot_id;
+    std::string snapshot_digest;
+    std::string case_id;
+    std::string dataset_revision_id;
+    std::string annotation_receipt_digest;
+    std::vector<YoloV8SegDatasetSample> train_samples;
+    std::vector<YoloV8SegDatasetSample> validation_samples;
+};
+
+struct BusinessLossTensors
+{
+    torch::Tensor total_loss;
+    torch::Tensor class_loss;
+    torch::Tensor mask_loss;
+    torch::Tensor box_loss;
+    torch::Tensor dfl_loss;
+};
+
+struct BusinessEpochMetric
+{
+    unsigned epoch = 0;
+    unsigned completed_iterations = 0;
+    double training_loss = 0.0;
+    double training_score = 0.0;
+    double validation_loss = 0.0;
+    double validation_score = 0.0;
+    double effective_learning_rate = 0.0;
+};
+
+bool ReadBusinessFile(
+    const std::filesystem::path& path,
+    std::string& contents)
+{
+    std::ifstream input(path, std::ios::binary);
+    if (!input)
+        return false;
+    contents.assign(
+        std::istreambuf_iterator<char>(input),
+        std::istreambuf_iterator<char>());
+    return input.good() || input.eof();
+}
+
+// Small local SHA-256 implementation keeps the runtime's immutable data and
+// checkpoint checks independent of a network, Python or an external crypto
+// DLL.  The output uses the same "sha256:<lowercase hex>" convention as the
+// business broker and materializer.
+class BusinessSha256
+{
+public:
+    BusinessSha256()
+    {
+        state_ = {
+            0x6a09e667u, 0xbb67ae85u, 0x3c6ef372u, 0xa54ff53au,
+            0x510e527fu, 0x9b05688cu, 0x1f83d9abu, 0x5be0cd19u};
+    }
+
+    void Update(const unsigned char* data, std::size_t count)
+    {
+        bit_count_ += static_cast<std::uint64_t>(count) * 8u;
+        while (count > 0)
+        {
+            const std::size_t writable =
+                std::min<std::size_t>(count, buffer_.size() - buffer_size_);
+            std::memcpy(buffer_.data() + buffer_size_, data, writable);
+            buffer_size_ += writable;
+            data += writable;
+            count -= writable;
+            if (buffer_size_ == buffer_.size())
+            {
+                Transform(buffer_.data());
+                buffer_size_ = 0;
+            }
+        }
+    }
+
+    std::array<unsigned char, 32> Finish()
+    {
+        std::array<unsigned char, 64> padding{};
+        padding[0] = 0x80u;
+        const std::size_t pad_count =
+            buffer_size_ < 56u ? 56u - buffer_size_ : 120u - buffer_size_;
+        Update(padding.data(), pad_count);
+        std::array<unsigned char, 8> length{};
+        const std::uint64_t message_bits = bit_count_before_padding_;
+        for (std::size_t index = 0; index < length.size(); ++index)
+        {
+            length[length.size() - 1u - index] =
+                static_cast<unsigned char>(message_bits >> (index * 8u));
+        }
+        // Update() accounts for padding; retain the original count on the
+        // first finish call before serializing the standard length suffix.
+        Update(length.data(), length.size());
+        std::array<unsigned char, 32> digest{};
+        for (std::size_t index = 0; index < state_.size(); ++index)
+        {
+            digest[index * 4u] = static_cast<unsigned char>(state_[index] >> 24u);
+            digest[index * 4u + 1u] = static_cast<unsigned char>(state_[index] >> 16u);
+            digest[index * 4u + 2u] = static_cast<unsigned char>(state_[index] >> 8u);
+            digest[index * 4u + 3u] = static_cast<unsigned char>(state_[index]);
+        }
+        return digest;
+    }
+
+    void MarkMessageLength()
+    {
+        bit_count_before_padding_ = bit_count_;
+    }
+
+private:
+    static std::uint32_t RotateRight(std::uint32_t value, unsigned bits)
+    {
+        return (value >> bits) | (value << (32u - bits));
+    }
+
+    static std::uint32_t Choice(
+        std::uint32_t x, std::uint32_t y, std::uint32_t z)
+    {
+        return (x & y) ^ (~x & z);
+    }
+
+    static std::uint32_t Majority(
+        std::uint32_t x, std::uint32_t y, std::uint32_t z)
+    {
+        return (x & y) ^ (x & z) ^ (y & z);
+    }
+
+    void Transform(const unsigned char* block)
+    {
+        static constexpr std::array<std::uint32_t, 64> kRoundConstants{
+            0x428a2f98u, 0x71374491u, 0xb5c0fbcfu, 0xe9b5dba5u,
+            0x3956c25bu, 0x59f111f1u, 0x923f82a4u, 0xab1c5ed5u,
+            0xd807aa98u, 0x12835b01u, 0x243185beu, 0x550c7dc3u,
+            0x72be5d74u, 0x80deb1feu, 0x9bdc06a7u, 0xc19bf174u,
+            0xe49b69c1u, 0xefbe4786u, 0x0fc19dc6u, 0x240ca1ccu,
+            0x2de92c6fu, 0x4a7484aau, 0x5cb0a9dcu, 0x76f988dau,
+            0x983e5152u, 0xa831c66du, 0xb00327c8u, 0xbf597fc7u,
+            0xc6e00bf3u, 0xd5a79147u, 0x06ca6351u, 0x14292967u,
+            0x27b70a85u, 0x2e1b2138u, 0x4d2c6dfcu, 0x53380d13u,
+            0x650a7354u, 0x766a0abbu, 0x81c2c92eu, 0x92722c85u,
+            0xa2bfe8a1u, 0xa81a664bu, 0xc24b8b70u, 0xc76c51a3u,
+            0xd192e819u, 0xd6990624u, 0xf40e3585u, 0x106aa070u,
+            0x19a4c116u, 0x1e376c08u, 0x2748774cu, 0x34b0bcb5u,
+            0x391c0cb3u, 0x4ed8aa4au, 0x5b9cca4fu, 0x682e6ff3u,
+            0x748f82eeu, 0x78a5636fu, 0x84c87814u, 0x8cc70208u,
+            0x90befffau, 0xa4506cebu, 0xbef9a3f7u, 0xc67178f2u};
+        std::array<std::uint32_t, 64> words{};
+        for (std::size_t index = 0; index < 16u; ++index)
+        {
+            words[index] =
+                (static_cast<std::uint32_t>(block[index * 4u]) << 24u) |
+                (static_cast<std::uint32_t>(block[index * 4u + 1u]) << 16u) |
+                (static_cast<std::uint32_t>(block[index * 4u + 2u]) << 8u) |
+                static_cast<std::uint32_t>(block[index * 4u + 3u]);
+        }
+        for (std::size_t index = 16u; index < words.size(); ++index)
+        {
+            const std::uint32_t s0 =
+                RotateRight(words[index - 15u], 7u) ^
+                RotateRight(words[index - 15u], 18u) ^
+                (words[index - 15u] >> 3u);
+            const std::uint32_t s1 =
+                RotateRight(words[index - 2u], 17u) ^
+                RotateRight(words[index - 2u], 19u) ^
+                (words[index - 2u] >> 10u);
+            words[index] = words[index - 16u] + s0 + words[index - 7u] + s1;
+        }
+        std::uint32_t a = state_[0], b = state_[1], c = state_[2], d = state_[3];
+        std::uint32_t e = state_[4], f = state_[5], g = state_[6], h = state_[7];
+        for (std::size_t index = 0; index < words.size(); ++index)
+        {
+            const std::uint32_t s1 =
+                RotateRight(e, 6u) ^ RotateRight(e, 11u) ^ RotateRight(e, 25u);
+            const std::uint32_t t1 = h + s1 + Choice(e, f, g) +
+                kRoundConstants[index] + words[index];
+            const std::uint32_t s0 =
+                RotateRight(a, 2u) ^ RotateRight(a, 13u) ^ RotateRight(a, 22u);
+            const std::uint32_t t2 = s0 + Majority(a, b, c);
+            h = g; g = f; f = e; e = d + t1;
+            d = c; c = b; b = a; a = t1 + t2;
+        }
+        state_[0] += a; state_[1] += b; state_[2] += c; state_[3] += d;
+        state_[4] += e; state_[5] += f; state_[6] += g; state_[7] += h;
+    }
+
+    std::array<std::uint32_t, 8> state_{};
+    std::array<unsigned char, 64> buffer_{};
+    std::size_t buffer_size_ = 0;
+    std::uint64_t bit_count_ = 0;
+    std::uint64_t bit_count_before_padding_ = 0;
+};
+
+std::string BusinessSha256Digest(const std::string& bytes)
+{
+    BusinessSha256 sha256;
+    sha256.Update(
+        reinterpret_cast<const unsigned char*>(bytes.data()), bytes.size());
+    sha256.MarkMessageLength();
+    const auto digest = sha256.Finish();
+    std::ostringstream output;
+    output << "sha256:";
+    for (const unsigned char byte : digest)
+        output << std::hex << std::setw(2) << std::setfill('0')
+               << static_cast<unsigned int>(byte);
+    return output.str();
+}
+
+bool BusinessSha256File(
+    const std::filesystem::path& path,
+    std::string& digest)
+{
+    std::string bytes;
+    if (!ReadBusinessFile(path, bytes))
+        return false;
+    digest = BusinessSha256Digest(bytes);
+    return true;
+}
+
+bool IsBusinessSha256(const std::string& value)
+{
+    if (value.size() != 71u || value.rfind("sha256:", 0u) != 0u)
+        return false;
+    return std::all_of(value.begin() + 7, value.end(), [](unsigned char ch) {
+        return std::isxdigit(ch) != 0;
+    });
+}
+
+std::string LowerBusinessAscii(std::string value)
+{
+    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+    return value;
+}
+
+bool IsSafeBusinessIdentifier(const std::string& value)
+{
+    return !value.empty() && value.size() <= 256u &&
+        value.find_first_of("\r\n|") == std::string::npos;
+}
+
+bool IsSafeBusinessImageId(const std::string& value)
+{
+    return !value.empty() &&
+        std::all_of(value.begin(), value.end(), [](unsigned char ch) {
+            return std::isalnum(ch) != 0 || ch == '_' || ch == '-';
+        });
+}
+
+bool IsBusinessTrainingSplit(const std::string& value)
+{
+    // VERIFY is deliberately an independent unmarked inference asset.  It is
+    // not a training split, has no training mask, and must never appear in the
+    // frozen segmentation materialization consumed by this executor.
+    return value == "train" || value == "val";
+}
+
+bool IsBusinessPathWithin(
+    const std::filesystem::path& root,
+    const std::filesystem::path& candidate)
+{
+    const std::filesystem::path relative = candidate.lexically_relative(root);
+    if (relative.empty() || relative.is_absolute())
+        return false;
+    return std::none_of(
+        relative.begin(), relative.end(),
+        [](const std::filesystem::path& part) { return part == ".."; });
+}
+
+bool IsSafeBusinessRelativePath(const std::filesystem::path& relative)
+{
+    if (relative.empty() || relative.is_absolute() || relative.has_root_name())
+        return false;
+    return std::none_of(relative.begin(), relative.end(),
+        [](const std::filesystem::path& part) {
+            return part.empty() || part == "." || part == "..";
+        });
+}
+
+bool ContainsBusinessSymlink(
+    const std::filesystem::path& root,
+    const std::filesystem::path& relative)
+{
+    std::error_code error;
+    std::filesystem::path current = root;
+    if (std::filesystem::is_symlink(
+            std::filesystem::symlink_status(current, error)) || error)
+    {
+        return true;
+    }
+    for (const auto& part : relative)
+    {
+        current /= part;
+        if (std::filesystem::is_symlink(
+                std::filesystem::symlink_status(current, error)) || error)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool ResolveBusinessMaterializedFile(
+    const std::filesystem::path& root,
+    const std::filesystem::path& relative,
+    std::filesystem::path& resolved)
+{
+    if (!IsSafeBusinessRelativePath(relative) ||
+        ContainsBusinessSymlink(root, relative))
+    {
+        return false;
+    }
+    std::error_code error;
+    const std::filesystem::path requested = (root / relative).lexically_normal();
+    resolved = std::filesystem::weakly_canonical(requested, error);
+    return !error && std::filesystem::is_regular_file(resolved, error) &&
+        !error && IsBusinessPathWithin(root, resolved);
+}
+
+bool HasBusinessSymlinkComponent(const std::filesystem::path& absolute_path)
+{
+    std::error_code error;
+    const std::filesystem::path absolute =
+        std::filesystem::absolute(absolute_path, error);
+    if (error)
+        return true;
+    std::filesystem::path current = absolute.root_path();
+    if (!current.empty() &&
+        std::filesystem::is_symlink(
+            std::filesystem::symlink_status(current, error)))
+    {
+        return true;
+    }
+    if (error)
+        return true;
+    for (const auto& part : absolute.relative_path())
+    {
+        current /= part;
+        const std::filesystem::file_status status =
+            std::filesystem::symlink_status(current, error);
+        if (error)
+        {
+            // Missing final components are handled by the caller.  Existing
+            // components must never be links.
+            error.clear();
+            continue;
+        }
+        if (std::filesystem::is_symlink(status))
+            return true;
+    }
+    return false;
+}
+
+bool IsSafeBusinessPathComponent(const std::filesystem::path& component)
+{
+    const std::string value = component.string();
+    return IsSafeBusinessIdentifier(value) &&
+        value.find_first_of("\\/:*?\"<>|") == std::string::npos &&
+        value != "." && value != "..";
+}
+
+bool ResolveBusinessStagingOutputDirectory(
+    const TorchRuntimeCoreConfig& config,
+    const std::string& output_dir,
+    std::filesystem::path& resolved)
+{
+    if (config.output_root.empty() || output_dir.empty())
+        return false;
+
+    std::error_code error;
+    const std::filesystem::path requested_root =
+        std::filesystem::absolute(
+            std::filesystem::path(config.output_root), error);
+    if (error || HasBusinessSymlinkComponent(requested_root) ||
+        !std::filesystem::is_directory(requested_root, error) || error)
+    {
+        return false;
+    }
+    const std::filesystem::path approved_root =
+        std::filesystem::weakly_canonical(requested_root, error);
+    if (error || approved_root.empty())
+        return false;
+
+    const std::filesystem::path requested_output =
+        std::filesystem::absolute(std::filesystem::path(output_dir), error);
+    if (error || HasBusinessSymlinkComponent(requested_output) ||
+        !std::filesystem::is_directory(requested_output, error) || error)
+    {
+        return false;
+    }
+    const std::filesystem::path canonical_output =
+        std::filesystem::weakly_canonical(requested_output, error);
+    if (error || !IsBusinessPathWithin(approved_root, canonical_output))
+        return false;
+
+    const std::filesystem::path relative =
+        canonical_output.lexically_relative(approved_root);
+    std::vector<std::filesystem::path> parts;
+    for (const auto& part : relative)
+        parts.push_back(part);
+    if (parts.size() != 3u ||
+        (parts[0] != "isolated_business_validation" &&
+         parts[0] != "development_trials") ||
+        !IsSafeBusinessPathComponent(parts[1]) ||
+        parts[2] != "staging")
+    {
+        return false;
+    }
+    resolved = canonical_output;
+    return true;
+}
+
+int BusinessClassId(const std::string& name)
+{
+    for (std::size_t index = 0; index < kBusinessGeometryClasses.size(); ++index)
+    {
+        if (name == kBusinessGeometryClasses[index])
+            return static_cast<int>(index);
+    }
+    return -1;
+}
+
+bool ValidateBusinessSevenClassManifest(
+    const TorchModelManifest& manifest,
+    std::string& reason)
+{
+    if (!ValidateInstanceSegmentationManifest(manifest, reason))
+        return false;
+    if (manifest.num_classes !=
+        static_cast<int>(kBusinessGeometryClasses.size()))
+    {
+        reason = "business trial requires the fixed seven-class geometry head";
+        return false;
+    }
+    for (std::size_t index = 0; index < kBusinessGeometryClasses.size(); ++index)
+    {
+        if (manifest.class_names[index] != kBusinessGeometryClasses[index])
+        {
+            reason = "business trial manifest geometry ontology is not fixed";
+            return false;
+        }
+    }
+    return true;
+}
+
+struct BusinessParentAttestation
+{
+    std::string development_parent_model_id;
+    std::string checkpoint_sha256;
+    std::string source_lineage_sha256;
+    std::string parent_manifest_sha256;
+    std::string attestation_sha256;
+};
+
+bool ResolveBusinessControlledRegularFile(
+    const std::string& root_text,
+    const std::string& file_text,
+    std::filesystem::path& resolved)
+{
+    if (root_text.empty() || file_text.empty())
+        return false;
+    std::error_code error;
+    const std::filesystem::path requested_root =
+        std::filesystem::absolute(std::filesystem::path(root_text), error);
+    if (error || HasBusinessSymlinkComponent(requested_root) ||
+        !std::filesystem::is_directory(requested_root, error) || error)
+    {
+        return false;
+    }
+    const std::filesystem::path root =
+        std::filesystem::weakly_canonical(requested_root, error);
+    if (error)
+        return false;
+
+    std::filesystem::path requested_file(file_text);
+    if (requested_file.is_relative())
+        requested_file = root / requested_file;
+    requested_file = std::filesystem::absolute(requested_file, error);
+    if (error || HasBusinessSymlinkComponent(requested_file) ||
+        !std::filesystem::is_regular_file(requested_file, error) || error)
+    {
+        return false;
+    }
+    resolved = std::filesystem::weakly_canonical(requested_file, error);
+    return !error && IsBusinessPathWithin(root, resolved);
+}
+
+bool ValidateBusinessParentAttestation(
+    const TorchRuntimeCoreConfig& config,
+    const BusinessTrialSettings& settings,
+    const std::filesystem::path& parent_manifest_path,
+    const std::string& actual_parent_sha256,
+    BusinessParentAttestation& attestation)
+{
+    std::string actual_manifest_sha256;
+    if (!BusinessSha256File(parent_manifest_path, actual_manifest_sha256))
+        return false;
+
+    std::filesystem::path attestation_path;
+    if (!ResolveBusinessControlledRegularFile(
+            config.model_root, settings.business_parent_attestation_path,
+            attestation_path) ||
+        !BusinessSha256File(attestation_path, attestation.attestation_sha256) ||
+        attestation.attestation_sha256 !=
+            settings.business_parent_attestation_sha256)
+    {
+        return false;
+    }
+
+    try
+    {
+        cv::FileStorage input(
+            attestation_path.string(), cv::FileStorage::READ);
+        if (!input.isOpened())
+            return false;
+        std::string schema;
+        std::string parent_usage;
+        bool trial_only = false;
+        bool production_allowed = true;
+        const auto required_string = [&](const char* key, std::string& value) {
+            const cv::FileNode node = input[key];
+            if (node.empty())
+                return false;
+            node >> value;
+            return IsSafeBusinessIdentifier(value);
+        };
+        if (!required_string("schema", schema) ||
+            !required_string(
+                "development_parent_model_id",
+                attestation.development_parent_model_id) ||
+            !required_string(
+                "checkpoint_sha256", attestation.checkpoint_sha256) ||
+            !required_string(
+                "source_lineage_sha256", attestation.source_lineage_sha256) ||
+            !required_string(
+                "parent_manifest_sha256",
+                attestation.parent_manifest_sha256) ||
+            !required_string("parent_usage", parent_usage))
+        {
+            return false;
+        }
+        const cv::FileNode trial_only_node = input["trial_only"];
+        const cv::FileNode production_allowed_node = input["production_allowed"];
+        const cv::FileNode geometry = input["geometry_contract"];
+        if (trial_only_node.empty() || production_allowed_node.empty() ||
+            geometry.empty() || geometry.type() != cv::FileNode::SEQ ||
+            geometry.size() != kBusinessGeometryClasses.size())
+        {
+            return false;
+        }
+        trial_only_node >> trial_only;
+        production_allowed_node >> production_allowed;
+        for (std::size_t index = 0;
+             index < kBusinessGeometryClasses.size(); ++index)
+        {
+            std::string class_name;
+            geometry[static_cast<int>(index)] >> class_name;
+            if (class_name != kBusinessGeometryClasses[index])
+                return false;
+        }
+        return schema == "visionai.business.development_parent_attestation.v1" &&
+            attestation.development_parent_model_id == settings.trial_model_id &&
+            parent_usage == "DEVELOPMENT_ONLY" && trial_only &&
+            !production_allowed &&
+            IsBusinessSha256(attestation.checkpoint_sha256) &&
+            IsBusinessSha256(attestation.source_lineage_sha256) &&
+            IsBusinessSha256(attestation.parent_manifest_sha256) &&
+            attestation.parent_manifest_sha256 == actual_manifest_sha256 &&
+            attestation.checkpoint_sha256 == actual_parent_sha256;
+    }
+    catch (const cv::Exception&)
+    {
+        return false;
+    }
+}
+
+TorchTaskResultCpp BusinessTrialFailure(
+    const std::string& stage,
+    const std::string& code)
+{
+    TorchTaskResultCpp result;
+    result.ok = false;
+    result.error_code = -1;
+    result.status = "failed";
+    result.error_message = code;
+    result.result_json =
+        "{\"schema\":\"cxvision.yolov8seg.business_trial.v1\","
+        "\"status\":\"failed\",\"failure_stage\":" +
+        QuoteSegJson(stage) + ",\"code\":" + QuoteSegJson(code) +
+        ",\"trial_scope\":\"isolated_business_validation\","
+        "\"human_review_required\":true}";
+    return result;
+}
+
+TorchTaskResultCpp BusinessTrialCancelled(
+    unsigned completed_iterations)
+{
+    TorchTaskResultCpp result;
+    result.ok = false;
+    result.error_code = -2;
+    result.status = "cancelled";
+    result.error_message = "BUSINESS_TRIAL_CANCELLED";
+    result.result_json =
+        "{\"schema\":\"cxvision.yolov8seg.business_trial.v1\","
+        "\"status\":\"cancelled\",\"completed_iterations\":" +
+        std::to_string(completed_iterations) +
+        ",\"candidate_written\":false,"
+        "\"trial_scope\":\"isolated_business_validation\","
+        "\"human_review_required\":true}";
+    return result;
+}
+
+bool ParseBusinessTrialSettings(
+    const std::string& extra_json,
+    BusinessTrialSettings& settings)
+{
+    if (extra_json.empty())
+        return false;
+    try
+    {
+        cv::FileStorage input(
+            extra_json,
+            cv::FileStorage::READ | cv::FileStorage::MEMORY |
+                cv::FileStorage::FORMAT_JSON);
+        if (!input.isOpened())
+            return false;
+        const auto required_unsigned = [&](const char* key, unsigned& value) {
+            const cv::FileNode node = input[key];
+            if (node.empty())
+                return false;
+            int parsed = 0;
+            node >> parsed;
+            if (parsed < 0)
+                return false;
+            value = static_cast<unsigned>(parsed);
+            return true;
+        };
+        const auto required_string = [&](const char* key, std::string& value) {
+            const cv::FileNode node = input[key];
+            if (node.empty())
+                return false;
+            node >> value;
+            return IsSafeBusinessIdentifier(value);
+        };
+        const auto required_local_path = [&](const char* key, std::string& value) {
+            const cv::FileNode node = input[key];
+            if (node.empty())
+                return false;
+            node >> value;
+            return !value.empty() && value.size() <= 4096u &&
+                value.find_first_of("\r\n") == std::string::npos;
+        };
+        if (!required_unsigned(
+                "training_split_percent", settings.training_split_percent) ||
+            !required_unsigned("epoch_count", settings.epoch_count) ||
+            !required_unsigned("iteration_count", settings.iteration_count) ||
+            !required_unsigned("batch_size", settings.batch_size) ||
+            !required_string("trial_model_id", settings.trial_model_id) ||
+            !required_string(
+                "annotation_click_mode", settings.annotation_click_mode) ||
+            !required_string("dataset_revision_id", settings.dataset_revision_id) ||
+            !required_string("case_id", settings.case_id) ||
+            !required_string(
+                "project_geometry_class", settings.project_geometry_class))
+        {
+            return false;
+        }
+        int project_class_id = -1;
+        const cv::FileNode project_class_node =
+            input["project_geometry_class_id"];
+        if (project_class_node.empty())
+            return false;
+        project_class_node >> project_class_id;
+        settings.project_geometry_class_id = project_class_id;
+
+        const cv::FileNode manifest_digest =
+            input["dataset_manifest_sha256"];
+        const cv::FileNode legacy_digest = input["dataset_sha256"];
+        if (!manifest_digest.empty())
+            manifest_digest >> settings.dataset_manifest_sha256;
+        if (!legacy_digest.empty())
+        {
+            std::string legacy_value;
+            legacy_digest >> legacy_value;
+            if (!settings.dataset_manifest_sha256.empty() &&
+                settings.dataset_manifest_sha256 != legacy_value)
+            {
+                return false;
+            }
+            settings.dataset_manifest_sha256 = legacy_value;
+        }
+        if (!IsBusinessSha256(settings.dataset_manifest_sha256))
+            return false;
+
+        if (!required_unsigned(
+                "frozen_training_split_percent",
+                settings.frozen_training_split_percent) ||
+            !required_string(
+                "frozen_annotation_click_mode",
+                settings.frozen_annotation_click_mode) ||
+            !required_string(
+                "frozen_project_geometry_class",
+                settings.frozen_project_geometry_class) ||
+            !required_local_path(
+                "business_parent_attestation_path",
+                settings.business_parent_attestation_path))
+        {
+            return false;
+        }
+        const cv::FileNode frozen_project_class_node =
+            input["frozen_project_geometry_class_id"];
+        if (frozen_project_class_node.empty())
+            return false;
+        frozen_project_class_node >> settings.frozen_project_geometry_class_id;
+
+        const cv::FileNode parent_attestation_digest =
+            input["business_parent_attestation_sha256"];
+        if (parent_attestation_digest.empty())
+            return false;
+        parent_attestation_digest >> settings.business_parent_attestation_sha256;
+        if (!IsBusinessSha256(settings.business_parent_attestation_sha256))
+            return false;
+
+        const cv::FileNode allowed_modes =
+            input["allowed_annotation_click_modes"];
+        if (allowed_modes.empty() || allowed_modes.type() != cv::FileNode::SEQ)
+            return false;
+        for (auto mode = allowed_modes.begin(); mode != allowed_modes.end(); ++mode)
+        {
+            std::string value;
+            *mode >> value;
+            if (!IsSafeBusinessIdentifier(value) ||
+                !settings.allowed_annotation_click_modes.insert(value).second)
+            {
+                return false;
+            }
+        }
+        if (settings.allowed_annotation_click_modes.empty())
+            return false;
+    }
+    catch (const cv::Exception&)
+    {
+        return false;
+    }
+
+    return settings.training_split_percent > 0 &&
+        settings.training_split_percent < 100 &&
+        settings.epoch_count > 0 && settings.epoch_count <= 100000u &&
+        settings.iteration_count >= settings.epoch_count &&
+        settings.iteration_count <= 100000u &&
+        settings.batch_size > 0 && settings.batch_size <= 4096u &&
+        settings.project_geometry_class_id ==
+            BusinessClassId(settings.project_geometry_class) &&
+        settings.project_geometry_class_id >= 0 &&
+        settings.project_geometry_class_id <
+            static_cast<int>(kBusinessGeometryClasses.size()) &&
+        settings.frozen_training_split_percent ==
+            settings.training_split_percent &&
+        settings.frozen_annotation_click_mode ==
+            settings.annotation_click_mode &&
+        settings.frozen_project_geometry_class ==
+            settings.project_geometry_class &&
+        settings.frozen_project_geometry_class_id ==
+            settings.project_geometry_class_id &&
+        settings.allowed_annotation_click_modes.find(
+            settings.annotation_click_mode) !=
+            settings.allowed_annotation_click_modes.end();
+}
+
+struct BusinessInferenceSettings
+{
+    std::string verify_asset_binding_id;
+    std::string verify_asset_sha256;
+};
+
+bool ParseBusinessInferenceSettings(
+    const std::string& extra_json,
+    BusinessInferenceSettings& settings)
+{
+    if (extra_json.empty())
+        return false;
+    try
+    {
+        cv::FileStorage input(
+            extra_json,
+            cv::FileStorage::READ | cv::FileStorage::MEMORY |
+                cv::FileStorage::FORMAT_JSON);
+        if (!input.isOpened())
+            return false;
+        const cv::FileNode binding_id = input["verify_asset_binding_id"];
+        const cv::FileNode digest = input["verify_asset_sha256"];
+        if (binding_id.empty() || digest.empty())
+            return false;
+        binding_id >> settings.verify_asset_binding_id;
+        digest >> settings.verify_asset_sha256;
+        return IsSafeBusinessIdentifier(settings.verify_asset_binding_id) &&
+            IsBusinessSha256(settings.verify_asset_sha256);
+    }
+    catch (const cv::Exception&)
+    {
+        return false;
+    }
+}
+
+bool LoadBusinessMaterializedDataset(
+    const std::string& root_text,
+    const BusinessTrialSettings& settings,
+    BusinessMaterializedDataset& dataset,
+    std::string& code)
+{
+    if (root_text.empty())
+    {
+        code = "BUSINESS_DATASET_ROOT_REQUIRED";
+        return false;
+    }
+    std::error_code error;
+    const std::filesystem::path requested_root =
+        std::filesystem::absolute(std::filesystem::path(root_text), error);
+    if (error ||
+        std::filesystem::is_symlink(
+            std::filesystem::symlink_status(requested_root, error)) ||
+        error || !std::filesystem::is_directory(requested_root, error) || error)
+    {
+        code = "BUSINESS_DATASET_ROOT_INVALID";
+        return false;
+    }
+    const std::filesystem::path root =
+        std::filesystem::weakly_canonical(requested_root, error);
+    if (error)
+    {
+        code = "BUSINESS_DATASET_ROOT_INVALID";
+        return false;
+    }
+    const std::filesystem::path manifest_relative("manifest.v1");
+    std::filesystem::path manifest_path;
+    if (!ResolveBusinessMaterializedFile(root, manifest_relative, manifest_path))
+    {
+        code = "BUSINESS_DATASET_MANIFEST_MISSING";
+        return false;
+    }
+    std::string manifest_text;
+    if (!ReadBusinessFile(manifest_path, manifest_text))
+    {
+        code = "BUSINESS_DATASET_MANIFEST_UNREADABLE";
+        return false;
+    }
+    dataset.manifest_sha256 = BusinessSha256Digest(manifest_text);
+    if (dataset.manifest_sha256 != settings.dataset_manifest_sha256)
+    {
+        code = "BUSINESS_DATASET_MANIFEST_DIGEST_MISMATCH";
+        return false;
+    }
+
+    std::map<std::string, std::string> metadata;
+    std::map<std::string, BusinessMaterializedAsset> assets;
+    std::istringstream input(manifest_text);
+    std::string line;
+    while (std::getline(input, line))
+    {
+        if (line.empty())
+            continue;
+        const std::size_t equal = line.find('=');
+        if (equal == std::string::npos || equal == 0)
+        {
+            code = "BUSINESS_DATASET_MANIFEST_INVALID";
+            return false;
+        }
+        const std::string key = line.substr(0, equal);
+        const std::string value = line.substr(equal + 1);
+        if (key == "image" || key == "mask")
+        {
+            std::vector<std::string> fields;
+            std::size_t offset = 0;
+            while (offset <= value.size())
+            {
+                const std::size_t separator = value.find('|', offset);
+                fields.push_back(value.substr(
+                    offset, separator == std::string::npos
+                        ? std::string::npos : separator - offset));
+                if (separator == std::string::npos)
+                    break;
+                offset = separator + 1u;
+            }
+            if (fields.size() != 4u || !IsSafeBusinessImageId(fields[0]) ||
+                !IsSafeBusinessRelativePath(
+                    std::filesystem::path(fields[2])) ||
+                !IsBusinessSha256(fields[3]))
+            {
+                code = "BUSINESS_DATASET_MANIFEST_INVALID";
+                return false;
+            }
+            if (fields[1] == "holdout")
+            {
+                // VERIFY belongs to a separate unmarked asset binding.  A
+                // holdout image or mask here would be an accidental attempt
+                // to feed the future inference image into training.
+                code = "BUSINESS_DATASET_VERIFY_MATERIALIZATION_FORBIDDEN";
+                return false;
+            }
+            if (!IsBusinessTrainingSplit(fields[1]))
+            {
+                code = "BUSINESS_DATASET_MANIFEST_INVALID";
+                return false;
+            }
+            BusinessMaterializedAsset& asset = assets[fields[0]];
+            if (asset.image_id.empty())
+            {
+                asset.image_id = fields[0];
+                asset.split = fields[1];
+            }
+            if (asset.split != fields[1])
+            {
+                code = "BUSINESS_DATASET_MANIFEST_SPLIT_MISMATCH";
+                return false;
+            }
+            if (key == "image")
+            {
+                if (asset.has_image)
+                {
+                    code = "BUSINESS_DATASET_MANIFEST_DUPLICATE_IMAGE";
+                    return false;
+                }
+                asset.has_image = true;
+                asset.image_relative = fields[2];
+                asset.image_digest = fields[3];
+            }
+            else
+            {
+                if (asset.has_mask)
+                {
+                    code = "BUSINESS_DATASET_MANIFEST_DUPLICATE_MASK";
+                    return false;
+                }
+                asset.has_mask = true;
+                asset.mask_relative = fields[2];
+                asset.mask_digest = fields[3];
+            }
+            continue;
+        }
+        const std::set<std::string> allowed_metadata{
+            "schema", "snapshot_id", "snapshot_digest", "case_id",
+            "dataset_revision_id", "annotation_receipt_digest",
+            "background_pixel", "boundary_stroke_width_pixels"};
+        if (allowed_metadata.find(key) == allowed_metadata.end() ||
+            !metadata.emplace(key, value).second)
+        {
+            code = "BUSINESS_DATASET_MANIFEST_INVALID";
+            return false;
+        }
+    }
+    const auto value_for = [&](const char* key) -> const std::string* {
+        const auto found = metadata.find(key);
+        return found == metadata.end() ? nullptr : &found->second;
+    };
+    const std::string* schema = value_for("schema");
+    const std::string* snapshot_id = value_for("snapshot_id");
+    const std::string* snapshot_digest = value_for("snapshot_digest");
+    const std::string* case_id = value_for("case_id");
+    const std::string* revision_id = value_for("dataset_revision_id");
+    const std::string* receipt_digest = value_for("annotation_receipt_digest");
+    const std::string* background_pixel = value_for("background_pixel");
+    if (schema == nullptr || *schema !=
+            "visionai.geometry-segmentation-materializer.v1" ||
+        snapshot_id == nullptr || !IsSafeBusinessIdentifier(*snapshot_id) ||
+        snapshot_digest == nullptr || !IsBusinessSha256(*snapshot_digest) ||
+        case_id == nullptr || *case_id != settings.case_id ||
+        revision_id == nullptr || *revision_id != settings.dataset_revision_id ||
+        receipt_digest == nullptr || !IsBusinessSha256(*receipt_digest) ||
+        background_pixel == nullptr || *background_pixel != "255")
+    {
+        code = "BUSINESS_DATASET_BINDING_MISMATCH";
+        return false;
+    }
+    dataset.snapshot_id = *snapshot_id;
+    dataset.snapshot_digest = *snapshot_digest;
+    dataset.case_id = *case_id;
+    dataset.dataset_revision_id = *revision_id;
+    dataset.annotation_receipt_digest = *receipt_digest;
+
+    for (const auto& pair : assets)
+    {
+        const BusinessMaterializedAsset& asset = pair.second;
+        if (!asset.has_image || !asset.has_mask)
+        {
+            code = "BUSINESS_DATASET_IMAGE_MASK_PAIR_MISSING";
+            return false;
+        }
+        std::filesystem::path image_path;
+        std::filesystem::path mask_path;
+        if (!ResolveBusinessMaterializedFile(
+                root, asset.image_relative, image_path) ||
+            !ResolveBusinessMaterializedFile(
+                root, asset.mask_relative, mask_path))
+        {
+            code = "BUSINESS_DATASET_ASSET_PATH_INVALID";
+            return false;
+        }
+        std::string image_digest;
+        std::string mask_digest;
+        if (!BusinessSha256File(image_path, image_digest) ||
+            !BusinessSha256File(mask_path, mask_digest) ||
+            image_digest != asset.image_digest ||
+            mask_digest != asset.mask_digest)
+        {
+            code = "BUSINESS_DATASET_ASSET_DIGEST_MISMATCH";
+            return false;
+        }
+        cv::Mat image = cv::imread(image_path.string(), cv::IMREAD_COLOR);
+        cv::Mat class_mask = cv::imread(mask_path.string(), cv::IMREAD_GRAYSCALE);
+        if (image.empty() || class_mask.empty() ||
+            image.rows != class_mask.rows || image.cols != class_mask.cols)
+        {
+            code = "BUSINESS_DATASET_ASSET_UNREADABLE";
+            return false;
+        }
+
+        YoloV8SegDatasetSample sample;
+        sample.image_id = asset.image_id;
+        sample.image_ref = image_path.string();
+        sample.split = asset.split;
+        sample.target_mask_ref = mask_path.string();
+        bool class_present = false;
+        for (int row = 0; row < class_mask.rows; ++row)
+        {
+            const auto* values = class_mask.ptr<unsigned char>(row);
+            for (int column = 0; column < class_mask.cols; ++column)
+            {
+                const unsigned char value = values[column];
+                if (value != 255u && value > 6u)
+                {
+                    code = "BUSINESS_DATASET_MASK_CLASS_INVALID";
+                    return false;
+                }
+                if (value != 255u && value !=
+                    static_cast<unsigned char>(
+                        settings.project_geometry_class_id))
+                {
+                    code = "BUSINESS_PROJECT_GEOMETRY_MIXED";
+                    return false;
+                }
+                class_present = class_present ||
+                    value == static_cast<unsigned char>(
+                        settings.project_geometry_class_id);
+            }
+        }
+        if (!class_present)
+        {
+            code = "BUSINESS_DATASET_MASK_EMPTY";
+            return false;
+        }
+        cv::Mat selected;
+        cv::compare(
+            class_mask,
+            cv::Scalar(settings.project_geometry_class_id),
+            selected,
+            cv::CMP_EQ);
+        std::vector<std::vector<cv::Point>> contours;
+        cv::findContours(
+            selected, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+        for (const auto& contour : contours)
+        {
+            if (contour.size() < 3u || cv::contourArea(contour) <= 0.0)
+            {
+                code = "BUSINESS_DATASET_MASK_GEOMETRY_INVALID";
+                return false;
+            }
+            std::vector<cv::Point2f> polygon;
+            polygon.reserve(contour.size());
+            const float width = static_cast<float>(
+                std::max(1, class_mask.cols - 1));
+            const float height = static_cast<float>(
+                std::max(1, class_mask.rows - 1));
+            for (const cv::Point& point : contour)
+            {
+                polygon.emplace_back(
+                    std::clamp(point.x / width, 0.0f, 1.0f),
+                    std::clamp(point.y / height, 0.0f, 1.0f));
+            }
+            if (!AppendDatasetPolygon(
+                    sample, settings.project_geometry_class_id,
+                    std::move(polygon)))
+            {
+                code = "BUSINESS_DATASET_MASK_GEOMETRY_INVALID";
+                return false;
+            }
+        }
+        if (sample.classes.empty())
+        {
+            code = "BUSINESS_DATASET_MASK_GEOMETRY_INVALID";
+            return false;
+        }
+        if (asset.split == "train")
+            dataset.train_samples.push_back(std::move(sample));
+        else if (asset.split == "val")
+            dataset.validation_samples.push_back(std::move(sample));
+        else
+        {
+            code = "BUSINESS_DATASET_MANIFEST_INVALID";
+            return false;
+        }
+    }
+    if (dataset.train_samples.size() < 2u ||
+        dataset.validation_samples.empty())
+    {
+        code = "BUSINESS_DATASET_SPLIT_INSUFFICIENT";
+        return false;
+    }
+    return true;
+}
+
+torch::Tensor BusinessMaskTarget(
+    const std::vector<cv::Point2f>& polygon,
+    int proto_width,
+    int proto_height,
+    const SegLetterbox& letterbox,
+    const TorchModelManifest& manifest,
+    const torch::TensorOptions& options)
+{
+    cv::Mat mask(proto_height, proto_width, CV_8UC1, cv::Scalar(0));
+    std::vector<cv::Point> points;
+    points.reserve(polygon.size());
+    for (const cv::Point2f& point : polygon)
+    {
+        const int x = std::clamp(
+            static_cast<int>(std::lround(
+                (letterbox.pad_x + point.x * letterbox.resized_width) /
+                static_cast<double>(manifest.input_width) * proto_width)),
+            0, proto_width - 1);
+        const int y = std::clamp(
+            static_cast<int>(std::lround(
+                (letterbox.pad_y + point.y * letterbox.resized_height) /
+                static_cast<double>(manifest.input_height) * proto_height)),
+            0, proto_height - 1);
+        points.emplace_back(x, y);
+    }
+    if (points.size() >= 3u)
+    {
+        cv::fillPoly(
+            mask, std::vector<std::vector<cv::Point>>{points},
+            cv::Scalar(255), cv::LINE_8);
+    }
+    return torch::from_blob(
+        mask.data, {proto_height, proto_width},
+        torch::TensorOptions().dtype(torch::kUInt8))
+        .clone()
+        .to(options.device())
+        .to(options.dtype()) / 255.0;
+}
+
+BusinessLossTensors ComputeBusinessYoloV8SegLoss(
+    YoloV8Segment& model,
+    const YoloV8SegRawOutput& raw,
+    const YoloV8SegDatasetSample& sample,
+    const torch::Tensor& input,
+    const SegLetterbox& letterbox,
+    const TorchModelManifest& manifest)
+{
+    BusinessLossTensors result;
+    const auto options = input.options();
+    result.class_loss = torch::zeros({}, options);
+    result.mask_loss = torch::zeros({}, options);
+    result.box_loss = torch::zeros({}, options);
+    result.dfl_loss = torch::zeros({}, options);
+    const int proto_height = static_cast<int>(raw.prototypes.size(2));
+    const int proto_width = static_cast<int>(raw.prototypes.size(3));
+    const torch::Tensor proto_flat =
+        raw.prototypes.index({0}).view({manifest.mask_channels, -1});
+    const std::size_t level_count = raw.class_logits.size();
+    for (std::size_t target_index = 0;
+         target_index < sample.classes.size(); ++target_index)
+    {
+        const auto& box = sample.boxes_xyxy_norm[target_index];
+        const auto to_input_x = [&](float value) {
+            return static_cast<float>((letterbox.pad_x +
+                value * letterbox.resized_width) /
+                static_cast<double>(manifest.input_width));
+        };
+        const auto to_input_y = [&](float value) {
+            return static_cast<float>((letterbox.pad_y +
+                value * letterbox.resized_height) /
+                static_cast<double>(manifest.input_height));
+        };
+        const std::array<float, 4> input_box{
+            to_input_x(box[0]), to_input_y(box[1]),
+            to_input_x(box[2]), to_input_y(box[3])};
+        const int64_t class_id = sample.classes[target_index];
+        TORCH_CHECK(class_id >= 0 && class_id < manifest.num_classes,
+            "business dataset class ID is outside the fixed head");
+        const torch::Tensor mask_target = BusinessMaskTarget(
+            sample.polygons_norm[target_index], proto_width, proto_height,
+            letterbox, manifest, options);
+        const float center_x =
+            (input_box[0] + input_box[2]) * 0.5f;
+        const float center_y =
+            (input_box[1] + input_box[3]) * 0.5f;
+        for (std::size_t level = 0; level < level_count; ++level)
+        {
+            const int64_t feature_height = raw.class_logits[level].size(2);
+            const int64_t feature_width = raw.class_logits[level].size(3);
+            const int64_t column = std::clamp<int64_t>(
+                static_cast<int64_t>(std::floor(center_x * feature_width)),
+                0, feature_width - 1);
+            const int64_t row = std::clamp<int64_t>(
+                static_cast<int64_t>(std::floor(center_y * feature_height)),
+                0, feature_height - 1);
+            const torch::Tensor class_logits = raw.class_logits[level].index(
+                {0, torch::indexing::Slice(), row, column});
+            torch::Tensor class_target = torch::zeros_like(class_logits);
+            class_target.index_put_({class_id}, 1.0);
+            result.class_loss = result.class_loss +
+                torch::binary_cross_entropy_with_logits(
+                    class_logits, class_target);
+
+            const torch::Tensor coefficients =
+                raw.mask_coefficients[level].index(
+                    {0, torch::indexing::Slice(), row, column});
+            const torch::Tensor mask_logits =
+                torch::matmul(coefficients, proto_flat)
+                    .view({proto_height, proto_width});
+            const torch::Tensor mask_bce =
+                torch::binary_cross_entropy_with_logits(
+                    mask_logits, mask_target);
+            const torch::Tensor mask_probability = mask_logits.sigmoid();
+            const torch::Tensor dice = 1.0 -
+                (2.0 * (mask_probability * mask_target).sum() + 1.0) /
+                (mask_probability.sum() + mask_target.sum() + 1.0);
+            result.mask_loss = result.mask_loss + mask_bce + dice;
+
+            const float stride =
+                static_cast<float>(manifest.input_width) /
+                static_cast<float>(feature_width);
+            const float anchor_x =
+                (static_cast<float>(column) + 0.5f) * stride;
+            const float anchor_y =
+                (static_cast<float>(row) + 0.5f) * stride;
+            const torch::Tensor target_distances = torch::tensor(
+                {std::max(0.0f,
+                     (anchor_x - input_box[0] * manifest.input_width) / stride),
+                 std::max(0.0f,
+                     (anchor_y - input_box[1] * manifest.input_height) / stride),
+                 std::max(0.0f,
+                     (input_box[2] * manifest.input_width - anchor_x) / stride),
+                 std::max(0.0f,
+                     (input_box[3] * manifest.input_height - anchor_y) / stride)},
+                options).clamp(0.0, 15.0 - 1.0e-3);
+            const torch::Tensor box_logits = raw.box_logits[level]
+                .index({0, torch::indexing::Slice(), row, column})
+                .view({1, 64, 1});
+            const torch::Tensor predicted_distances =
+                model->head()->dfl_module()->expectation(box_logits)
+                    .view({4});
+            result.box_loss = result.box_loss +
+                torch::abs(predicted_distances - target_distances).mean();
+            const torch::Tensor dfl_logits = box_logits.view({4, 16});
+            const torch::Tensor target_left =
+                torch::floor(target_distances).to(torch::kLong);
+            const torch::Tensor target_right =
+                (target_left + 1).clamp_max(15);
+            const torch::Tensor right_weight =
+                (target_distances -
+                 target_left.to(target_distances.dtype()))
+                    .clamp(0.0, 1.0);
+            const torch::Tensor left_weight = 1.0 - right_weight;
+            const torch::Tensor left_loss =
+                torch::nn::functional::cross_entropy(
+                    dfl_logits, target_left,
+                    torch::nn::functional::CrossEntropyFuncOptions()
+                        .reduction(torch::kNone));
+            const torch::Tensor right_loss =
+                torch::nn::functional::cross_entropy(
+                    dfl_logits, target_right,
+                    torch::nn::functional::CrossEntropyFuncOptions()
+                        .reduction(torch::kNone));
+            result.dfl_loss = result.dfl_loss +
+                (left_loss * left_weight + right_loss * right_weight).mean();
+        }
+    }
+    const double divisor = static_cast<double>(
+        std::max<std::size_t>(1u, sample.classes.size() * level_count));
+    result.class_loss = result.class_loss / divisor;
+    result.mask_loss = result.mask_loss / divisor;
+    result.box_loss = result.box_loss / divisor;
+    result.dfl_loss = result.dfl_loss / divisor;
+    result.total_loss =
+        result.class_loss + result.mask_loss +
+        result.box_loss * 0.25 + result.dfl_loss * 0.25;
+    return result;
+}
+
+bool EvaluateBusinessValidation(
+    YoloV8Segment& model,
+    const std::vector<YoloV8SegDatasetSample>& samples,
+    const TorchModelManifest& manifest,
+    const torch::Device& device,
+    double& validation_loss)
+{
+    if (samples.empty())
+        return false;
+    model->eval();
+    torch::NoGradGuard no_grad;
+    double accumulated = 0.0;
+    for (const auto& sample : samples)
+    {
+        cv::Mat image = cv::imread(sample.image_ref, cv::IMREAD_COLOR);
+        if (image.empty())
+            return false;
+        SegLetterbox letterbox;
+        torch::Tensor input =
+            MakeSegInput(image, manifest, letterbox).to(device);
+        const YoloV8SegRawOutput raw = model->forward(input);
+        const BusinessLossTensors losses = ComputeBusinessYoloV8SegLoss(
+            model, raw, sample, input, letterbox, manifest);
+        const double value = losses.total_loss.detach().item<double>();
+        if (!std::isfinite(value))
+            return false;
+        accumulated += value;
+    }
+    validation_loss = accumulated / static_cast<double>(samples.size());
+    return std::isfinite(validation_loss) && validation_loss >= 0.0;
+}
+
+bool WriteBusinessCheckpoint(
+    YoloV8Segment& model,
+    const std::filesystem::path& path)
+{
+    c10::Dict<std::string, torch::Tensor> state_dict;
+    for (const auto& named : model->named_parameters(true))
+        state_dict.insert(named.key(), named.value().detach().cpu());
+    for (const auto& named : model->named_buffers(true))
+        state_dict.insert(named.key(), named.value().detach().cpu());
+    const std::vector<char> bytes = torch::pickle_save(state_dict);
+    std::ofstream output(path, std::ios::binary | std::ios::trunc);
+    output.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
+    output.close();
+    return output.good();
+}
+
+bool WriteBusinessCandidateManifest(
+    const std::filesystem::path& path,
+    const TorchModelManifest& parent_manifest,
+    const std::string& model_id,
+    const std::string& weights_sha256,
+    const std::string& development_parent_model_id,
+    const std::string& development_parent_checkpoint_sha256,
+    const std::string& parent_attestation_sha256)
+{
+    std::ofstream output(path);
+    output
+        << "{\n"
+        << "  \"schema\":\"cxvision.torch_model_manifest\",\n"
+        << "  \"schema_version\":2,\n"
+        << "  \"model_id\":" << QuoteSegJson(model_id) << ",\n"
+        << "  \"task\":\"instance_segmentation\",\n"
+        << "  \"architecture\":\"yolov8_seg\",\n"
+        << "  \"variant\":\"nano\",\n"
+        << "  \"weights\":\"weights/business_trial_state_dict.pt\",\n"
+        << "  \"weights_format\":\"python_state_dict\",\n"
+        << "  \"weights_hash\":" << QuoteSegJson(weights_sha256) << ",\n"
+        << "  \"num_classes\":7,\n"
+        << "  \"mask_channels\":32,\n"
+        << "  \"prototype_channels\":64,\n"
+        << "  \"configured_prototype_channels\":256,\n"
+        << "  \"classes\":[\"arc\",\"circle\",\"ellipse\",\"line\","
+        << "\"open_curve\",\"polygon\",\"closed_curve\"],\n"
+        << "  \"input\":{\"width\":" << parent_manifest.input_width
+        << ",\"height\":" << parent_manifest.input_height
+        << ",\"color\":\"rgb\",\"scale\":0.003921568627,"
+        << "\"letterbox\":true},\n"
+        << "  \"postprocess\":{\"confidence_threshold\":"
+        << parent_manifest.confidence_threshold
+        << ",\"iou_threshold\":" << parent_manifest.iou_threshold
+        << ",\"mask_threshold\":" << parent_manifest.mask_threshold
+        << ",\"max_detections\":" << parent_manifest.max_detections
+        << ",\"class_agnostic_nms\":"
+        << (parent_manifest.class_agnostic_nms ? "true" : "false") << "},\n"
+        << "  \"business_trial_scope\":\"isolated_business_validation\",\n"
+        << "  \"business_trial_state\":\"CANDIDATE_REVIEW_REQUIRED\",\n"
+        << "  \"business_development_parent_model_id\":"
+        << QuoteSegJson(development_parent_model_id) << ",\n"
+        << "  \"business_development_parent_checkpoint_sha256\":"
+        << QuoteSegJson(development_parent_checkpoint_sha256) << ",\n"
+        << "  \"business_parent_attestation_sha256\":"
+        << QuoteSegJson(parent_attestation_sha256) << "\n"
+        << "}\n";
+    output.close();
+    return output.good();
+}
+
+bool IsBusinessCancellationRequested(
+    const TorchYoloV8SegBusinessCancelProbe& probe)
+{
+    return probe && probe();
+}
+} // namespace
+
+TorchTaskResultCpp ExecuteTorchYoloV8SegBusinessTrialTask(
+    const TorchRuntimeCoreConfig& config,
+    const TorchTaskRequestCpp& request,
+    const TorchYoloV8SegBusinessEpochSink& on_epoch,
+    const TorchYoloV8SegBusinessCancelProbe& is_cancelled)
+{
+    try
+    {
+        if (IsBusinessCancellationRequested(is_cancelled))
+            return BusinessTrialCancelled(0);
+        BusinessTrialSettings settings;
+        if (!ParseBusinessTrialSettings(request.extra_json, settings))
+        {
+            return BusinessTrialFailure(
+                "training_parameters",
+                "TRAINING_PARAMETER_INVALID");
+        }
+        std::filesystem::path output_root;
+        if (!ResolveBusinessStagingOutputDirectory(
+                config, request.output_dir, output_root))
+        {
+            return BusinessTrialFailure(
+                "output_policy",
+                "BUSINESS_TRIAL_OUTPUT_SCOPE_INVALID");
+        }
+
+        TorchModelManifest manifest;
+        std::string reason;
+        std::filesystem::path parent_manifest_path;
+        if (!ResolveBusinessControlledRegularFile(
+                config.model_root, request.manifest_path,
+                parent_manifest_path) ||
+            !LoadTorchModelManifest(
+                parent_manifest_path, config.model_root, manifest, reason) ||
+            !ValidateBusinessSevenClassManifest(manifest, reason))
+        {
+            return BusinessTrialFailure(
+                "parent_model",
+                "BUSINESS_TRIAL_PARENT_MODEL_INVALID");
+        }
+        std::string actual_parent_sha256;
+        if (!BusinessSha256File(manifest.weights_path, actual_parent_sha256) ||
+            !IsBusinessSha256(actual_parent_sha256))
+        {
+            return BusinessTrialFailure(
+                "parent_model",
+                "BUSINESS_TRIAL_PARENT_HASH_MISMATCH");
+        }
+        BusinessParentAttestation parent_attestation;
+        if (!ValidateBusinessParentAttestation(
+                config, settings, parent_manifest_path,
+                actual_parent_sha256, parent_attestation))
+        {
+            // A legacy FNV source manifest is never elevated into a business
+            // identity.  Only an immutable SHA-256 development-parent
+            // attestation can bridge the source manifest to the fixed parent.
+            return BusinessTrialFailure(
+                "parent_model",
+                "BUSINESS_TRIAL_PARENT_ATTESTATION_INVALID");
+        }
+
+        BusinessMaterializedDataset dataset;
+        std::string dataset_code;
+        if (!LoadBusinessMaterializedDataset(
+                request.dataset_root, settings, dataset, dataset_code))
+        {
+            return BusinessTrialFailure("dataset", dataset_code);
+        }
+        if (IsBusinessCancellationRequested(is_cancelled))
+            return BusinessTrialCancelled(0);
+
+        std::error_code filesystem_error;
+        if (HasBusinessSymlinkComponent(output_root) ||
+            !std::filesystem::is_directory(output_root, filesystem_error) ||
+            filesystem_error ||
+            !std::filesystem::is_empty(output_root, filesystem_error) ||
+            filesystem_error)
+        {
+            return BusinessTrialFailure(
+                "output_policy",
+                "BUSINESS_TRIAL_STAGING_NOT_EMPTY");
+        }
+
+        const std::string device_name =
+            (request.device == "cuda" || config.device == "cuda") &&
+                    torch::cuda::is_available()
+                ? "cuda"
+                : "cpu";
+        const torch::Device device(device_name);
+        YoloV8Segment model(7);
+        const YoloV8SegWeightMappingReport mapping =
+            model->load_state_dict_strict(manifest.weights_path.string());
+        if (!mapping.complete())
+        {
+            return BusinessTrialFailure(
+                "parent_model",
+                "BUSINESS_TRIAL_PARENT_MODEL_INVALID");
+        }
+        model->to(device);
+        model->train();
+        torch::optim::Adam optimizer(
+            model->parameters(),
+            torch::optim::AdamOptions(settings.learning_rate)
+                .weight_decay(settings.weight_decay));
+
+        std::vector<BusinessEpochMetric> trace;
+        trace.reserve(settings.epoch_count);
+        const unsigned base_iterations =
+            settings.iteration_count / settings.epoch_count;
+        const unsigned remainder_iterations =
+            settings.iteration_count % settings.epoch_count;
+        unsigned completed_iterations = 0;
+        std::size_t sample_cursor = 0;
+        const auto started = std::chrono::steady_clock::now();
+        for (unsigned epoch = 1; epoch <= settings.epoch_count; ++epoch)
+        {
+            if (IsBusinessCancellationRequested(is_cancelled))
+                return BusinessTrialCancelled(completed_iterations);
+            const double schedule_position = settings.epoch_count <= 1u
+                ? 0.0
+                : static_cast<double>(epoch - 1u) /
+                    static_cast<double>(settings.epoch_count - 1u);
+            const double learning_rate = settings.lr_schedule == "cosine"
+                ? settings.min_learning_rate +
+                    (settings.learning_rate - settings.min_learning_rate) *
+                        0.5 * (1.0 + std::cos(
+                            std::acos(-1.0) * schedule_position))
+                : settings.learning_rate;
+            for (auto& parameter_group : optimizer.param_groups())
+            {
+                auto& options = static_cast<torch::optim::AdamOptions&>(
+                    parameter_group.options());
+                options.lr(learning_rate);
+            }
+            const unsigned iterations_this_epoch =
+                base_iterations +
+                (epoch <= remainder_iterations ? 1u : 0u);
+            if (iterations_this_epoch == 0u)
+            {
+                return BusinessTrialFailure(
+                    "training_parameters",
+                    "TRAINING_PARAMETER_INVALID");
+            }
+            double accumulated_loss = 0.0;
+            unsigned observed_samples = 0;
+            for (unsigned iteration = 0;
+                 iteration < iterations_this_epoch;
+                 ++iteration)
+            {
+                if (IsBusinessCancellationRequested(is_cancelled))
+                    return BusinessTrialCancelled(completed_iterations);
+                optimizer.zero_grad();
+                for (unsigned batch_index = 0;
+                     batch_index < settings.batch_size;
+                     ++batch_index)
+                {
+                    if (IsBusinessCancellationRequested(is_cancelled))
+                        return BusinessTrialCancelled(completed_iterations);
+                    const YoloV8SegDatasetSample& sample =
+                        dataset.train_samples[
+                            sample_cursor % dataset.train_samples.size()];
+                    ++sample_cursor;
+                    cv::Mat image =
+                        cv::imread(sample.image_ref, cv::IMREAD_COLOR);
+                    if (image.empty())
+                    {
+                        return BusinessTrialFailure(
+                            "training_input",
+                            "BUSINESS_DATASET_ASSET_UNREADABLE");
+                    }
+                    SegLetterbox letterbox;
+                    torch::Tensor input =
+                        MakeSegInput(image, manifest, letterbox).to(device);
+                    const YoloV8SegRawOutput raw = model->forward(input);
+                    const BusinessLossTensors losses =
+                        ComputeBusinessYoloV8SegLoss(
+                            model, raw, sample, input, letterbox, manifest);
+                    const double loss_value =
+                        losses.total_loss.detach().item<double>();
+                    if (!std::isfinite(loss_value) || loss_value < 0.0)
+                    {
+                        return BusinessTrialFailure(
+                            "optimizer",
+                            "BUSINESS_TRIAL_NONFINITE_LOSS");
+                    }
+                    (losses.total_loss /
+                     static_cast<double>(settings.batch_size)).backward();
+                    accumulated_loss += loss_value;
+                    ++observed_samples;
+                }
+                optimizer.step();
+                ++completed_iterations;
+            }
+
+            double validation_loss = 0.0;
+            if (!EvaluateBusinessValidation(
+                    model, dataset.validation_samples, manifest, device,
+                    validation_loss))
+            {
+                return BusinessTrialFailure(
+                    "validation",
+                    "BUSINESS_VALIDATION_METRIC_UNAVAILABLE");
+            }
+            model->train();
+            const double training_loss =
+                accumulated_loss / static_cast<double>(
+                    std::max(1u, observed_samples));
+            const double training_score = 1.0 / (1.0 + training_loss);
+            const double validation_score = 1.0 / (1.0 + validation_loss);
+            if (!std::isfinite(training_score) ||
+                !std::isfinite(validation_score))
+            {
+                return BusinessTrialFailure(
+                    "validation",
+                    "BUSINESS_VALIDATION_METRIC_UNAVAILABLE");
+            }
+            BusinessEpochMetric metric;
+            metric.epoch = epoch;
+            metric.completed_iterations = completed_iterations;
+            metric.training_loss = training_loss;
+            metric.training_score = training_score;
+            metric.validation_loss = validation_loss;
+            metric.validation_score = validation_score;
+            metric.effective_learning_rate = learning_rate;
+            trace.push_back(metric);
+            const unsigned progress = static_cast<unsigned>(
+                std::min<std::uint64_t>(
+                    100u,
+                    static_cast<std::uint64_t>(epoch) * 100u /
+                        settings.epoch_count));
+            if (on_epoch && !on_epoch(progress, {
+                    metric.epoch,
+                    metric.completed_iterations,
+                    metric.training_loss,
+                    metric.validation_score,
+                    true,
+                    metric.effective_learning_rate}))
+            {
+                return BusinessTrialCancelled(completed_iterations);
+            }
+        }
+        if (completed_iterations != settings.iteration_count)
+        {
+            return BusinessTrialFailure(
+                "optimizer",
+                "BUSINESS_ITERATION_ACCOUNTING_INVALID");
+        }
+        if (IsBusinessCancellationRequested(is_cancelled))
+            return BusinessTrialCancelled(completed_iterations);
+
+        const std::filesystem::path pending_root =
+            output_root / ".business_trial_pending";
+        const std::filesystem::path candidate_root =
+            output_root / "candidate";
+        if (std::filesystem::exists(pending_root, filesystem_error) ||
+            filesystem_error ||
+            std::filesystem::exists(candidate_root, filesystem_error) ||
+            filesystem_error ||
+            !std::filesystem::create_directory(pending_root, filesystem_error) ||
+            filesystem_error)
+        {
+            return BusinessTrialFailure(
+                "output_write",
+                "BUSINESS_TRIAL_STAGING_CONFLICT");
+        }
+        const auto cleanup_pending = [&]() {
+            std::error_code ignored;
+            std::filesystem::remove_all(pending_root, ignored);
+        };
+        const std::filesystem::path weights_dir = pending_root / "weights";
+        std::filesystem::create_directories(weights_dir, filesystem_error);
+        if (filesystem_error)
+        {
+            cleanup_pending();
+            return BusinessTrialFailure(
+                "output_write",
+                "BUSINESS_TRIAL_STAGING_CREATE_FAILED");
+        }
+        const std::filesystem::path checkpoint =
+            weights_dir / "business_trial_state_dict.pt";
+        const std::filesystem::path trace_path =
+            pending_root / "training_trace.json";
+        const std::filesystem::path candidate_manifest =
+            pending_root / "model_manifest.json";
+        std::ofstream trace_file(trace_path);
+        trace_file
+            << "{\n"
+            << "  \"schema\":\"cxvision.yolov8seg.business_training_trace.v1\",\n"
+            << "  \"trial_scope\":\"isolated_business_validation\",\n"
+            << "  \"curve_score_definition\":\"inverse_total_loss\",\n"
+            << "  \"points\":[\n";
+        for (std::size_t index = 0; index < trace.size(); ++index)
+        {
+            const BusinessEpochMetric& metric = trace[index];
+            trace_file
+                << "    {\"epoch\":" << metric.epoch
+                << ",\"completed_iterations\":"
+                << metric.completed_iterations
+                << ",\"training_loss\":" << metric.training_loss
+                << ",\"training_score\":" << metric.training_score
+                << ",\"validation_loss\":" << metric.validation_loss
+                << ",\"validation_score\":" << metric.validation_score
+                << ",\"effective_learning_rate\":"
+                << metric.effective_learning_rate << "}"
+                << (index + 1u == trace.size() ? "" : ",") << "\n";
+        }
+        trace_file << "  ]\n}\n";
+        trace_file.close();
+        if (!trace_file.good())
+        {
+            cleanup_pending();
+            return BusinessTrialFailure(
+                "output_write",
+                "BUSINESS_TRAINING_TRACE_WRITE_FAILED");
+        }
+        if (IsBusinessCancellationRequested(is_cancelled))
+        {
+            cleanup_pending();
+            return BusinessTrialCancelled(completed_iterations);
+        }
+        if (!WriteBusinessCheckpoint(model, checkpoint))
+        {
+            cleanup_pending();
+            return BusinessTrialFailure(
+                "checkpoint",
+                "BUSINESS_TRIAL_CHECKPOINT_WRITE_FAILED");
+        }
+        if (IsBusinessCancellationRequested(is_cancelled))
+        {
+            cleanup_pending();
+            return BusinessTrialCancelled(completed_iterations);
+        }
+        std::string candidate_sha256;
+        if (!BusinessSha256File(checkpoint, candidate_sha256) ||
+            !IsBusinessSha256(candidate_sha256))
+        {
+            cleanup_pending();
+            return BusinessTrialFailure(
+                "checkpoint",
+                "BUSINESS_TRIAL_CHECKPOINT_HASH_FAILED");
+        }
+        const std::string candidate_model_id =
+            "business_yolov8seg_7class_trial_" +
+            candidate_sha256.substr(7u, 16u);
+        if (!WriteBusinessCandidateManifest(
+                candidate_manifest, manifest, candidate_model_id,
+                candidate_sha256, settings.trial_model_id,
+                actual_parent_sha256, parent_attestation.attestation_sha256))
+        {
+            cleanup_pending();
+            return BusinessTrialFailure(
+                "candidate_manifest",
+                "BUSINESS_TRIAL_MANIFEST_WRITE_FAILED");
+        }
+        if (IsBusinessCancellationRequested(is_cancelled))
+        {
+            cleanup_pending();
+            return BusinessTrialCancelled(completed_iterations);
+        }
+        std::filesystem::rename(
+            pending_root, candidate_root, filesystem_error);
+        if (filesystem_error)
+        {
+            cleanup_pending();
+            return BusinessTrialFailure(
+                "candidate_commit",
+                "BUSINESS_TRIAL_CANDIDATE_COMMIT_FAILED");
+        }
+
+        const double elapsed_ms = std::chrono::duration<double, std::milli>(
+            std::chrono::steady_clock::now() - started).count();
+        const BusinessEpochMetric& final_epoch = trace.back();
+        TorchTaskResultCpp result;
+        result.ok = true;
+        result.status = "completed_review_required";
+        result.requested_device = request.device;
+        result.actual_device = device_name;
+        result.train_runtime_ms = elapsed_ms;
+        result.algorithm_runtime_ms = elapsed_ms;
+        result.result_ref = (candidate_root / "model_manifest.json").string();
+        result.evidence_ref =
+            (candidate_root / "training_trace.json").string();
+        result.trainer_lifecycle_summary =
+            "fixed-seven-class YOLOv8-Seg business trial completed";
+        result.unified_mainline_summary =
+            "development trial candidate requires VERIFY inference and human review";
+        result.result_json =
+            "{\"schema\":\"cxvision.yolov8seg.business_trial.v1\","
+            "\"status\":\"completed_review_required\","
+            "\"trial_scope\":\"isolated_business_validation\","
+            "\"candidate_state\":\"CANDIDATE_REVIEW_REQUIRED\","
+            "\"production_activation\":false,"
+            "\"human_review_required\":true,"
+            "\"case_id\":" + QuoteSegJson(settings.case_id) +
+            ",\"dataset_revision_id\":" +
+                QuoteSegJson(settings.dataset_revision_id) +
+            ",\"dataset_manifest_sha256\":" +
+                QuoteSegJson(dataset.manifest_sha256) +
+            ",\"parent_model_id\":" +
+                QuoteSegJson(settings.trial_model_id) +
+            ",\"parent_model_sha256\":" +
+                QuoteSegJson(actual_parent_sha256) +
+            ",\"parent_attestation_sha256\":" +
+                QuoteSegJson(parent_attestation.attestation_sha256) +
+            ",\"candidate_model_id\":" +
+                QuoteSegJson(candidate_model_id) +
+            ",\"candidate_model_sha256\":" +
+                QuoteSegJson(candidate_sha256) +
+            ",\"project_geometry_class\":" +
+                QuoteSegJson(settings.project_geometry_class) +
+            ",\"project_geometry_class_id\":" +
+                std::to_string(settings.project_geometry_class_id) +
+            ",\"annotation_click_mode\":" +
+                QuoteSegJson(settings.annotation_click_mode) +
+            ",\"training_split_percent\":" +
+                std::to_string(settings.training_split_percent) +
+            ",\"train_image_count\":" +
+                std::to_string(dataset.train_samples.size()) +
+            ",\"validation_image_count\":" +
+                std::to_string(dataset.validation_samples.size()) +
+            ",\"verify_asset_binding_required\":true"
+            ",\"epoch_count\":" +
+                std::to_string(settings.epoch_count) +
+            ",\"iteration_count\":" +
+                std::to_string(settings.iteration_count) +
+            ",\"batch_size\":" +
+                std::to_string(settings.batch_size) +
+            ",\"effective_learning_rate\":" +
+                std::to_string(final_epoch.effective_learning_rate) +
+            ",\"curve_score_definition\":\"inverse_total_loss\","
+            "\"training_loss\":" +
+                std::to_string(final_epoch.training_loss) +
+            ",\"validation_score\":" +
+                std::to_string(final_epoch.validation_score) + "}";
+        return result;
+    }
+    catch (const std::exception&)
+    {
+        // Exception text can contain a local asset path; business receipts cannot.
+        return BusinessTrialFailure(
+            "exception", "BUSINESS_TRIAL_RUNTIME_EXCEPTION");
+    }
+}
+
+TorchTaskResultCpp ExecuteTorchYoloV8SegBusinessInferenceTask(
+    const TorchRuntimeCoreConfig& config,
+    const TorchTaskRequestCpp& request)
+{
+    try
+    {
+        std::filesystem::path output_root;
+        if (!ResolveBusinessStagingOutputDirectory(
+                config, request.output_dir, output_root))
+        {
+            return BusinessTrialFailure(
+                "output_policy",
+                "BUSINESS_INFERENCE_OUTPUT_SCOPE_INVALID");
+        }
+        std::error_code output_error;
+        if (HasBusinessSymlinkComponent(output_root) ||
+            !std::filesystem::is_empty(output_root, output_error) ||
+            output_error)
+        {
+            return BusinessTrialFailure(
+                "output_policy",
+                "BUSINESS_INFERENCE_STAGING_NOT_EMPTY");
+        }
+        BusinessInferenceSettings inference_settings;
+        if (!ParseBusinessInferenceSettings(
+                request.extra_json, inference_settings))
+        {
+            return BusinessTrialFailure(
+                "verify_asset",
+                "BUSINESS_VERIFY_ASSET_BINDING_INVALID");
+        }
+        TorchModelManifest manifest;
+        std::string reason;
+        if (!LoadTorchModelManifest(
+                request.manifest_path, config.model_root, manifest, reason) ||
+            !ValidateBusinessSevenClassManifest(manifest, reason))
+        {
+            return BusinessTrialFailure(
+                "candidate_model",
+                "BUSINESS_INFERENCE_CANDIDATE_INVALID");
+        }
+        cv::FileStorage candidate_file(
+            request.manifest_path, cv::FileStorage::READ);
+        std::string trial_scope;
+        std::string trial_state;
+        if (!candidate_file.isOpened() ||
+            candidate_file["business_trial_scope"].empty() ||
+            candidate_file["business_trial_state"].empty())
+        {
+            return BusinessTrialFailure(
+                "candidate_model",
+                "BUSINESS_INFERENCE_CANDIDATE_INVALID");
+        }
+        candidate_file["business_trial_scope"] >> trial_scope;
+        candidate_file["business_trial_state"] >> trial_state;
+        if (trial_scope != "isolated_business_validation" ||
+            trial_state != "CANDIDATE_REVIEW_REQUIRED")
+        {
+            return BusinessTrialFailure(
+                "candidate_model",
+                "BUSINESS_INFERENCE_CANDIDATE_SCOPE_INVALID");
+        }
+        std::string actual_candidate_sha256;
+        if (!BusinessSha256File(
+                manifest.weights_path, actual_candidate_sha256) ||
+            !IsBusinessSha256(manifest.weights_hash) ||
+            actual_candidate_sha256 != manifest.weights_hash)
+        {
+            return BusinessTrialFailure(
+                "candidate_model",
+                "BUSINESS_INFERENCE_CANDIDATE_HASH_MISMATCH");
+        }
+        std::error_code input_error;
+        if (request.input_image.empty() ||
+            !std::filesystem::is_regular_file(
+                std::filesystem::path(request.input_image), input_error) ||
+            input_error)
+        {
+            return BusinessTrialFailure(
+                "verify_asset",
+                "BUSINESS_VERIFY_ASSET_INVALID");
+        }
+        std::string actual_verify_image_sha256;
+        if (!BusinessSha256File(
+                std::filesystem::path(request.input_image),
+                actual_verify_image_sha256) ||
+            actual_verify_image_sha256 !=
+                inference_settings.verify_asset_sha256)
+        {
+            return BusinessTrialFailure(
+                "verify_asset",
+                "BUSINESS_VERIFY_ASSET_HASH_MISMATCH");
+        }
+
+        // Direct actual YOLOv8-Seg inference, never a generic dispatcher
+        // route. Raw local visual artifacts are filtered by the typed bridge.
+        TorchTaskRequestCpp local_request = request;
+        local_request.task = TorchRuntimeTaskIds::YoloV8InstanceSegmentation;
+        TorchTaskResultCpp local_result =
+            ExecuteTorchYoloV8SegTask(config, local_request);
+        if (!local_result.ok)
+        {
+            return BusinessTrialFailure(
+                "inference", "BUSINESS_INFERENCE_EXECUTION_FAILED");
+        }
+        local_result.status = "auto_provisional_review_required";
+        local_result.unified_mainline_summary =
+            "AUTO_PROVISIONAL inference requires manual business review";
+        local_result.result_json =
+            "{\"schema\":\"cxvision.yolov8seg.business_inference.v1\","
+            "\"status\":\"AUTO_PROVISIONAL\","
+            "\"review_state\":\"REVIEW_REQUIRED\","
+            "\"trial_scope\":\"isolated_business_validation\","
+            "\"candidate_model_id\":" +
+                QuoteSegJson(manifest.model_id) +
+            ",\"candidate_model_sha256\":" +
+                QuoteSegJson(actual_candidate_sha256) +
+            ",\"verify_asset_binding_id\":" +
+                QuoteSegJson(inference_settings.verify_asset_binding_id) +
+            ",\"verify_asset_sha256\":" +
+                QuoteSegJson(inference_settings.verify_asset_sha256) +
+            ",\"production_activation\":false,"
+            "\"human_review_required\":true}";
+        return local_result;
+    }
+    catch (const std::exception&)
+    {
+        return BusinessTrialFailure(
+            "exception", "BUSINESS_INFERENCE_RUNTIME_EXCEPTION");
     }
 }

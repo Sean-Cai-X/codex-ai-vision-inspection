@@ -2563,12 +2563,21 @@ TorchTaskResultCpp DispatchTorchRuntimeTask(
         return ExecuteTorchYoloV8SegBackwardSmokeTask(config, request);
     }
 
-    if (request.task == TorchRuntimeTaskIds::SegmentationTrainingLifecycle ||
-        request.task == TorchRuntimeTaskIds::SegmentationBusinessIncremental)
+    if (request.task == TorchRuntimeTaskIds::SegmentationTrainingLifecycle)
     {
         return RunSegmentationTrainingLifecycleTask(
             config,
             request);
+    }
+
+    // RND-VAI-001 has stricter requirements than this legacy lifecycle: it
+    // requires registered real image/mask manifests and the fixed seven-class
+    // contract.  In particular, it must never reach the random-tensor smoke
+    // helpers used by RunSegmentationTrainingLifecycleTask.
+    if (request.task == TorchRuntimeTaskIds::SegmentationBusinessIncremental ||
+        request.task == TorchRuntimeTaskIds::SegmentationBusinessIsolated)
+    {
+        return MakeUnsupportedTask(request.task);
     }
 
     if (request.task ==
@@ -2619,10 +2628,10 @@ TorchTaskResultCpp IncrementalTaskFailure(
     result.status = status;
     result.error_message = reason;
     result.result_json =
-        "{\schema\:\cxvision.torch.incremental.v1\,"
-        "\status\:" + QuoteRuntimeTaskJsonString(status) +
-        ",\failure_stage\:" + QuoteRuntimeTaskJsonString(stage) +
-        ",\reason\:" + QuoteRuntimeTaskJsonString(reason) + "}";
+        "{\"schema\":\"cxvision.torch.incremental.v1\","
+        "\"status\":" + QuoteRuntimeTaskJsonString(status) +
+        ",\"failure_stage\":" + QuoteRuntimeTaskJsonString(stage) +
+        ",\"reason\":" + QuoteRuntimeTaskJsonString(reason) + "}";
     return result;
 }
 
@@ -2702,18 +2711,18 @@ TorchTaskResultCpp ExecuteTorchPrototypeLifecycleTask(
         cv::imwrite(overlay_ref.string(), overlay);
 
         std::ostringstream json;
-        json << "{\schema\:\cxvision.torch.prototype.lifecycle.v1\,"
-             << "\status\:\success\,"
-             << "\incremental_update_executed\:true,"
-             << "\paired_inference_executed\:true,"
-             << "\network_weights_updated\:false,"
-             << "\prototype_count\:" << index.size() << ","
-             << "\updated_sample_count\:2,"
-             << "\top1_class\:" << QuoteRuntimeTaskJsonString(matches.front().class_name) << ","
-             << "\top1_score\:" << matches.front().fused_score << ","
-             << "\weights_ref\:" << QuoteRuntimeTaskJsonString(weights_ref.string()) << ","
-             << "\overlay_ref\:" << QuoteRuntimeTaskJsonString(overlay_ref.string()) << ","
-             << "\semantic_quality\:\pending_human_review\}";
+        json << "{\"schema\":\"cxvision.torch.prototype.lifecycle.v1\","
+             << "\"status\":\"success\","
+             << "\"incremental_update_executed\":true,"
+             << "\"paired_inference_executed\":true,"
+             << "\"network_weights_updated\":false,"
+             << "\"prototype_count\":" << index.size() << ","
+             << "\"updated_sample_count\":2,"
+             << "\"top1_class\":" << QuoteRuntimeTaskJsonString(matches.front().class_name) << ","
+             << "\"top1_score\":" << matches.front().fused_score << ","
+             << "\"weights_ref\":" << QuoteRuntimeTaskJsonString(weights_ref.string()) << ","
+             << "\"overlay_ref\":" << QuoteRuntimeTaskJsonString(overlay_ref.string()) << ","
+             << "\"semantic_quality\":\"pending_human_review\"}";
         std::ofstream(result_ref, std::ios::binary) << json.str() << "\n";
         std::ofstream(evidence_ref, std::ios::binary) << json.str() << "\n";
 
@@ -2780,12 +2789,12 @@ TorchTaskResultCpp ValidateTorchIncrementalPackageTask(
     result.requested_device = request.device;
     result.actual_device = "cpu";
     result.result_json =
-        "{\schema\:\cxvision.torch.incremental_package_gate.v1\,"
-        "\status\:\binding_ready\,\model_family\:" +
+        "{\"schema\":\"cxvision.torch.incremental_package_gate.v1\","
+        "\"status\":\"binding_ready\",\"model_family\":" +
         QuoteRuntimeTaskJsonString(model_family) +
-        ",\manifest_ref\:" +
+        ",\"manifest_ref\":" +
         QuoteRuntimeTaskJsonString(manifest_path.string()) +
-        ",\human_review_required\:true}";
+        ",\"human_review_required\":true}";
     result.result_ref = manifest_path.string();
     result.evidence_ref = manifest_path.string();
     return result;

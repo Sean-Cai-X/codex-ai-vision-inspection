@@ -1535,7 +1535,7 @@ bool FastMatchPointInsideImage(const Image &image, int x, int y) {
 void ProbeLog(const std::string &msg) {
   MessageBoxA(NULL, msg.c_str(), "FastMatch Probe", MB_OK);
 
-  FILE *fp = fopen("D:\\Codex-WorkDir\\Sean_WorkDir\\cxvisionai\\cxscript_"
+  FILE *fp = fopen("D:\\Codex-WorkDir\\Sean_WorkDir\\codex-ai-vision\\cxscript_"
                    "runs\\probe_log.txt",
                    "a");
   if (fp != nullptr) {

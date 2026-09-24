@@ -1,4 +1,4 @@
-﻿
+
 #include "ViewController.h"
 #include "Main.h"
 #include <cstdlib>

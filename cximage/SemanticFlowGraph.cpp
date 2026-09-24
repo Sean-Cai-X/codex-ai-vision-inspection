@@ -94,7 +94,7 @@ void SemanticFlowGraph::LoadDemoFlow()
     while (!current.empty())
     {
       const fs::path directCandidate = current / fs::path(m_demoRelativePath);
-      const fs::path workspaceCandidate = current / "cxvisionai" / "cxvision_repo" /
+      const fs::path workspaceCandidate = current / "codex-ai-vision" / "codex-ai-vision-inspection" /
                                           fs::path(m_demoRelativePath);
       if (fs::exists(directCandidate))
       {

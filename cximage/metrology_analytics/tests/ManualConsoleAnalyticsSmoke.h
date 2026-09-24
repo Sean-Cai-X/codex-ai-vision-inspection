@@ -24,7 +24,7 @@ struct ManualConsoleAnalyticsSmokeUiState
     bool initialized = false;
     bool run_requested = false;
     std::filesystem::path output_root =
-        "D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/cxscript_runs/metrology_analytics";
+        "D:/Codex-WorkDir/Sean_WorkDir/codex-ai-vision/cxscript_runs/metrology_analytics";
     std::string status = "NOT_RUN";
     std::string reason = "Analytics smoke has not been run from Manual Console.";
     std::string last_output_dir;

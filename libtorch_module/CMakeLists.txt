@@ -322,6 +322,30 @@ if(LIBTORCH_MODULE_BUILD_RUNTIME_DLL)
             RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}/Release"
             RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_BINARY_DIR}/Debug"
         )
+
+        # ABI-only boundary test: it never provides a model or dataset and
+        # therefore cannot accidentally turn reference data into a business
+        # training run. It proves the new v1 calls preserve strict rejection
+        # and cancellation behavior while the legacy C ABI remains available.
+        add_executable(libtorch_module_business_c_api_smoke
+            torch_runtime_business_c_api_smoke.cpp
+        )
+        configure_libtorch_module_target(libtorch_module_business_c_api_smoke)
+        target_link_libraries(
+            libtorch_module_business_c_api_smoke
+            PRIVATE libtorch_module_runtime)
+        # The smoke executable is emitted below _deps while the runtime DLL is
+        # emitted at the top-level configuration directory.  Co-locate the
+        # tested DLL so CTest exercises the same artifact Windows users load.
+        add_custom_command(TARGET libtorch_module_business_c_api_smoke POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "$<TARGET_FILE:libtorch_module_runtime>"
+                "$<TARGET_FILE_DIR:libtorch_module_business_c_api_smoke>")
+        add_test(
+            NAME libtorch_module_business_c_api_smoke
+            COMMAND libtorch_module_business_c_api_smoke)
+        configure_libtorch_module_test_environment(
+            libtorch_module_business_c_api_smoke)
     else()
         message(STATUS "OpenCV not found. Skipping libtorch_module_runtime DLL target.")
     endif()

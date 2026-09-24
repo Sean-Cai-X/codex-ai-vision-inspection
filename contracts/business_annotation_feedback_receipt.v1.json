@@ -1,0 +1,22 @@
+{
+  "schema": "visionai.business.annotation_feedback_receipt.v1",
+  "description": "Business-side human confirmation feedback contract. This example is a schema fixture only and contains no business image data.",
+  "required_fields": ["receipt_id", "case_id", "project_id", "asset_ref", "image_sha256", "geometry_contract_version", "class_id", "class_name", "roi_summary", "geometry_summary", "review_action", "reviewed_at", "reviewer_id", "receipt_digest"],
+  "fixed_geometry_contract": [
+    {"class_id": 0, "class_name": "arc"},
+    {"class_id": 1, "class_name": "circle"},
+    {"class_id": 2, "class_name": "ellipse"},
+    {"class_id": 3, "class_name": "line"},
+    {"class_id": 4, "class_name": "open_curve"},
+    {"class_id": 5, "class_name": "polygon"},
+    {"class_id": 6, "class_name": "closed_curve"}
+  ],
+  "review_actions": ["ACCEPTED", "CORRECTED", "REJECTED"],
+  "permitted_payload": ["opaque IDs", "SHA256 digests", "fixed class ID/name", "numeric ROI/geometry summaries", "review decision", "audit metadata"],
+  "forbidden_payload": ["absolute paths", "file URIs", "image bytes", "thumbnails", "mask pixels", "overlays", "reversible image payloads"],
+  "broker_processing": {
+    "ACCEPTED": "verify receipt binding and retain the registered real mask for the next immutable revision",
+    "CORRECTED": "create a new broker-internal real mask from business-confirmed geometry; retain the prior receipt as superseded",
+    "REJECTED": "exclude the asset from the candidate dataset revision and retain the decision as evidence"
+  }
+}

@@ -439,9 +439,9 @@ if(BUILD_TESTING AND
   set(CXVISION_T5_SEGMENTATION_CPP_STATE_DICT_SCRIPT
       "${CMAKE_CURRENT_SOURCE_DIR}/cxparser/cxscript/module/torch/torch_segmentation_cpp_state_dict_cpu_direct.cxsc")
   set(CXVISION_T5_SEGMENTATION_CPP_STATE_DICT_IMAGE
-      "D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/test_images/L1_high_contrast/line_high_contrast_001.jpg")
+      "D:/Codex-WorkDir/Sean_WorkDir/codex-ai-vision/test_images/L1_high_contrast/line_high_contrast_001.jpg")
   set(CXVISION_T5_SEGMENTATION_CPP_STATE_DICT_RUN_ROOT
-      "D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/cxscript_runs")
+      "D:/Codex-WorkDir/Sean_WorkDir/codex-ai-vision/cxscript_runs")
 
   set(_cxvision_torch_ctest_path
       "${LIBTORCH_ROOT}/lib;${OpenCV_DIR}/x64/vc16/bin;$ENV{PATH}")
@@ -505,4 +505,15 @@ option(CXVISION_BUILD_CXPARSER_RETURN_TESTS
 
 if(CXVISION_BUILD_CXPARSER_RETURN_TESTS)
   add_subdirectory(tests/cxparser_return)
+endif()
+
+# RND-VAI-001 / RND-VAI-002: path-free, offline business training/inference
+# contract.  It is deliberately separate from legacy smoke and detection code.
+add_subdirectory(contracts)
+
+# The offline business boundary is tested independently from GUI and image
+# assets.  Its receipt tests use synthetic metadata only and never read or
+# export business images.
+if(BUILD_TESTING)
+  add_subdirectory(tests/offline_business_service)
 endif()

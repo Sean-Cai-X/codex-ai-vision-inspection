@@ -71,7 +71,7 @@ std::filesystem::path ResolveWorkspaceFile(const std::string& path)
     while (!current.empty())
     {
         const fs::path direct = current / requested;
-        const fs::path nested = current / "cxvisionai" / "cxvision_repo" / requested;
+        const fs::path nested = current / "codex-ai-vision" / "codex-ai-vision-inspection" / requested;
         if (fs::exists(direct)) return fs::absolute(direct);
         if (fs::exists(nested)) return fs::absolute(nested);
         const fs::path parent = current.parent_path();
@@ -88,7 +88,7 @@ std::filesystem::path ResolveCaseDirectory(const std::string& path)
     fs::path current = fs::current_path();
     while (!current.empty())
     {
-        const fs::path roots[] = {current, current / "cxvisionai" / "cxvision_repo"};
+        const fs::path roots[] = {current, current / "codex-ai-vision" / "codex-ai-vision-inspection"};
         for (const fs::path& root : roots)
             if (fs::exists(root / "CMakeLists.txt") && fs::exists(root / "cximage") && fs::exists(root / "cxparser"))
                 return root / requested;

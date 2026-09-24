@@ -1,0 +1,26 @@
+{
+  "schema": "visionai.business.evidence_case_migration_assessment.v1",
+  "source_contract": "cxvision.geometry_reference_case.v1",
+  "assessment_status": "T0_REFERENCE_ONLY_PENDING_REAL_ASSET_REPLACEMENT",
+  "image_data_present": false,
+  "business_training_enabled": false,
+  "global_blockers": [
+    "source cases declare training_enabled=0",
+    "source cases declare production_ground_truth=false",
+    "real_geometry_image_replacement status is PENDING_REAL_IMAGE_SET",
+    "no business asset_ref/image_sha256 registration exists",
+    "no business annotation receipt or immutable Train/Valid revision exists"
+  ],
+  "fixed_business_geometry_contract": ["arc", "circle", "ellipse", "line", "open_curve", "polygon", "closed_curve"],
+  "cases": [
+    {"source_case_id":"circular_arc_boundary","geometry":"arc","business_class_id":0,"disposition":"T0_REGRESSION_CANDIDATE_ONLY","required_before_business_registration":["controlled asset registration","human annotation receipt","real-image replacement","real mask verification","Train/Valid assignment"]},
+    {"source_case_id":"circle_closed_region","geometry":"circle","business_class_id":1,"disposition":"T0_REGRESSION_CANDIDATE_ONLY","required_before_business_registration":["controlled asset registration","human annotation receipt","real-image replacement","real mask verification","Train/Valid assignment"]},
+    {"source_case_id":"ellipse_closed_region","geometry":"ellipse","business_class_id":2,"disposition":"T0_REGRESSION_CANDIDATE_ONLY","required_before_business_registration":["controlled asset registration","human annotation receipt","real-image replacement","real mask verification","Train/Valid assignment"]},
+    {"source_case_id":"straight_line_boundary","geometry":"line","business_class_id":3,"disposition":"T0_REGRESSION_CANDIDATE_ONLY","required_before_business_registration":["controlled asset registration","human annotation receipt","real-image replacement","real mask verification","Train/Valid assignment"]},
+    {"source_case_id":"open_curve_boundary","geometry":"open_curve","business_class_id":4,"disposition":"T0_REGRESSION_CANDIDATE_ONLY","required_before_business_registration":["controlled asset registration","human annotation receipt","real-image replacement","real mask verification","Train/Valid assignment"]},
+    {"source_case_id":"polygon_closed_region","geometry":"polygon","business_class_id":5,"disposition":"T0_REGRESSION_CANDIDATE_ONLY","required_before_business_registration":["controlled asset registration","human annotation receipt","real-image replacement","real mask verification","Train/Valid assignment"]},
+    {"source_case_id":"closed_curve","geometry":"closed_curve","business_class_id":6,"disposition":"MISSING_SOURCE_CASE","required_before_business_registration":["add a human-confirmed real closed_curve case"]},
+    {"source_case_id":"rectangle_closed_region","geometry":"rectangle","disposition":"REJECTED_GEOMETRY_CONTRACT_MISMATCH","required_before_business_registration":[]}
+  ],
+  "promotion_gate": "all seven classes must have registered real source assets, human-confirmed annotations, verified real masks, non-empty Train and Valid splits, immutable revision/hash and a bound business executor"
+}

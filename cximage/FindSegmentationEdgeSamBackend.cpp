@@ -63,7 +63,7 @@ ResolveFindSegmentationAssetPath(const std::string &configured_path) {
           return from_repo_child;
 
         const std::filesystem::path from_workspace_repo_child =
-            dir / "cxvisionai" / "cxvision_repo" / candidate;
+            dir / "codex-ai-vision" / "codex-ai-vision-inspection" / candidate;
         if (std::filesystem::exists(from_workspace_repo_child, ec))
           return from_workspace_repo_child;
 

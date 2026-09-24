@@ -1,0 +1,23 @@
+{
+  "schema": "visionai.business.contract_fixture.v1",
+  "fixture_only": true,
+  "not_algorithm_evidence": true,
+  "not_business_conclusion": true,
+  "image_data_present": false,
+  "purpose": "A-stage bridge, status-machine, curve-rendering and human-review workflow validation",
+  "training": {
+    "training_task_id": "fixture-training-001",
+    "state_sequence": ["DEVELOPMENT_TRIAL_READY", "RUNNING", "CANDIDATE"],
+    "curve": [
+      {"epoch": 1, "training_loss": 0.81, "validation_score": 0.66},
+      {"epoch": 2, "training_loss": 0.57, "validation_score": 0.74}
+    ],
+    "receipt_state": "ATTESTATION_PENDING"
+  },
+  "inference": {
+    "inference_task_id": "fixture-inference-001",
+    "state_sequence": ["QUEUED", "RUNNING", "COMPLETED"],
+    "conclusion": {"code": "REVIEW", "message": "Contract fixture only; no algorithm conclusion."},
+    "predictions": [{"class_id": 6, "class_name": "closed_curve", "score": 0.0, "bounds": [0, 0, 0, 0], "geometry_summary": {"kind": "polygon", "node_count": 0, "area": 0}}]
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "schema": "visionai.business.trial_parameter_profile.v1",
+  "purpose": "The complete and exclusive business handoff parameter set for staged local training, curve review and single-image test.",
+  "profile_id": "business-basic-profile-v1",
+  "editable_by_business": [
+    "training_split_percent",
+    "epoch_count",
+    "iteration_count",
+    "batch_size",
+    "trial_model_id",
+    "annotation_click_mode"
+  ],
+  "service_reported_read_only": [
+    "total_asset_count",
+    "labeled_asset_count",
+    "training_asset_count",
+    "validation_asset_count",
+    "training_score",
+    "validation_score",
+    "learning_rate",
+    "training_curve",
+    "training_progress_percent",
+    "test_progress_percent"
+  ],
+  "parameters": {
+    "total_asset_count": {"type": "integer", "minimum": 0, "example": 48},
+    "labeled_asset_count": {"type": "integer", "minimum": 0, "example": 8},
+    "training_split_percent": {"type": "integer", "minimum": 1, "maximum": 99, "example": 70},
+    "training_asset_count": {"type": "integer", "minimum": 0, "example": 7},
+    "validation_asset_count": {"type": "integer", "minimum": 0, "example": 1},
+    "epoch_count": {"type": "integer", "minimum": 1, "maximum": 100000, "example": 120},
+    "iteration_count": {"type": "integer", "minimum": 1, "maximum": 100000, "example": 500},
+    "batch_size": {"type": "integer", "minimum": 1, "maximum": 4096, "example": 2},
+    "trial_model_id": {"type": "capability_enum", "source": "GetCapability.trial_model_ids", "example": "segmentation-small-v1"},
+    "learning_rate": {"type": "number", "exclusiveMinimum": 0, "description": "Read-only effective learning rate reported by the executor for this immutable trial profile.", "example": 0.001},
+    "annotation_click_mode": {"type": "capability_enum", "source": "GetCapability.annotation_click_modes", "current_values": ["center"], "example": "center", "description": "Business-selected annotation/VERIFY interaction mode; it must match the frozen dataset revision and is included in the training receipt."},
+    "training_score": {"type": "number", "minimum": 0, "maximum": 1, "example": 0.938},
+    "validation_score": {"type": "number", "minimum": 0, "maximum": 1, "example": 0.0},
+    "training_curve": {"type": "array", "item": {"epoch": "integer", "training_score": "number", "validation_score": "number|null", "effective_learning_rate": "number"}}
+  },
+  "rules": [
+    "training_asset_count and validation_asset_count are derived by the service after split validation; they are never manually entered.",
+    "epoch_count, iteration_count, batch_size, trial_model_id and annotation_click_mode are immutable once submitted; model and click-mode IDs must come from GetCapability, never paths or arbitrary checkpoint IDs.",
+    "The effective learning rate, training curve and scores are service-reported facts and must never be fabricated or edited by the UI.",
+    "A validation score of 0 is displayed as an observed value or unavailable-validation result, never silently converted to success.",
+    "All other model, checkpoint, optimizer, threshold, path, image and mask parameters are outside this business handoff profile.",
+    "Each submitted profile is immutable and binds request_id, dataset revision, model/runtime digest and receipt."
+  ]
+}

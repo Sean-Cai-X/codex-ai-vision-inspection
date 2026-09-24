@@ -54,6 +54,11 @@ inline constexpr const char* SegmentationBusinessIncremental =
 
 inline constexpr const char* SegmentationBusinessIsolatedInference =
     "torch.infer.segmentation.business_isolated.v1";
+
+// Compatibility alias for the local dispatcher; both names identify the same
+// isolated, non-production seven-class segmentation capability.
+inline constexpr const char* SegmentationBusinessIsolated =
+    SegmentationBusinessIsolatedInference;
 }
 
 enum class TorchProductionTaskKind

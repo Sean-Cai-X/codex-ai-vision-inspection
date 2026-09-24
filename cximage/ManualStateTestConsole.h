@@ -1514,7 +1514,7 @@ struct ManualTestContext {
   std::vector<CxScriptObjectAssignmentView> cxparser_ext_object_assignments;
   std::vector<ScriptVariableView> global_variable_views = {
       {"Image", "global_matInput", "uninitialized", 0, "not_initialized",
-       "D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/01.jpg", false}};
+       "D:/Codex-WorkDir/Sean_WorkDir/codex-ai-vision/01.jpg", false}};
   std::vector<ScriptVariableView> variable_views;
   std::vector<ScriptObjectView> object_views;
   std::vector<RuntimeObjectView> runtime_objects;
