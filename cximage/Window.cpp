@@ -13,7 +13,14 @@
   #define GLFW_EXPOSE_NATIVE_GLX
 #endif
 #include <GLFW/glfw3.h>
-#include <GLFW/glfw3native.h>
+#if !defined(_WIN32) && !defined(__APPLE__)
+  // X11 defines a global Window typedef; isolate it from this project's Window class.
+  #define Window X11Window
+  #include <GLFW/glfw3native.h>
+  #undef Window
+#else
+  #include <GLFW/glfw3native.h>
+#endif
 
 // ================================================================
 // Function : Window

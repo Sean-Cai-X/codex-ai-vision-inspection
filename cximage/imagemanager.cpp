@@ -1,7 +1,7 @@
 #include "pch.h"
 
 #include "imagemanager.h"
-#include "findobject.h"
+#include "FindObject.h"
 Image* ImageManager::m_pBackImage = 0;
 Image* ImageManager::m_pBackObjectImage = 0;
 Image* ImageManager::m_pMapImage = 0;

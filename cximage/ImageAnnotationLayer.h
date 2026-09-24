@@ -1,6 +1,7 @@
 #ifndef CXIMAGE_IMAGE_ANNOTATION_LAYER_H
 #define CXIMAGE_IMAGE_ANNOTATION_LAYER_H
 
+#include <filesystem>
 #include <string>
 #include <vector>
 #include <memory>

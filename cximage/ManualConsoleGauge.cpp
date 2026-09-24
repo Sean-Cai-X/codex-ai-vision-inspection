@@ -1140,7 +1140,7 @@ bool ResolveManualGaugeCaseDir(const ManualTestContext &context,
   out = (root / safe_case_id).lexically_normal();
   const std::filesystem::path relative =
       out.lexically_relative(root.lexically_normal());
-  if (relative.empty() || relative.native().find(L"..") == 0) {
+  if (relative.empty() || relative.native().find("..") == 0) {
     reason = "resolved case directory escapes output root";
     return false;
   }

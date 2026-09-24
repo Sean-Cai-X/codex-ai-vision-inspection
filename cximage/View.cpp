@@ -1,7 +1,5 @@
-
-#include "pch.h"
-
-#include "View.h"
+ 
+#include "view.h"
 #include <AIS_Shape.hxx>
 #include <Aspect_Handle.hxx>
 #include <Aspect_DisplayConnection.hxx>
@@ -26,12 +24,7 @@ V3d_CustomView::V3d_CustomView(const Handle(V3d_Viewer)& theViewer)
 }
 void V3d_CustomView::SetBackgroundImage(const Handle(Image_PixMap)& img)
 {   
-   // Handle(Image_AlienPixMap) anImage = new Image_AlienPixMap;
-   // if (anImage->Load("0.jpg"))
-    {
-   //     myBackgroundImage = anImage;
-    }  
-    myBackgroundImage = img;
+ 
 }
  
 void V3d_CustomView::loadimage()
@@ -46,39 +39,7 @@ void V3d_CustomView::loadimage()
 
 void V3d_CustomView::Redraw()
 {
-    /* if(0)
-    if (!myBackgroundImage.IsNull())
-    {
-        glPushAttrib(GL_ALL_ATTRIB_BITS);
-        glEnable(GL_TEXTURE_2D);
-
-        GLuint textureID;
-        glGenTextures(1, &textureID);
-        glBindTexture(GL_TEXTURE_2D, textureID);
-
-        //       ܵ    ݶ       
-        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-
-        // ȷ  ʹ    ȷ   ڲ   ʽ ͸ ʽ
-        GLint internalFormat = myBackgroundImage->IsTopDown() ? GL_RGB : GL_BGR; //      Image_PixMap ʹ   BGR   ʽ
-        GLenum format = myBackgroundImage->IsTopDown() ? GL_RGB : GL_BGR;
-
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, myBackgroundImage->SizeX(), myBackgroundImage->SizeY(), 0,
-            format, GL_UNSIGNED_BYTE, myBackgroundImage->Data());
-
-        glBegin(GL_QUADS);
-        glTexCoord2f(0.0f, 0.0f); glVertex2f(-1.0f, -1.0f);
-        glTexCoord2f(1.0f, 0.0f); glVertex2f(1.0f, -1.0f);
-        glTexCoord2f(1.0f, 1.0f); glVertex2f(1.0f, 1.0f);
-        glTexCoord2f(0.0f, 1.0f); glVertex2f(-1.0f, 1.0f);
-        glEnd();
-
-        glDeleteTextures(1, &textureID);
-        glPopAttrib();
-    }
-  */  //    û     Redraw      Լ             ά    
+ 
     V3d_View::Redraw();
 }
 

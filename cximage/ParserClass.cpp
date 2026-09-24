@@ -2,7 +2,7 @@
 #include "muParserDef.h"
 #include "muParserTest.h"
 
-#include "Shape.h"
+#include "shape.h"
 #include "imagemanager.h"
 #include "shapebase.h"
 
@@ -103,8 +103,8 @@ public:
     int isize = static_cast<int>(m_vectdouble.size());
     if (isize <= 0)
       return;
-    FILE *rf = nullptr;
-    if (fopen_s(&rf, pchar, "w+") != 0 || rf == nullptr)
+    FILE *rf = std::fopen(pchar, "w+");
+    if (rf == nullptr)
       return;
     rewind(rf);
     for (int i = 0; i < isize - 1; i++) {
@@ -130,8 +130,8 @@ public:
   void load(const char *pchar) {
 
     clear();
-    FILE *rf = nullptr;
-    if (fopen_s(&rf, pchar, "rb") != 0 || rf == nullptr)
+    FILE *rf = std::fopen(pchar, "rb");
+    if (rf == nullptr)
       return;
     fseek(rf, 0, SEEK_END);
     int filesize = ftell(rf);
@@ -2429,13 +2429,21 @@ void CxParserRuntime::SetRunOpt(const string &strname) {
 }
 
 void CxParserRuntime::RunOptString(const char *a_szName) {
-
+#if defined(_WIN32)
   __try {
     m_parser.RunOptString(a_szName);
   } __except (EXCEPTION_EXECUTE_HANDLER) {
     *m_stream << a_szName;
-    *m_stream << "\n RunOptString RunTime Error \n";
+    *m_stream << std::endl << "RunOptString RunTime Error" << std::endl;
   }
+#else
+  try {
+    m_parser.RunOptString(a_szName);
+  } catch (...) {
+    *m_stream << a_szName;
+    *m_stream << std::endl << "RunOptString RunTime Error" << std::endl;
+  }
+#endif
 }
 void CxParserRuntime::ClearOptMap() { m_parser.ClearOptStack(); }
 void CxParserRuntime::RunOptNum_TimeLimit(int inum) { (void)inum; }

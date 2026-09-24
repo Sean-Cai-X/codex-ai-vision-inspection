@@ -20,6 +20,7 @@
 #include <iostream>
 #include <sstream>
 #include <chrono>
+#include <ctime>
 #include <cctype>
 #include <functional>
 #include <iomanip>
@@ -71,6 +72,15 @@ const CxScriptCatalogEntry* FindCatalogScriptById(
 
 namespace
 {
+    bool LocalTimeSafe(std::tm* output, const std::time_t* input)
+    {
+#if defined(_WIN32)
+        return localtime_s(output, input) == 0;
+#else
+        return localtime_r(input, output) != nullptr;
+#endif
+    }
+
     std::string NormalizeManifestPathForCompare(std::string path)
     {
         for (char& ch : path)
@@ -887,7 +897,7 @@ namespace
         {
             std::time_t now_c = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
             std::tm now_tm;
-            localtime_s(&now_tm, &now_c);
+            LocalTimeSafe(&now_tm, &now_c);
             char time_buf[64];
             std::strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S", &now_tm);
 
@@ -947,7 +957,7 @@ namespace
         {
             std::time_t now_c = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
             std::tm now_tm;
-            localtime_s(&now_tm, &now_c);
+            LocalTimeSafe(&now_tm, &now_c);
             char time_buf[64];
             std::strftime(time_buf, sizeof(time_buf), "%H:%M:%S", &now_tm);
 
@@ -1162,7 +1172,7 @@ namespace
 
         std::time_t now_c = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
         std::tm now_tm;
-        localtime_s(&now_tm, &now_c);
+        LocalTimeSafe(&now_tm, &now_c);
         char time_buf[64];
         std::strftime(time_buf, sizeof(time_buf), "%Y-%m-%dT%H:%M:%S", &now_tm);
 
@@ -1297,7 +1307,7 @@ namespace
 
         std::time_t now_c = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
         std::tm now_tm;
-        localtime_s(&now_tm, &now_c);
+        LocalTimeSafe(&now_tm, &now_c);
         std::stringstream ss;
         ss << std::put_time(&now_tm, "%Y-%m-%dT%H:%M:%S");
         file << "  \"created_at\": \"" << ss.str() << "\",\n";

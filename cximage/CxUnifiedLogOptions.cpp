@@ -3,6 +3,7 @@
 #include <sstream>
 #include <cstring>
 #include <algorithm>
+#include <vector>
 
 bool ParseUnifiedLogArgs(
     int argc,
@@ -120,7 +121,16 @@ bool ParseUnifiedLogArgs(
             std::filesystem::path cxvision_root = std::filesystem::current_path();
             while (!cxvision_root.empty() && cxvision_root.filename() != "cxvisionai")
             {
-                cxvision_root = cxvision_root.parent_path();
+                const std::filesystem::path parent = cxvision_root.parent_path();
+                // parent_path() of a filesystem root equals the root itself.
+                // Stop there instead of looping forever when the project is
+                // checked out under a differently named directory.
+                if (parent == cxvision_root)
+                {
+                    cxvision_root.clear();
+                    break;
+                }
+                cxvision_root = parent;
             }
             if (!cxvision_root.empty())
             {

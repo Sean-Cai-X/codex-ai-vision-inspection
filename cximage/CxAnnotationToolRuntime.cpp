@@ -1,9 +1,12 @@
 #include "pch.h"
+#include "CxStartupTrace.h"
 #include "CxAnnotationToolRuntime.h"
 
 namespace {
+    CxStartupTraceMark g_annotation_begin("[startup] annotation-runtime: begin\n");
     std::vector<CxAnnotationToolSpec> g_tools;
     CxAnnotationToolSpec* g_current = nullptr;
+    CxStartupTraceMark g_annotation_end("[startup] annotation-runtime: ready\n");
 }
 
 void CxAnnotationToolRuntime::Reset()

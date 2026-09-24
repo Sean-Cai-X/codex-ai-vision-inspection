@@ -1,6 +1,6 @@
 #ifndef _findline_Header
 #define _findline_Header
-#include "Shape.h"
+#include "shape.h"
 #include "Image.h"
 #include "shapebase.h"
 #include "FindObject.h"

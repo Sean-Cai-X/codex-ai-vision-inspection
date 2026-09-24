@@ -4,8 +4,10 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
+#if defined(_WIN32)
 #include <Windows.h>
 #include <commdlg.h>
+#endif
 
 #include "CircleShape.h"
 #include "CxScriptCasePackageWriter.h"
@@ -24,7 +26,7 @@
 #include "RectShape.h"
 #include "pch.h"
 
-#include <glad/glad.h>
+#include <glad/gl.h>
 
 #include <algorithm>
 #include <array>
@@ -604,6 +606,7 @@ static void ApplyHDReferenceImageBindingLocal(ScriptEvidenceThumb &thumb) {
     thumb.reason += "; HD reference image binding";
 }
 
+#if defined(_WIN32)
 static bool SelectEvidenceImageFileFromDialogLocal(std::string &outPath,
                                                    std::string &reason) {
   outPath.clear();
@@ -648,6 +651,14 @@ static bool SelectEvidenceImageFileFromDialogLocal(std::string &outPath,
   return true;
 }
 
+#else
+static bool SelectEvidenceImageFileFromDialogLocal(std::string &outPath,
+                                                    std::string &reason) {
+  outPath.clear();
+  reason = "interactive image selection dialog is currently available only on Windows";
+  return false;
+}
+#endif
 static bool IsEvidenceEditableToolTypeLocal(const std::string &type) {
   const std::string normalized = NormalizeEvidenceToolTypeLocal(type);
   return normalized == "FindLine" || normalized == "FindCircle" ||
@@ -10807,6 +10818,12 @@ bool ViewController::RunYoloV8nIncrementalTrainingFromGui(std::string &reason) {
     return false;
   }
 
+#if !defined(_WIN32)
+  reason = "C++ YOLO training process launch is currently available only on Windows";
+  m_manualTest.geometry_aug_run_status = "PLATFORM_UNSUPPORTED";
+  m_manualTest.geometry_aug_run_reason = reason;
+  return false;
+#else
   wchar_t executableBuffer[MAX_PATH]{};
   const DWORD executableLength =
       GetModuleFileNameW(nullptr, executableBuffer, MAX_PATH);
@@ -11054,6 +11071,7 @@ bool ViewController::RunYoloV8nIncrementalTrainingFromGui(std::string &reason) {
       std::to_string(m_manualTest.geometry_aug_epochs);
   reason = m_manualTest.geometry_aug_run_reason;
   return true;
+#endif
 }
 
 static std::string ModelLineageRunTimestampLocal() {

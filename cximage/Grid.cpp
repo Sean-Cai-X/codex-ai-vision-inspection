@@ -3,8 +3,8 @@
 #include "FindLine.h"
 #include "occtinclude.h"
 #include "imagemanager.h"
-#include "findobject.h"
-#include "Grid.h"
+#include "FindObject.h"
+#include "grid.h"
 
 Grid::Grid() :
     m_imapmodelw(0),

@@ -237,7 +237,7 @@ void QRootGrid::release() {
   m_point = gp_Pnt(0, 0, 0);
 }
 
-void QRootGrid::addpoint(gp_Pnt &apoint) {
+void QRootGrid::addpoint(const gp_Pnt& apoint) {
   if (m_plist.empty()) {
     m_point = apoint;
   }
@@ -824,7 +824,7 @@ gp_Rectangle PointsShape::boundingRectB() {
 }
 
 gp_Rectangle PointsShape::controlPointRect() { return m_path.boundingRect(); }
-void PointsShape::addpoint(gp_Pnt &apoint) { m_path.AddPoint(apoint); }
+void PointsShape::addpoint(const gp_Pnt& apoint) { m_path.AddPoint(apoint); }
 void PointsShape::AdaptiveDistfilter(int k) {
 #if defined USE_AI
   gp_Path &path = getpath();
@@ -2303,7 +2303,7 @@ void PointsShape::arccircle(int i_x, int i_y, int i_x1, int i_y1, int i_x0,
   int i_R_2 = (i_x - i_x0) * (i_x - i_x0) + (i_y - i_y0) * (i_y - i_y0);
 
   float R = sqrt((float)(i_R_2));
-  int i_circle_pointsum = R > (int)R ? (R + 1) * 2 * PI : R * 2 * PI;
+  int i_circle_pointsum = R > (int)R ? (R + 1) * 2 * kCxPi : R * 2 * kCxPi;
 
   int x = i_x;
   int y = i_y;
@@ -2373,7 +2373,7 @@ void PointsShape::circlepoints(int i_x, int i_y, int i_x0, int i_y0) {
   int i_R_2 = (i_x - i_x0) * (i_x - i_x0) + (i_y - i_y0) * (i_y - i_y0);
 
   float R = sqrt((float)(i_R_2));
-  int i_circle_pointsum = R > (int)R ? (R + 1) * 2 * PI : R * 2 * PI;
+  int i_circle_pointsum = R > (int)R ? (R + 1) * 2 * kCxPi : R * 2 * kCxPi;
 
   int x = i_x;
   int y = i_y;
@@ -2445,7 +2445,7 @@ void PointsShape::halfcircle(int i_x, int i_y, int i_x1, int i_y1) {
   int i_R_2 = (i_x - i_x0) * (i_x - i_x0) + (i_y - i_y0) * (i_y - i_y0);
 
   float R = sqrt((float)(i_R_2));
-  int i_circle_pointsum = R > (int)R ? (R + 1) * PI : R * PI;
+  int i_circle_pointsum = R > (int)R ? (R + 1) * kCxPi : R * kCxPi;
 
   int x = i_x;
   int y = i_y;
@@ -2620,7 +2620,7 @@ void PointsShape::arcpoints(int i_x, int i_y, int i_x0, int i_y0,
   int x_ = i_x - i_x0;
   int y_ = i_y - i_y0;
   float R = sqrt((float)(i_R_2));
-  int i_circle_pointsum = R > (int)R ? (R + 1) * PI * 2 : R * PI * 2;
+  int i_circle_pointsum = R > (int)R ? (R + 1) * kCxPi * 2 : R * kCxPi * 2;
   if (i_circle_pointsum < ipoinsum)
     ipoinsum = i_circle_pointsum - 1;
 
@@ -3923,7 +3923,7 @@ void RectsShape::setcolor(int ir, int ig, int ib) {
 
   m_path.setcolor(ir, ig, ib);
 }
-void RectsShape::addrect(gp_Rectangle &arect) { m_rects.push_back(arect); }
+void RectsShape::addrect(const gp_Rectangle &arect) { m_rects.push_back(arect); }
 void RectsShape::addrect(gp_Rectangle &arect, std::string &astring) {
   m_rects.push_back(arect);
   m_strlist.push_back(astring);

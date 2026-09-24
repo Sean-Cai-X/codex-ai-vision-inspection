@@ -25,9 +25,9 @@
 
 
 
-#define   PI 3.1415926535897
-#define   RADIAN(a)     (a*PI/180.0)   
-#define   ANGLE(r) (180.0*r/PI) 
+inline constexpr double kCxPi = 3.1415926535897;
+#define   RADIAN(a)     (a*kCxPi/180.0)   
+#define   ANGLE(r) (180.0*r/kCxPi) 
 
 using namespace std;
 
@@ -252,7 +252,7 @@ public:
      void setname(std::string name){m_name = name;}
      void settype(int itype){m_itype =itype;}
      void setshow(int ishow){m_ishow=ishow;}
-     void addpoint(gp_Pnt&apoint);
+     void addpoint(const gp_Pnt& apoint);
 
      int getlevel();
      void addrootpointlist(std::list <gp_Pnt> &keypoints,int itype);
@@ -326,7 +326,7 @@ public:
 
     PointsShape();
 
-    void addpoint(gp_Pnt&apoint);  
+    void addpoint(const gp_Pnt& apoint);  
     void addpoints(PointsShape &points);
   
     void setshow(int ishow);
@@ -524,7 +524,7 @@ class RectsShape:public ShapeBase
 public:
     RectsShape() {}
     void setcolor(int ir, int ig, int ib);
-    void addrect(gp_Rectangle& arect);
+    void addrect(const gp_Rectangle& arect);
     void addrect(gp_Rectangle& arect, std::string& astring);
     void clear();
     int size() const { return static_cast<int>(m_rects.size()); }

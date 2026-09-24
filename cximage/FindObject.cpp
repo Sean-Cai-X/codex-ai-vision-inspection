@@ -1,6 +1,6 @@
 #include "pch.h"
 
-#include "findobject.h"
+#include "FindObject.h"
 #include "ImageAnnotationLayer.h"
 #include "RectShape.h"
 

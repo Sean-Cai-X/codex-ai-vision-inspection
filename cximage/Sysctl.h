@@ -29,8 +29,8 @@ using namespace std;
 }
 [[maybe_unused]] static string loadfilestring(const string& file)
 {
-    FILE* rf = nullptr;
-    if (fopen_s(&rf, file.c_str(), "rb") != 0 || rf == nullptr)
+    FILE* rf = std::fopen(file.c_str(), "rb");
+    if (rf == nullptr)
         return "";
     fseek(rf, 0, SEEK_END);
     int filesize = ftell(rf);

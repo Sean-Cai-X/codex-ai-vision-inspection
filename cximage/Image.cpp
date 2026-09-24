@@ -1,7 +1,8 @@
 #include "pch.h"
 
 #include "Image.h"
-#include "Shape.h"
+#include "CxStartupTrace.h"
+#include "shape.h"
 #include "shapebase.h"
 
 #include "Sysctl.h"
@@ -20,8 +21,11 @@ using namespace std;
 using namespace chrono;
 
 namespace fs = std::filesystem;
+// A default Image is an intentionally empty canvas.  Do not allocate a
+// synthetic frame during static/UI construction: a missing startup image or
+// case must still allow the application to reach its empty workspace.
 Image::Image() : imagePath(""), width(0), height(0), type(CV_8UC3) {
-  matImage = cv::Mat(1536, 2048, CV_8UC3);
+  CxStartupTrace("[startup] Image::Image(empty)\n");
 }
 int Image::getshow() { return m_ishow; }
 void Image::setshow(int ishow) { m_ishow = ishow; }
@@ -47,11 +51,24 @@ void Image::updateImageProperties() {
 }
 
 void Image::load(const char *pfilename) {
-  imagePath = pfilename;
-  matImage = cv::imread(imagePath);
-  resizeImage(2048, 1536);
-  if (matImage.empty())
+  imagePath = pfilename ? pfilename : "";
+  matImage.release();
+  width = 0;
+  height = 0;
+  type = CV_8UC3;
+
+  // No configured startup image is a valid empty-canvas state.
+  if (imagePath.empty())
     return;
+
+  cv::Mat decoded = cv::imread(imagePath, cv::IMREAD_UNCHANGED);
+  if (decoded.empty()) {
+    imagePath.clear();
+    return;
+  }
+
+  matImage = std::move(decoded);
+  resizeImage(2048, 1536);
   updateImageProperties();
 }
 void Image::reload() {
@@ -167,6 +184,8 @@ Image Image::copy() const {
 }
 
 void Image::resizeImage(int newWidth, int newHeight) {
+  if (matImage.empty() || newWidth <= 0 || newHeight <= 0)
+    return;
   cv::resize(matImage, matImage, cv::Size(newWidth, newHeight));
   updateImageProperties();
 }
@@ -2717,7 +2736,7 @@ int fitLargestCircle(vector<vector<cv::Point2f>> &ptContours,
     return index;
 
   std::vector<int> inliers_indexes;
-  double angleLimit = PI / 5;
+  double angleLimit = kCxPi / 5;
   const int numLimit = 80;
   for (int i = 0; i < ptContours.size(); i++) {
     cv::Point2f circleCenter;
@@ -3125,7 +3144,7 @@ int Image::GetLargestCircle(cv::Mat matInput, cv::Point2f &ptOut,
 
   vector<cv::Point> ptAnchor(3);
   for (int i = 0; i < 3; i++) {
-    double angle = 120.0 / 360.0 * 2 * PI * i;
+    double angle = 120.0 / 360.0 * 2 * kCxPi * i;
     ptAnchor[i].x = static_cast<int>(cos(angle) * fRadius + circleCenter.x);
     ptAnchor[i].y = static_cast<int>(sin(angle) * fRadius + circleCenter.y);
   }
@@ -3262,8 +3281,8 @@ getPtFrame(std::vector<cv::Point2f> &ptAnchor, int nThickness) {
   double length = sqrt(pow(VecLine.x, 2) + pow(VecLine.y, 2));
   VecLine /= length;
 
-  double cos90 = cos(PI / 2);
-  double sin90 = sin(PI / 2);
+  double cos90 = cos(kCxPi / 2);
+  double sin90 = sin(kCxPi / 2);
 
   cv::Point2f Vec90;
   Vec90.x = static_cast<float>(cos90 * VecLine.x - sin90 * VecLine.y);

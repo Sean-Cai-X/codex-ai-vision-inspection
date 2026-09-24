@@ -1,5 +1,6 @@
 #include "CircleShape.h"
 #include "CxCrashLogHandler.h"
+#include "CxRuntimePaths.h"
 #include "CxFastMatchRuntimeCapture.h"
 #include "CxUnifiedLog.h"
 
@@ -13,8 +14,8 @@
 #include "ManualConsoleUtils.h"
 #include "ManualStateTestConsole.h"
 #include "RegionPatternTool.h"
-#include "viewcontroller.h"
-#include <glad/glad.h>
+#include "ViewController.h"
+#include <glad/gl.h>
 
 #include "occtinclude.h"
 #include <GLFW/glfw3.h>
@@ -42,6 +43,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -6936,6 +6938,22 @@ void ViewController::drawScriptAcceptancePanels() {
 void ViewController::initWindow(int theWidth, int theHeight,
                                 const char *theTitle) {
   glfwSetErrorCallback(ViewController::errorCallback);
+#if defined(__linux__)
+  const char *requestedPlatform = std::getenv("CXVISION_GLFW_PLATFORM");
+  if (requestedPlatform != nullptr && *requestedPlatform != 0 &&
+      std::string(requestedPlatform) != "auto") {
+    if (std::string(requestedPlatform) == "x11") {
+      glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_X11);
+    } else if (std::string(requestedPlatform) == "wayland") {
+      glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_WAYLAND);
+    } else if (std::string(requestedPlatform) == "null") {
+      glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_NULL);
+    } else {
+      throw std::runtime_error("Unsupported CXVISION_GLFW_PLATFORM.");
+    }
+    std::cerr << "[cxvision] GLFW platform=" << requestedPlatform << std::endl;
+  }
+#endif
   if (glfwInit() != GLFW_TRUE) {
     throw std::runtime_error(
         "GLFW initialization failed. OpenGL/WGL is unavailable on this "
@@ -6986,7 +7004,7 @@ void ViewController::initWindow(int theWidth, int theHeight,
   glfwMakeContextCurrent(glfwWindow);
   glfwSwapInterval(1);
 
-  if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+  if (!gladLoadGL((GLADloadfunc)glfwGetProcAddress)) {
     cleanup();
     throw std::runtime_error(
         "Failed to initialize GLAD/OpenGL loader after creating the GLFW "
@@ -8378,8 +8396,7 @@ void ViewController::cleanup() {
 }
 
 void ViewController::Imgui_OpenCV_Ini0() {
-  const std::string imagePath =
-      "D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/01.jpg";
+  const std::string imagePath = CxRuntimeInitialImagePath().string();
   s_img0 = cv::imread(imagePath);
   if (s_img0.empty()) {
     std::cerr << "Failed to load initial Image View image: " << imagePath
@@ -9707,7 +9724,7 @@ static const char *ShapeHandleLabel(CxShapeHandleRole role, int vertexIndex) {
     return "Ry";
   case CxShapeHandleRole::Vertex: {
     static char buf[16];
-    sprintf_s(buf, "V%d", vertexIndex);
+    std::snprintf(buf, sizeof(buf), "V%d", vertexIndex);
     return buf;
   }
   case CxShapeHandleRole::Body:
@@ -10055,7 +10072,7 @@ void ViewController::DrawShapeElementOnImageView(const CxShapeElement &element,
       const double ca = std::cos(angleRad);
       const double sa = std::sin(angleRad);
       for (int i = 0; i < 96; ++i) {
-        const double t = 2.0 * PI * static_cast<double>(i) / 96.0;
+        const double t = 2.0 * kCxPi * static_cast<double>(i) / 96.0;
         const double localX = radius_x * std::cos(t);
         const double localY = radius_y * std::sin(t);
         ellipsePoints.push_back(

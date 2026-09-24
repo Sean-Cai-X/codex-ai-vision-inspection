@@ -1,11 +1,14 @@
 #include "CxParamRegressionRegister.h"
+#include "CxStartupTrace.h"
 
 #include <algorithm>
 #include <sstream>
 
+CxStartupTraceMark g_start_regression_begin("[startup] case-regression: begin\n");
 CxParamRegressionRuntime g_cxscript_param_regression;
 CxParamRange* g_current_param_range = nullptr;
 CxParamCandidate* g_current_param_candidate = nullptr;
+CxStartupTraceMark g_start_regression_end("[startup] case-regression: ready\n");
 
 namespace
 {

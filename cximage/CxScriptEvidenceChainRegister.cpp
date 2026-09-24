@@ -1,4 +1,5 @@
 #include "muParser.h"
+#include "CxStartupTrace.h"
 #include "CxScriptEvidenceChainRuntime.h"
 #include "CxScriptEvidenceChainRegister.h"
 
@@ -8,8 +9,10 @@
 #include <unordered_map>
 #include <utility>
 
+CxStartupTraceMark g_start_evidence_begin("[startup] case-evidence: begin\n");
 CxScriptEvidenceChainRuntime g_cxscript_evidence_chain;
 CxScriptEvidenceCase* g_current_evidence_case = nullptr;
+CxStartupTraceMark g_start_evidence_end("[startup] case-evidence: ready\n");
 
 static std::unordered_map<std::string, std::string> ParseEvidenceKeyValueListLocal(
     const char* value)

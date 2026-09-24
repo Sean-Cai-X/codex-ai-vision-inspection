@@ -1,7 +1,7 @@
 #ifndef _findrect_Header
 #define _findrect_Header
 
-#include "Shape.h"
+#include "shape.h"
 #include "Image.h"
 #include "shapebase.h"
 #include "FindLine.h"

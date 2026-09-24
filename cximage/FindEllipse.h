@@ -1,6 +1,6 @@
 #ifndef _findellipse_Header
 #define _findellipse_Header
-#include "Shape.h"
+#include "shape.h"
 #include "Image.h"
 #include "shapebase.h"
 #include "metrology_analytics/CxBoundaryResponse.h"

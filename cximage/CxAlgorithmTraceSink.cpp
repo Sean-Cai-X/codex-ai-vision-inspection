@@ -1,6 +1,9 @@
 #include "CxAlgorithmTraceSink.h"
+#include "CxStartupTrace.h"
 
+CxStartupTraceMark g_algorithm_begin("[startup] algorithm-trace: begin\n");
 CxAlgorithmTraceCallback CxAlgorithmTraceScope::callback_;
+CxStartupTraceMark g_algorithm_end("[startup] algorithm-trace: ready\n");
 
 void CxAlgorithmTraceScope::SetCallback(CxAlgorithmTraceCallback cb)
 {

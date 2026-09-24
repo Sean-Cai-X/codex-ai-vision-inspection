@@ -113,7 +113,7 @@ void EllipseShape::EnumerateBoundaryPoints(
 
     for (int i = 0; i < count; ++i)
     {
-        const double angle = 2.0 * PI * static_cast<double>(i) / static_cast<double>(count);
+        const double angle = 2.0 * CV_PI * static_cast<double>(i) / static_cast<double>(count);
         const double local_x = m_rx * std::cos(angle);
         const double local_y = m_ry * std::sin(angle);
         out.push_back({

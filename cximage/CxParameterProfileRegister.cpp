@@ -1,9 +1,12 @@
 #include "muParser.h"
+#include "CxStartupTrace.h"
 #include "CxParameterProfileRuntime.h"
 #include "CxParameterProfileRegister.h"
 
+CxStartupTraceMark g_start_profile_begin("[startup] case-profile: begin\n");
 CxParameterProfileRuntime g_cxscript_parameter_profile;
 CxParameterProfile* g_current_parameter_profile = nullptr;
+CxStartupTraceMark g_start_profile_end("[startup] case-profile: ready\n");
 
 double CxParameterProfile_reset(double)
 {

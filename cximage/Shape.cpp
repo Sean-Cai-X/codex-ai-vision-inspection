@@ -1,6 +1,6 @@
 ﻿#include "pch.h"
 
-#include "Shape.h"
+#include "shape.h"
 
 static const int resizeHandleWidth = 10;
  

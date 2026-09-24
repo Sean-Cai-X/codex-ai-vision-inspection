@@ -7,7 +7,11 @@
 #include <Standard_GUID.hxx> 
 #include <Standard_MMgrRoot.hxx>
 #include <Standard_MMgrOpt.hxx>
+#if __has_include(<Standard_MMgrRaw.hxx>)
+#if __has_include(<Standard_MMgrRaw.hxx>)
 #include <Standard_MMgrRaw.hxx>
+#endif
+#endif
 #include <Standard_Persistent.hxx>
 #include <Standard_SStream.hxx>
 #include <Standard_Transient.hxx>
@@ -164,7 +168,9 @@
 #include <TopLoc_MapIteratorOfMapOfLocation.hxx> 
 #include <TopLoc_ItemLocation.hxx>
 #include <TopLoc_Location.hxx>
-#include <TopLoc_MapLocationHasher.hxx> 
+#if __has_include(<TopLoc_MapLocationHasher.hxx>)
+#include <TopLoc_MapLocationHasher.hxx>
+#endif 
 #include <TopLoc_SListOfItemLocation.hxx>
 
 //Geom

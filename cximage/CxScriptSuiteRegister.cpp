@@ -1,9 +1,12 @@
 #include "muParser.h"
+#include "CxStartupTrace.h"
 #include "CxScriptSuiteRuntime.h"
 #include "CxScriptSuiteRegister.h"
 
+CxStartupTraceMark g_start_suite_begin("[startup] case-suite: begin\n");
 CxScriptSuiteRuntime g_cxscript_suite;
 CxScriptSuiteCase* g_current_suite_case = nullptr;
+CxStartupTraceMark g_start_suite_end("[startup] case-suite: ready\n");
 
 double CxScriptSuite_reset(double)
 {

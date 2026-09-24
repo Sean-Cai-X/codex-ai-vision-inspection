@@ -8,7 +8,7 @@
 #include "FindCircle.h"
 #include "ImageAnnotationLayer.h"
 #include "PolylineShape.h"
-#include "findobject.h"
+#include "FindObject.h"
 #include "imagemanager.h"
 #include "occtinclude.h"
 

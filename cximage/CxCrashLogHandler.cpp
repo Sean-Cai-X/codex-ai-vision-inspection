@@ -1,16 +1,29 @@
 #include "pch.h"
+#include "CxStartupTrace.h"
 #include "CxCrashLogHandler.h"
 #include "CxUnifiedLog.h"
 #include <csignal>
+#if defined(_WIN32)
 #include <windows.h>
+#else
+#include <functional>
+#include <thread>
+static unsigned long GetCurrentThreadId()
+{
+    return static_cast<unsigned long>(
+        std::hash<std::thread::id>{}(std::this_thread::get_id()));
+}
+#endif
 #include <sstream>
 #include <iostream>
 #include <mutex>
 
 namespace
 {
+CxStartupTraceMark g_crash_begin("[startup] crash-log: begin\n");
 std::mutex g_cxCrashBreadcrumbMutex;
 std::string g_cxCrashBreadcrumb;
+CxStartupTraceMark g_crash_end("[startup] crash-log: ready\n");
 
 std::string GetCxCrashBreadcrumb()
 {
@@ -25,6 +38,7 @@ void SetCxCrashBreadcrumb(const std::string& breadcrumb)
     g_cxCrashBreadcrumb = breadcrumb;
 }
 
+#if defined(_WIN32)
 static LONG WINAPI CxUnhandledExceptionFilter(EXCEPTION_POINTERS* exceptionInfo)
 {
     std::string run_id = CxUnifiedLog::Instance().IsInitialized() 
@@ -43,6 +57,8 @@ static LONG WINAPI CxUnhandledExceptionFilter(EXCEPTION_POINTERS* exceptionInfo)
     return EXCEPTION_CONTINUE_SEARCH;
 }
 
+#endif
+
 static void CxTerminateHandler()
 {
     std::string run_id = CxUnifiedLog::Instance().IsInitialized() 
@@ -54,7 +70,9 @@ static void CxTerminateHandler()
 
 void InstallCxCrashLogHandlers()
 {
+#if defined(_WIN32)
     SetUnhandledExceptionFilter(CxUnhandledExceptionFilter);
+#endif
     std::set_terminate(CxTerminateHandler);
 }
 

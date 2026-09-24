@@ -10,7 +10,7 @@
 #include <Standard_Handle.hxx>
 #include <string>
 #include "occtinclude.h"
-#include "View.h"
+#include "view.h"
 #include "gp_path.h" 
 
 using namespace std;

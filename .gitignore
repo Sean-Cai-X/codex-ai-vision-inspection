@@ -148,3 +148,9 @@ AGENTS.md.bak_*
 /Next_20260912.txt
 /Next_20260913.txt
 /Next_20260914.txt
+
+# Linux/local generated environment (never commit)
+build/
+toolchains/
+*.jsonl
+\n

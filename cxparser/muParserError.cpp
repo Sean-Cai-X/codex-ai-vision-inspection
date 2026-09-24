@@ -5,12 +5,12 @@
 namespace mu
 {
 
-  const ParserErrorMsg ParserErrorMsg::m_Instance;
-
-  
+  // Construct parser diagnostics only if parsing actually needs an error.
+  // This keeps a missing case/image from triggering parser-runtime work before main.
   const ParserErrorMsg& ParserErrorMsg::Instance()
   {
-    return m_Instance;
+    static const ParserErrorMsg instance;
+    return instance;
   }
 
   string_type ParserErrorMsg::operator[](unsigned a_iIdx) const

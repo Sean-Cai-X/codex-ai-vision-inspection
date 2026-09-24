@@ -6,7 +6,7 @@
 #include <string>
 
 #include <vector>
-#include "Shape.h"
+#include "shape.h"
 #include "Image.h"
 #include "shapebase.h"
 #include "FindLine.h"
@@ -14,7 +14,7 @@
 #include "CxCalibration.h"
 #include "CxFastMatchShapeModel.h"
 #include "FormfitGauge.h"
-#include "Grid.h"
+#include "grid.h"
 #include <opencv2/core/mat.hpp>
 
 class Grid;

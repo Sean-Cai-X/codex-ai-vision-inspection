@@ -2,7 +2,7 @@
 
 #include "panels/DevAnalysisGuiPanels.h"
 
-#include <glad/glad.h>
+#include <glad/gl.h>
 
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
@@ -558,9 +558,9 @@ void DevAnalysisGuiApp::InitializeWindow()
   glfwMakeContextCurrent(window_);
   glfwSwapInterval(1);
 
-  if (gladLoadGL() == 0)
+  if (gladLoadGL((GLADloadfunc)glfwGetProcAddress) == 0)
   {
-    throw std::runtime_error("gladLoadGL() failed for dev_analysis_gui");
+    throw std::runtime_error("gladLoadGL((GLADloadfunc)glfwGetProcAddress) failed for dev_analysis_gui");
   }
 }
 

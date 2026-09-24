@@ -15,7 +15,7 @@
 #include <vector>
 
 #include "Image.h"
-#include "View.h"
+#include "view.h"
 #include "occtinclude.h"
 #include <cmath>
 #include <gp_Pnt.hxx>
@@ -101,9 +101,9 @@ public:
   bool contains(const gp_Pnt &point) {
     if (point.X() > myTopLeft.X() && point.X() < myBottomRight.X())
       if (point.Y() > myTopLeft.Y() && point.Y() < myBottomRight.Y()) {
-        return TRUE;
+        return true;
       }
-    return FALSE;
+    return false;
   }
   void move(int ix, int iy) {
     const Standard_Real ix0 = myTopLeft.X();

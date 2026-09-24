@@ -13,7 +13,7 @@
 #include "FindCircle.h"
 #include "FindEllipse.h"
 #include "FindLine.h"
-#include "FindLineParameterPolicy.h"
+#include "FindlineParameterPolicy.h"
 #include "FindObject.h"
 #include "FindRect.h"
 #include "FindSegmentation.h"

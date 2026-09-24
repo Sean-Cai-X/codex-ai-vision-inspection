@@ -1,4 +1,5 @@
 #include "ManualConsoleCxScriptDebug.h"
+#include "CxStartupTrace.h"
 #include "ManualConsoleUtils.h"
 #include "ManualConsoleRuntimeView.h"
 #include "ManualConsoleFindCircleDebug.h"
@@ -9,7 +10,9 @@
 #include <fstream>
 #include <cmath>
 
+CxStartupTraceMark g_debug_begin("[startup] manual-debug-runtime: begin\n");
 std::unordered_map<ManualTestContext*, DebugCximageRuntime> g_cximageRuntime;
+CxStartupTraceMark g_debug_end("[startup] manual-debug-runtime: ready\n");
 
 DebugCximageRuntime& CxRuntime(ManualTestContext& context)
 {

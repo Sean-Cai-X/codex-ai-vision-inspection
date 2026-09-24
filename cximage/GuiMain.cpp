@@ -22,6 +22,8 @@
 #include "CxUnifiedLog.h"
 #include "CxUnifiedLogOptions.h"
 #include "CxUnifiedLogStreamBuf.h"
+#include "CxRuntimePaths.h"
+#include "CxStartupTrace.h"
 #include "CxYoloV8nGeometryAssociation.h"
 #include "CxYoloV8nPairedInference.h"
 #include "CxYoloV8nTrainingLifecycle.h"
@@ -48,6 +50,7 @@
 #include <map>
 
 #include <sstream>
+#include <thread>
 #include <vector>
 
 int RunModelLineageAssetScanSmoke(const std::string &scanRoot,
@@ -3283,12 +3286,21 @@ int RunCxTorchRuntimeSmoke(const CxUnifiedLogOptions &options) {
 
   const char *old_path = std::getenv("PATH");
   std::string new_path;
+#if defined(_WIN32)
+  const char path_separator = ';';
+#else
+  const char path_separator = ':';
+#endif
   if (old_path) {
-    new_path = runtime_dir.string() + ";" + old_path;
+    new_path = runtime_dir.string() + path_separator + old_path;
   } else {
     new_path = runtime_dir.string();
   }
+#if defined(_WIN32)
   SetEnvironmentVariableA("PATH", new_path.c_str());
+#else
+  setenv("PATH", new_path.c_str(), 1);
+#endif
 
   std::cout << "runtime_dll=" << runtime_dll.string() << "\n";
   std::cout << "runtime_dir=" << runtime_dir.string() << "\n";
@@ -3349,6 +3361,7 @@ int RunCxTorchRuntimeSmoke(const CxUnifiedLogOptions &options) {
 }
 
 int main(int argc, char **argv) {
+  CxStartupTrace("[startup] main: entered\n");
   if (HasCliArg(argc, argv, "--model-lineage-operation-selftest")) {
     std::string scanRoot;
     std::string outputDirectory;
@@ -3383,21 +3396,25 @@ int main(int argc, char **argv) {
     }
     return RunModelLineageAssetScanSmoke(scanRoot, outputDirectory);
   }
+  CxStartupTrace("[startup] main: cli-preflight complete\n");
   CxUnifiedLogOptions logOptions;
   std::string logReason;
 
   ParseUnifiedLogArgs(argc, argv, logOptions, logReason);
+  CxStartupTrace("[startup] main: unified-log args parsed\n");
 
   const std::string mode = DetectCxVisionRunMode(argc, argv);
+  CxStartupTrace("[startup] main: mode resolved\n");
 
   ShapeInteractionTestOptions shapeOptions;
   ParseShapeInteractionTestArgs(argc, argv, shapeOptions);
+  CxStartupTrace("[startup] main: shape args parsed\n");
 
   bool should_enable_unified_log = logOptions.enabled || shapeOptions.enabled;
   if (!logOptions.path.empty() || shapeOptions.enabled) {
     if (logOptions.path.empty()) {
-      logOptions.path = "D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/"
-                        "cxscript_runs/_shared/cxvision_imgui_acceptance.jsonl";
+      logOptions.path =
+          CxRuntimeRunRoot() / "_shared/cxvision_imgui_acceptance.jsonl";
     }
   }
 
@@ -3413,7 +3430,9 @@ int main(int argc, char **argv) {
     }
   }
 
+  CxStartupTrace("[startup] main: crash handlers begin\n");
   InstallCxCrashLogHandlers();
+  CxStartupTrace("[startup] main: crash handlers ready\n");
 
   if (logOptions.enabled && logOptions.capture_stdio) {
     InstallUnifiedStdStreamCapture();
@@ -3425,6 +3444,7 @@ int main(int argc, char **argv) {
   }
 
   int exitCode = 0;
+  CxStartupTrace("[startup] main: application dispatch\n");
 
   if (logOptions.torch_runtime_smoke.enabled) {
     exitCode = RunCxTorchRuntimeSmoke(logOptions);

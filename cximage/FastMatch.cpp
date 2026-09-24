@@ -3883,7 +3883,7 @@ std::vector<std::string> split(const std::string &str, char delimiter) {
 void FastMatch::loadcalibration(const char *pchar) {
   clear();
   FILE *rf = nullptr;
-  fopen_s(&rf, pchar, "rb");
+  rf = std::fopen(pchar, "rb");
   if (nullptr == rf)
     return;
   fseek(rf, 0, SEEK_END);

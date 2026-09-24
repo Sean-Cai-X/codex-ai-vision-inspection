@@ -1,6 +1,6 @@
 #include "OcctApp.h"
 
-#include <glad/glad.h>
+#include <glad/gl.h>
 
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
@@ -325,9 +325,9 @@ glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
   glfwMakeContextCurrent(myWindow->getGlfwWindow());
   glfwSwapInterval(1);
 
-  if (gladLoadGL() == 0)
+  if (gladLoadGL((GLADloadfunc)glfwGetProcAddress) == 0)
   {
-    throw std::runtime_error("gladLoadGL() failed");
+    throw std::runtime_error("gladLoadGL((GLADloadfunc)glfwGetProcAddress) failed");
   }
 
   glfwSetWindowUserPointer(myWindow->getGlfwWindow(), this);

@@ -1,9 +1,12 @@
 #include "muParser.h"
+#include "CxStartupTrace.h"
 #include "CxScriptCatalogRuntime.h"
 #include "CxScriptCatalogRegister.h"
 
+CxStartupTraceMark g_start_catalog_begin("[startup] case-catalog: begin\n");
 CxScriptCatalogRuntime g_cxscript_catalog;
 CxScriptCatalogEntry* g_current_catalog_entry = nullptr;
+CxStartupTraceMark g_start_catalog_end("[startup] case-catalog: ready\n");
 
 double CxScriptCatalog_reset(double)
 {

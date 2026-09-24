@@ -15,10 +15,10 @@
 #include <vector>
 #include <imgui.h>
 
-#include "View.h"
+#include "view.h"
 #include "Image.h"
 
-#include "Shape.h"
+#include "shape.h"
 #include "shapebase.h"
 #include "FindLine.h"
 

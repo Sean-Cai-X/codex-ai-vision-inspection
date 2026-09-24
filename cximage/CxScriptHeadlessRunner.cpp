@@ -1,6 +1,6 @@
 #include "pch.h"
 #include "CxScriptHeadlessRunner.h"
-#include "ImageManager.h"
+#include "imagemanager.h"
 #include "ManualConsoleUtils.h"
 #include "ParserClass.h"
 #include "Image.h"

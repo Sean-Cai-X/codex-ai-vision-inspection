@@ -3,6 +3,19 @@
 #include <iomanip>
 #include <iostream>
 #include <sstream>
+#include <ctime>
+
+namespace
+{
+bool LocalTimeSafe(std::tm* output, const std::time_t* input)
+{
+#if defined(_WIN32)
+    return localtime_s(output, input) == 0;
+#else
+    return localtime_r(input, output) != nullptr;
+#endif
+}
+}
 
 std::string CxDebugJsonEscape(const std::string& s)
 {
@@ -88,7 +101,7 @@ void CxScriptRunTraceRuntime::event(const std::string& phase,
     std::time_t now_c = std::chrono::system_clock::to_time_t(
         std::chrono::system_clock::now());
     std::tm now_tm;
-    localtime_s(&now_tm, &now_c);
+    LocalTimeSafe(&now_tm, &now_c);
     std::stringstream ss;
     ss << std::put_time(&now_tm, "%Y-%m-%dT%H:%M:%S");
     e.time_iso = ss.str();
@@ -135,7 +148,7 @@ void CxScriptRunTraceRuntime::script_line(int lineNo,
     std::time_t now_c = std::chrono::system_clock::to_time_t(
         std::chrono::system_clock::now());
     std::tm now_tm;
-    localtime_s(&now_tm, &now_c);
+    LocalTimeSafe(&now_tm, &now_c);
     std::stringstream ss;
     ss << std::put_time(&now_tm, "%Y-%m-%dT%H:%M:%S");
     e.time_iso = ss.str();
@@ -172,7 +185,7 @@ void CxScriptRunTraceRuntime::object_method(const std::string& objectName,
     std::time_t now_c = std::chrono::system_clock::to_time_t(
         std::chrono::system_clock::now());
     std::tm now_tm;
-    localtime_s(&now_tm, &now_c);
+    LocalTimeSafe(&now_tm, &now_c);
     std::stringstream ss;
     ss << std::put_time(&now_tm, "%Y-%m-%dT%H:%M:%S");
     e.time_iso = ss.str();
@@ -207,7 +220,7 @@ void CxScriptRunTraceRuntime::heartbeat(const std::string& phase,
     std::time_t now_c = std::chrono::system_clock::to_time_t(
         std::chrono::system_clock::now());
     std::tm now_tm;
-    localtime_s(&now_tm, &now_c);
+    LocalTimeSafe(&now_tm, &now_c);
     std::stringstream ss;
     ss << std::put_time(&now_tm, "%Y-%m-%dT%H:%M:%S");
     e.time_iso = ss.str();

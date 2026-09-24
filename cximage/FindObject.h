@@ -3,7 +3,7 @@
  
 
 #include "shapebase.h"
-#include "Shape.h"
+#include "shape.h"
 #include "Image.h"
 #include "imagemanager.h"
 

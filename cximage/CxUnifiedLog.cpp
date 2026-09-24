@@ -4,7 +4,19 @@
 #include <iomanip>
 #include <ctime>
 #include <iostream>
+#if defined(_WIN32)
 #include <Windows.h>
+#else
+#include <unistd.h>
+#include <functional>
+#include <thread>
+static unsigned long GetCurrentProcessId() {
+    return static_cast<unsigned long>(::getpid());
+}
+static unsigned long GetCurrentThreadId() {
+    return static_cast<unsigned long>(std::hash<std::thread::id>{}(std::this_thread::get_id()));
+}
+#endif
 
 thread_local CxUnifiedLogContext CxUnifiedLog::thread_context_;
 
@@ -97,6 +109,7 @@ bool CxUnifiedLog::Initialize(
 
 void CxUnifiedLog::RawFallbackWrite(const std::string& message)
 {
+#if defined(_WIN32)
     HANDLE stderr_handle = GetStdHandle(STD_ERROR_HANDLE);
     if (stderr_handle != INVALID_HANDLE_VALUE)
     {
@@ -105,6 +118,9 @@ void CxUnifiedLog::RawFallbackWrite(const std::string& message)
         WriteFile(stderr_handle, msg.c_str(), (DWORD)msg.size(), &bytes_written, nullptr);
     }
     OutputDebugStringA(("[CxUnifiedLog] " + message).c_str());
+#else
+    std::cerr << "[CxUnifiedLog] " << message << std::endl;
+#endif
 }
 
 void CxUnifiedLog::Shutdown(int exitCode, const std::string& conclusion)
@@ -238,10 +254,14 @@ std::string CxUnifiedLog::GenerateRunId() const
     auto now = std::chrono::system_clock::now();
     auto time_t = std::chrono::system_clock::to_time_t(now);
     struct tm tm_buf;
+#if defined(_WIN32)
     localtime_s(&tm_buf, &time_t);
+#else
+    localtime_r(&time_t, &tm_buf);
+#endif
 
     char buf[64];
-    sprintf_s(buf, "run-%04d%02d%02d-%02d%02d%02d-p%lu",
+    std::snprintf(buf, sizeof(buf), "run-%04d%02d%02d-%02d%02d%02d-p%lu",
         tm_buf.tm_year + 1900,
         tm_buf.tm_mon + 1,
         tm_buf.tm_mday,
@@ -261,10 +281,14 @@ std::string CxUnifiedLog::FormatTimestamp() const
         now - std::chrono::system_clock::from_time_t(time_t));
 
     struct tm tm_buf;
+#if defined(_WIN32)
     localtime_s(&tm_buf, &time_t);
+#else
+    localtime_r(&time_t, &tm_buf);
+#endif
 
     char buf[64];
-    sprintf_s(buf, "%.4d-%.2d-%.2dT%.2d:%.2d:%.2d.%.3d+08:00",
+    std::snprintf(buf, sizeof(buf), "%.4d-%.2d-%.2dT%.2d:%.2d:%.2d.%.3d+08:00",
         tm_buf.tm_year + 1900,
         tm_buf.tm_mon + 1,
         tm_buf.tm_mday,

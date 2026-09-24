@@ -5,7 +5,7 @@
 #include "EllipseShape.h"
 #include "FindEllipse.h"
 #include "ImageAnnotationLayer.h"
-#include "findobject.h"
+#include "FindObject.h"
 #include "imagemanager.h"
 #include "occtinclude.h"
 

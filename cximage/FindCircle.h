@@ -1,6 +1,6 @@
 #ifndef _findcircle_Header
 #define _findcircle_Header
-#include "Shape.h"
+#include "shape.h"
 #include "Image.h"
 #include "shapebase.h"
 #include "CxAlgorithmBudget.h"

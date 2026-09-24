@@ -4,7 +4,7 @@
 
 #include "Image.h"
 #include "shapebase.h"
-#include "Shape.h"
+#include "shape.h"
 #include "imagemanager.h"
 
 #include "FindLine.h"

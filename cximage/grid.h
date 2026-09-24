@@ -4,7 +4,7 @@
 #include <vector>
 #include <string>
 #include <map>
-#include "Shape.h"
+#include "shape.h"
 #include "Image.h"
 #include "shapebase.h"
 
