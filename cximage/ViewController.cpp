@@ -7830,10 +7830,21 @@ void ViewController::DrawAiGuiNavigationOverlay() {
 void ViewController::mainloop() {
   int ifirstrun = 1;
   int frameLogBudget = 8;
-  while (!glfwWindowShouldClose(myOcctWindow->getGlfwWindow())) {
+  int initialMaximizeAttempts = 0;
+  GLFWwindow *mainWindow = myOcctWindow->getGlfwWindow();
+  while (!glfwWindowShouldClose(mainWindow)) {
     // Some X11 compositors discard an obscured window's front buffer without
     // delivering another input event. Keep the operator panels repainting.
     glfwWaitEventsTimeout(1.0 / 15.0);
+    // X11 window managers can ignore the creation-time maximize request until
+    // the window is mapped. Confirm it during the first few visible frames.
+    if (initialMaximizeAttempts < 5 &&
+        !glfwGetWindowAttrib(mainWindow, GLFW_MAXIMIZED)) {
+      glfwMaximizeWindow(mainWindow);
+      if (initialMaximizeAttempts == 0)
+        glfwFocusWindow(mainWindow);
+      ++initialMaximizeAttempts;
+    }
 
     if (!m_myView.IsNull()) {
       const bool logThisFrame = frameLogBudget > 0;
