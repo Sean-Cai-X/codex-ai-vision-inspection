@@ -5133,7 +5133,7 @@ void ViewController::drawScriptAcceptancePanels() {
       parserImage
           ? m_scriptResult.image_ref.c_str()
           : (baseImageValid ? m_manualTest.image_file_path.c_str() : "(none)"),
-      baseImageValid ? "valid" : "invalid");
+      baseImageValid ? "valid" : "waiting for image");
   int runtimeVisualCount = 0;
   std::string runtimeVisualNames;
 
@@ -5208,6 +5208,9 @@ void ViewController::drawScriptAcceptancePanels() {
     drawList->AddText(ImVec2(canvasMin.x + 8.0f, canvasMin.y + 8.0f),
                       IM_COL32(200, 200, 200, 255),
                       "Image View: no image loaded");
+    drawList->AddText(ImVec2(canvasMin.x + 8.0f, canvasMin.y + 30.0f),
+                      IM_COL32(200, 200, 200, 255),
+                      "Select an Evidence case or import an image.");
   }
   const float sx = m_imageViewZoom;
   const float sy = m_imageViewZoom;
@@ -6992,6 +6995,11 @@ void ViewController::initWindow(int theWidth, int theHeight,
         "or run with the headless test path.");
   }
 
+  // Some X11 window managers ignore the maximized creation hint. Request
+  // the final visible state after the window has been created.
+  glfwMaximizeWindow(glfwWindow);
+  glfwFocusWindow(glfwWindow);
+
   glfwSetWindowUserPointer(glfwWindow, this);
   glfwSetWindowSizeCallback(glfwWindow, ViewController::onResizeCallback);
   glfwSetFramebufferSizeCallback(glfwWindow,
@@ -7823,7 +7831,9 @@ void ViewController::mainloop() {
   int ifirstrun = 1;
   int frameLogBudget = 8;
   while (!glfwWindowShouldClose(myOcctWindow->getGlfwWindow())) {
-    glfwWaitEvents();
+    // Some X11 compositors discard an obscured window's front buffer without
+    // delivering another input event. Keep the operator panels repainting.
+    glfwWaitEventsTimeout(1.0 / 15.0);
 
     if (!m_myView.IsNull()) {
       const bool logThisFrame = frameLogBudget > 0;
@@ -8330,9 +8340,11 @@ void ViewController::mainloop() {
       if (logThisFrame)
         CXLOG_INFO("ViewController", "mainloop_stage", "running",
                    "stage=RenderDrawData");
+      GLFWwindow *renderWindow = myOcctWindow->getGlfwWindow();
+      glfwMakeContextCurrent(renderWindow);
       int framebufferWidth = 0;
       int framebufferHeight = 0;
-      glfwGetFramebufferSize(myOcctWindow->getGlfwWindow(), &framebufferWidth,
+      glfwGetFramebufferSize(renderWindow, &framebufferWidth,
                              &framebufferHeight);
       glViewport(0, 0, framebufferWidth, framebufferHeight);
       glClearColor(0.215f, 0.215f, 0.215f, 1.0f);
@@ -8396,10 +8408,23 @@ void ViewController::cleanup() {
 }
 
 void ViewController::Imgui_OpenCV_Ini0() {
-  const std::string imagePath = CxRuntimeInitialImagePath().string();
+  const std::filesystem::path initialImage = CxRuntimeInitialImagePath();
+  if (initialImage.empty()) {
+    m_scriptResult.log_lines.push_back(
+        "Image View ready; select an Evidence case or import an image.");
+    return;
+  }
+
+  const std::string imagePath = initialImage.string();
+  std::error_code error;
+  if (!std::filesystem::is_regular_file(initialImage, error)) {
+    std::cerr << "Configured initial Image View image is unavailable: "
+              << imagePath << std::endl;
+    return;
+  }
   s_img0 = cv::imread(imagePath);
   if (s_img0.empty()) {
-    std::cerr << "Failed to load initial Image View image: " << imagePath
+    std::cerr << "Failed to decode initial Image View image: " << imagePath
               << std::endl;
     return;
   }

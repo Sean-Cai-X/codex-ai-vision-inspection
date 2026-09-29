@@ -54,9 +54,9 @@ inline std::filesystem::path CxRuntimeInitialImagePath() {
     if (std::filesystem::is_regular_file(candidate, ec))
       return candidate;
   }
-  // Keep a deterministic, platform-neutral diagnostic path when the asset is
-  // absent; Image/OpenCV will report the missing asset without blocking startup.
-  return root / "01.jpg";
+  // No bundled image is required to start the UI. The user can load an
+  // Evidence case or import an image after startup.
+  return {};
 }
 
 #endif
