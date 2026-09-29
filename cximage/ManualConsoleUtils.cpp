@@ -4,6 +4,7 @@
 #include <sstream>
 #include <iostream>
 #include <algorithm>
+#include <cstdlib>
 #include <iterator>
 #ifdef _WIN32
 #include <windows.h>
@@ -56,6 +57,28 @@ std::filesystem::path ResolveWorkspaceFile(const std::string& path)
     const fs::path requested(path);
     if (requested.is_absolute() && fs::exists(requested)) return requested;
 
+#ifndef _WIN32
+    // Map the known Windows Evidence prefix into the mounted external root.
+    if (const char* externalRoot = std::getenv("CXVISION_WINDOWS_CODEX_ROOT"))
+    {
+        std::string portable(path);
+        std::replace(portable.begin(), portable.end(), char(92), '/');
+        constexpr const char* prefix = "D:/Codex-WorkDir/";
+        if (portable.compare(0, std::char_traits<char>::length(prefix), prefix) == 0)
+        {
+            const fs::path relative = portable.substr(std::char_traits<char>::length(prefix));
+            bool safe = true;
+            for (const auto& part : relative)
+                if (part == "..") safe = false;
+            if (safe)
+            {
+                const fs::path mapped = fs::path(externalRoot) / relative;
+                if (fs::exists(mapped)) return mapped;
+            }
+        }
+    }
+#endif
+
 #ifdef _WIN32
     wchar_t exePath[MAX_PATH];
     if (GetModuleFileNameW(NULL, exePath, MAX_PATH))
@@ -104,6 +127,20 @@ std::filesystem::path ResolveCxVisionRunPath(const std::string& path)
     const fs::path requested(path);
     if (requested.is_absolute())
         return requested.lexically_normal();
+
+    // Runtime case packages stay outside the source checkout.
+    if (const char* externalRunRoot = std::getenv("CXVISION_RUN_ROOT"))
+    {
+        if (*externalRunRoot)
+        {
+            if (requested == "cxscript_runs")
+                return fs::path(externalRunRoot).lexically_normal();
+            const fs::path::iterator first = requested.begin();
+            if (first != requested.end() && *first == "cxscript_runs")
+                return (fs::path(externalRunRoot) /
+                        requested.lexically_relative("cxscript_runs")).lexically_normal();
+        }
+    }
 
 #ifdef _WIN32
     wchar_t exePath[MAX_PATH];

@@ -47,6 +47,18 @@
 #include <unordered_set>
 #include <vector>
 
+static std::filesystem::path ResolveConfiguredEvidenceRootLocal() {
+  if (const char *configured = std::getenv("CXVISION_EVIDENCE_ROOT")) {
+    if (*configured) {
+      const std::filesystem::path root(configured);
+      std::error_code ec;
+      if (std::filesystem::is_directory(root, ec))
+        return root;
+    }
+  }
+  return ResolveWorkspaceFile("cxparser/cxscript/module/cximage/evidence");
+}
+
 static std::string
 NormalizeEvidenceToolTypeLocal(const std::string &typeOrTool) {
   std::string lowered = typeOrTool;
@@ -545,8 +557,7 @@ ResolveHDReferenceImageBindingLocal(const std::string &scriptId,
   if (!loaded) {
     loaded = true;
     const std::filesystem::path bindingPath =
-        ResolveWorkspaceFile("cxparser/cxscript/module/cximage/evidence/"
-                             "hd_reference_image_bindings.tsv");
+        (ResolveConfiguredEvidenceRootLocal() / "hd_reference_image_bindings.tsv");
     std::string text;
     if (ReadTextFile(bindingPath.string(), text)) {
       std::istringstream input(text);
@@ -4281,7 +4292,7 @@ static int AppendCxScriptEvidenceChainFilesLocal(
     std::string &reason) {
   reason.clear();
   const std::filesystem::path root =
-      ResolveWorkspaceFile("cxparser/cxscript/module/cximage/evidence");
+      ResolveConfiguredEvidenceRootLocal();
   std::error_code ec;
   if (!std::filesystem::is_directory(root, ec)) {
     reason = "cxscript evidence chain root not found: " + root.string();
@@ -4483,7 +4494,7 @@ static void RefreshHiddenEvidenceCaseCatalogLocal(ManualTestContext &context) {
   context.hidden_evidence_case_catalog.clear();
 
   const std::filesystem::path root =
-      ResolveWorkspaceFile("cxparser/cxscript/module/cximage/evidence");
+      ResolveConfiguredEvidenceRootLocal();
   std::error_code ec;
   if (!std::filesystem::is_directory(root, ec))
     return;
