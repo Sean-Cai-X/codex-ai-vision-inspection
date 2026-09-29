@@ -2459,7 +2459,8 @@ void ViewController::drawAnnotationToolWindow() {
       "Last pointer: %s | %s | %s", m_lastPointerResult.phase.c_str(),
       m_lastPointerResult.status.c_str(), m_lastPointerResult.reason.c_str());
 
-  if (ImGui::CollapsingHeader("Tool Palette Buttons", 0)) {
+  if (ImGui::CollapsingHeader("Tool Palette Buttons",
+                              ImGuiTreeNodeFlags_DefaultOpen)) {
     ImGui::TextColored(ImVec4(1.0f, 0.7f, 0.2f, 1.0f),
                        "Main palette is now docked above Image View.");
     DrawAnnotationToolButtonStrip(false);
@@ -2625,6 +2626,13 @@ void ViewController::DrawAnnotationToolButtonStrip(bool horizontal) {
                          : m_annotationLayer.ActiveTool()->label.c_str())
                   : "Pointer / Pan",
               m_annotationStatus.c_str());
+
+  if (m_annotationLayer.Tools().empty()) {
+    ImGui::TextColored(ImVec4(1.0f, 0.45f, 0.35f, 1.0f),
+                       "No annotation tools loaded. Check the manifest path.");
+    ImGui::TextWrapped("Manifest: %s | %s", m_annotationManifestPath.c_str(),
+                       m_annotationStatus.c_str());
+  }
 
   const bool pointerActive = !m_imageToolEnabled ||
                              m_imageToolMode == ImageToolMode::PointerPan ||

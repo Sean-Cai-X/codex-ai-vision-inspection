@@ -706,12 +706,16 @@ void ReplaceEditorLine(std::string &editor, int lineIndex,
 } // namespace
 
 void ViewController::initImageEvidenceLayer() {
+  // GN compiles this file as ../../cximage/ImageAnnotationUI.cpp.  __FILE__
+  // is relative to the build directory, not to the runtime working directory,
+  // so deriving the repository root from it hides the entire tool palette on
+  // Linux. Resolve the checked-in manifest using the shared workspace locator.
+  const fs::path manifestPath = ResolveWorkspaceFile(
+      "cxparser/cxscript/module/cximage/tool_annotation_basic.cxsc");
+  m_annotationManifestPath = manifestPath.generic_string();
   const fs::path repositoryRoot =
-      fs::path(__FILE__).parent_path().parent_path();
-  m_annotationManifestPath =
-      (repositoryRoot / "cxparser" / "cxscript" / "module" / "cximage" /
-       "tool_annotation_basic.cxsc")
-          .generic_string();
+      manifestPath.parent_path().parent_path().parent_path().parent_path()
+          .parent_path();
   m_annotationSessionPath = (repositoryRoot / "cxparser" / "cxscript" /
                              "annotations" / "session_001.cxann")
                                 .generic_string();
@@ -719,19 +723,28 @@ void ViewController::initImageEvidenceLayer() {
   std::string init_reason;
   if (!m_parserOwner.Initialize(init_reason)) {
     m_annotationStatus = "parser initialize failed: " + init_reason;
+    CXLOG_ERROR("ImageAnnotationUI", "tool_manifest_init", "failed",
+                m_annotationStatus);
     return;
   }
 
   CxAnnotationToolManifestSnapshot snapshot;
   if (!m_parserOwner.ParseAnnotationToolManifest(
           m_annotationManifestPath, snapshot, m_annotationStatus)) {
+    CXLOG_ERROR("ImageAnnotationUI", "tool_manifest_parse", "failed",
+                m_annotationManifestPath + " | " + m_annotationStatus);
     return;
   }
 
   if (!m_annotationLayer.ApplyToolManifestSnapshot(snapshot,
                                                    m_annotationStatus)) {
+    CXLOG_ERROR("ImageAnnotationUI", "tool_manifest_apply", "failed",
+                m_annotationManifestPath + " | " + m_annotationStatus);
     return;
   }
+  CXLOG_INFO("ImageAnnotationUI", "tool_manifest_load", "ready",
+             m_annotationManifestPath + " | tools=" +
+                 std::to_string(m_annotationLayer.Tools().size()));
 }
 
 bool ViewController::IsAnnotationCreateModeActive() const {
