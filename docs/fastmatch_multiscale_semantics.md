@@ -425,3 +425,81 @@ Next gates remain rotated/scaled/noisy/occluded raster regressions, independentl
 verified reference topology/provenance, signed trust distribution if required,
 and separately gated live Prefilter/Pose Seed. Successful asset replay is
 not business accuracy, APPROVED or ACTIVE.
+
+## P1e separated rotation/scale raster regressions (2026-09-30)
+
+make_raster_fixtures is a C++ pixel generator; run_raster_replay.sh invokes
+the actual application headless/cxscript pipeline on each generated PGM.
+It does not feed precomputed contour points as image-recognition results.
+The base image is measured by FindObject, saved as a SHA-checked descriptor,
+then loaded in a separate application process for every observation.
+
+The 14 controlled cases are:
+
+- Base 140x80 rectangle on a 320x240 image.
+- Rotation-only: 15, 30, 60, 90 and 135 degrees, scale fixed at 1.
+- Scale-only: 0.65, 0.85 and 1.20, angle fixed at 0.
+- 3x3 mean blur and deterministic +/-12 intensity noise.
+- Same raster occlusion with three different metadata tests: declared
+  incomplete, unverified source, and deliberately over-trusted completeness.
+
+The new expectposebounds(angle,scale,angle_tolerance,scale_tolerance) assertion
+keeps angle and scale limits independent. The legacy expectpose API delegates
+to it with equal limits. Parser argument reversal is handled by its wrapper.
+This suite uses 1 degree and 0.02 absolute scale error; deliberate wrong-angle
+and wrong-scale assertions both fail. No matching threshold/product default
+was changed to pass these tests.
+
+Observed final results:
+
+| Channel | Cases | Result |
+| --- | ---: | --- |
+| Rotation only | 5 | Maximum angle error about 0.020468 degrees |
+| Scale only | 3 | Maximum absolute scale error about 0.007805 |
+| Base, mild blur, intensity noise | 3 | Pose hypotheses accepted |
+| Declared incomplete | 1 | PARTIAL_CONTOUR_LEGACY_FALLBACK |
+| Unverified occlusion | 1 | UNVERIFIED_TOPOLOGY_LEGACY_FALLBACK |
+| Deliberately unmarked occlusion | 1 | POSE_RESIDUAL_REJECTED |
+
+For the scale cases, inferred scales were approximately 0.642195, 0.844013,
+and 1.201819. Finite pixel sampling changes the measured contour relative
+to ideal continuous scaling. All accepted rectangle observations preserve
+two 180-degree-separated hypotheses: this is not unique orientation.
+The unmarked occlusion shortened the measured rectangle from 140x80 to
+100x80 and gave invariant distance about 0.137228; it is rejected as a
+shape mismatch. This is NOT a general automatic occlusion detector and
+does not make incorrect completeness metadata safe.
+
+The noise amplitude does not cross the fixed segmentation threshold for
+this high-contrast fixture. Thus its unchanged contour demonstrates only
+limited photometric robustness, not tolerance of jagged edges, texture
+confusion or strong noise. Rotation and scale remain separate here; combined
+perturbations, other/asymmetric shapes, open boundaries, real business data
+and general topology verification are not covered by this gate.
+
+Replay in the configured offline runtime:
+
+```sh
+cmake --build /external/native-build
+sh tests/fastmatch_harmonic/run_raster_replay.sh \
+  /absolute/app /external/native-build/make_raster_fixtures \
+  /external/fresh-raster-run
+```
+
+The runner requires a fresh external output, generates the image set and
+per-case scripts, checks expected status/pose counts/bounds, and only then
+emits suite_receipt.json plus raster_sha256.txt. FindObject overlays and
+measurements and Audit receipts remain available per case for manual review.
+A Linux/NTFS sed -i permission-preservation warning discovered on the first
+run was removed by generating scripts in one stream, without changing mount
+permissions or elevating execution.
+
+Final evidence: ../cxscript_runs/fastmatch_harmonic_raster_20260930/verified_replay.
+Native CTest 2/2 passed; existing reference-asset, FastMatch/FormFit and
+56-run/160-assertion Audit regressions also passed with the new application.
+All were run as devuan, with Python oracle OFF. Generated pixels, descriptors,
+executables and reports are outside Git.
+
+Scope remains AUDIT_ONLY, production_eligible=false. These are controlled
+pixel-to-contour SO2 checks, not learned Torch/segmentation training, live
+FastMatch rotation-seed integration, business accuracy, APPROVED or ACTIVE.

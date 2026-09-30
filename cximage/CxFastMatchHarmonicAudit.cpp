@@ -122,11 +122,16 @@ void CxFastMatchHarmonicAudit::expectcount(int count) {
     ++assertions_;
 }
 void CxFastMatchHarmonicAudit::expectpose(double angle,double scale,double tolerance) {
-    if(!ran_ || !std::isfinite(angle)||!std::isfinite(scale)||!std::isfinite(tolerance)||tolerance<=0)
+    expectposebounds(angle,scale,tolerance,tolerance);
+}
+void CxFastMatchHarmonicAudit::expectposebounds(double angle,double scale,double angle_tolerance,double scale_tolerance) {
+    if(!ran_ || !std::isfinite(angle)||!std::isfinite(scale)||scale<=0 ||
+       !std::isfinite(angle_tolerance)||angle_tolerance<=0 ||
+       !std::isfinite(scale_tolerance)||scale_tolerance<=0)
         throw std::runtime_error("HARMONIC_POSE_ASSERTION_INVALID");
     for(const auto& p:result_.poses) {
         double e=std::remainder(p.angle_deg-angle,360.0);
-        if(std::abs(e)<=tolerance && std::abs(p.scale-scale)<=tolerance){++assertions_;return;}
+        if(std::abs(e)<=angle_tolerance && std::abs(p.scale-scale)<=scale_tolerance){++assertions_;return;}
     }
     throw std::runtime_error("HARMONIC_POSE_ASSERTION_FAILED");
 }

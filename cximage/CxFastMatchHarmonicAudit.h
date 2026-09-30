@@ -11,6 +11,7 @@ public:
     // cxscript numeric arguments arrive reversed; keep script API in natural order.
     void point_script(double y,double x) { point(x,y); }
     void topology_script(int components,int holes,int complete,int closed,int verified) { topology(verified,closed,complete,holes,components); }
+    void expectposebounds_script(double scale_tolerance,double angle_tolerance,double scale,double angle) { expectposebounds(angle,scale,angle_tolerance,scale_tolerance); }
     void expectpose_script(double tolerance,double scale,double angle) { expectpose(angle,scale,tolerance); }
     void select(int side);
     void clear();
@@ -26,6 +27,7 @@ public:
     void expectstatus(const char* expected);
     void expectpose(double angle, double scale, double tolerance);
     void expectcount(int count);
+    void expectposebounds(double angle,double scale,double angle_tolerance,double scale_tolerance);
     void save(const char* path);
     void trustedsha(const char* hash);
     void saveasset(const char* path);

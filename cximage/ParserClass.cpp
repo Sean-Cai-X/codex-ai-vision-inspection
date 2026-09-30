@@ -929,6 +929,7 @@ void CxParserRuntime::ParserInitialClassFunction(int iusing) {
     m_parser.DefineClassFun("HarmonicAudit", harmonic_audit, "run", &CxFastMatchHarmonicAudit::run);
     m_parser.DefineClassFun("HarmonicAudit", harmonic_audit, "expectstatus", &CxFastMatchHarmonicAudit::expectstatus);
     m_parser.DefineClassFun("HarmonicAudit", harmonic_audit, "expectpose", &CxFastMatchHarmonicAudit::expectpose_script);
+    m_parser.DefineClassFun("HarmonicAudit", harmonic_audit, "expectposebounds", &CxFastMatchHarmonicAudit::expectposebounds_script);
     m_parser.DefineClassFun("HarmonicAudit", harmonic_audit, "expectcount", &CxFastMatchHarmonicAudit::expectcount);
     m_parser.DefineClassFun("HarmonicAudit", harmonic_audit, "save", &CxFastMatchHarmonicAudit::save);
 

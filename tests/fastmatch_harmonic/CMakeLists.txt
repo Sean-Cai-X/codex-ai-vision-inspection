@@ -29,3 +29,5 @@ add_executable(make_fastmatch_fixture make_fastmatch_fixture.cpp)
 add_executable(so2_native_asset_guards native_asset_test.cpp)
 target_link_libraries(so2_native_asset_guards PRIVATE cx_so2)
 add_test(NAME native_asset_guards COMMAND so2_native_asset_guards)
+
+add_executable(make_raster_fixtures make_raster_fixtures.cpp)
