@@ -31,3 +31,8 @@ target_link_libraries(so2_native_asset_guards PRIVATE cx_so2)
 add_test(NAME native_asset_guards COMMAND so2_native_asset_guards)
 
 add_executable(make_raster_fixtures make_raster_fixtures.cpp)
+
+add_executable(make_complex_raster_fixtures make_complex_raster_fixtures.cpp)
+
+target_compile_features(make_raster_fixtures PRIVATE cxx_std_17)
+target_compile_features(make_complex_raster_fixtures PRIVATE cxx_std_17)

@@ -503,3 +503,72 @@ executables and reports are outside Git.
 Scope remains AUDIT_ONLY, production_eligible=false. These are controlled
 pixel-to-contour SO2 checks, not learned Torch/segmentation training, live
 FastMatch rotation-seed integration, business accuracy, APPROVED or ACTIVE.
+
+## P1f asymmetric/complex raster and combined transforms (2026-09-30)
+
+The source-only make_complex_raster_fixtures executable generates 24
+400x400 raster images outside the checkout. Three controlled simple-closed
+families are covered: bevel (irregular convex polygon), notched (asymmetric
+concave polygon) and wavy (smooth undulating asymmetric outline).
+The wavy fixture is rasterized from a sampled polygon; the actual matcher
+still consumes the independently measured pixel contour and arc-length
+DFT/EFD descriptors, not a radial shape representation.
+
+Each family has base, rotation-only 37 degrees, scale-only 0.75, combined
+37 degrees/0.75, combined 123 degrees/1.25, blurred combined 65 degrees/0.90,
+mirror and partial-occlusion images. Rotation-only and scale-only channels
+remain present as controls for combined-transform tests.
+
+run_complex_raster_replay.sh measures each family's base image, saves its
+reference asset, and loads the SHA-checked reference in a fresh process
+for every observed image. It runs both DFT and EFD: 48 cases total,
+36 accepted unique-pose observations, 6 mirror rejections and 6 declared
+partial fallbacks. Per-case raw receipts are saved before assertions so
+quality failures remain inspectable. A failing case does not hide the
+remaining cases; the final suite exits nonzero and reports a failure count.
+Reference-creation failure stops the suite because no valid baseline exists.
+
+Verified maximum errors across each family's accepted variants:
+
+| Family | DFT angle deg | EFD angle deg | DFT absolute scale | EFD absolute scale |
+| --- | ---: | ---: | ---: | ---: |
+| bevel | 0.129051 | 0.108601 | 0.002578 | 0.002579 |
+| notched | 0.530896 | 0.529371 | 0.003332 | 0.003325 |
+| wavy | 0.112106 | 0.105317 | 0.003371 | 0.003403 |
+
+All 48 expected outcomes passed at the existing 1-degree/0.02-scale
+assertion limits. The matching residual threshold remains 0.035; no native
+matching logic or product default was changed. Native CTest remains 2/2
+and the previous 14-case rectangle raster gate also passes.
+
+An important negative result: mirrored inputs had very small invariant
+magnitude distances (EFD about 1.5e-15 to 2.7e-15), but all were rejected by
+the phase-based pose residual gate (POSE_RESIDUAL_REJECTED). Magnitude
+similarity alone is not sufficient to accept a pose or exclude reflection.
+Accepted asymmetric inputs produce one hypothesis, unlike the rectangle's
+two 180-degree-separated alternatives.
+
+Run using the configured offline runtime:
+
+```sh
+cmake --build /external/native-build
+sh tests/fastmatch_harmonic/run_complex_raster_replay.sh \
+  /absolute/app /external/native-build/make_complex_raster_fixtures \
+  /external/fresh-complex-run
+```
+
+The external run contains generated images, per-family reference assets,
+per-case scripts/overlays/measurements/Audit receipts, case_results.txt,
+suite_receipt.json and complex_sha256.txt. Current evidence:
+../cxscript_runs/fastmatch_harmonic_complex_20260930/verified_replay.
+Builds and execution use devuan through the gateway and ordinary-user
+runtime isolation. The generators explicitly require C++17 for Windows/
+Linux portability; Windows execution is not verified in this stage.
+
+Scope remains AUDIT_ONLY. Topology/completeness is declared from the known
+controlled fixture; partial fallback does NOT demonstrate automatic
+occlusion detection. The suite covers simple closed boundaries, not open
+line/arc/open_curve semantics, holes, multi-component association, automatic
+boundary selection, strong texture/noise, or arbitrary business photographs.
+It is not a learned Torch model upgrade and does not activate production
+Prefilter/Pose Seed. Images, assets and binaries are not committed.
