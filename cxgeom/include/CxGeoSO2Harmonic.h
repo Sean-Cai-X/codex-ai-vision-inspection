@@ -48,7 +48,8 @@ struct Result {
     std::vector<Pose> poses;
 };
 // Invalid inputs throw std::invalid_argument with a stable reason code.
-// Descriptor is not a serialized asset: validation is repeated at every public boundary.
+// Descriptor is an in-memory value: validation is repeated at every public boundary.
+// Versioned persistence is provided separately by CxGeoSO2ReferenceAsset.h.
 Descriptor Build(const Contour&, const Config& = Config{}, Method = Method::Dft);
 double Distance(const Descriptor&, const Descriptor&);
 Result Match(const Descriptor&, const Descriptor&);

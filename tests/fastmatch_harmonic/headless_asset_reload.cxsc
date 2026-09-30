@@ -1,0 +1,25 @@
+// Image pipeline is real; synthetic contours below test the Audit contract only.
+Image m_image;
+FindObject m_object;
+m_image.copyFromMat(global_matInput);
+m_object.setrect(global_roi_x0,global_roi_y0,global_roi_x1-global_roi_x0,global_roi_y1-global_roi_y0);
+m_object.setsearchtype(0);
+m_object.setdistance(1);
+m_object.setbrow(2);
+m_object.setroithre(128);
+m_object.setminmax(20,999999);
+m_object.setminmaxwh(0,99999,0,99999);
+m_object.measurecc(m_image);
+global_match_count = m_object.getresultobjsnum();
+HarmonicAudit m_audit;
+m_audit.select(0);
+m_audit.trustedsha("TRUSTED_ASSET_SHA");
+m_audit.loadasset(global_harmonic_asset_path);
+m_audit.select(1);
+m_audit.fromobject(m_object);
+m_audit.topology(1,1,1,0,1);
+m_audit.run();
+m_audit.expectstatus("AUDIT_POSE_HYPOTHESES");
+m_audit.expectcount(2);
+m_audit.expectpose(0,1,0.01);
+m_audit.save(global_harmonic_receipt_path);

@@ -5,6 +5,7 @@
 #include "ManualConsoleUtils.h"
 #include <cmath>
 #include <fstream>
+#include <filesystem>
 #include <iomanip>
 #include <sstream>
 #include <stdexcept>
@@ -15,14 +16,16 @@ void CxFastMatchHarmonicAudit::select(int side) {
     selected_=side;
 }
 void CxFastMatchHarmonicAudit::clear() {
-    contours_[selected_]={};sources_[selected_]="script_points";invalidate();
+    loaded_[selected_].reset();contours_[selected_]={};sources_[selected_]="script_points";invalidate();
 }
 void CxFastMatchHarmonicAudit::point(double x,double y) {
     if(!std::isfinite(x)||!std::isfinite(y))throw std::invalid_argument("NONFINITE_CONTOUR");
     if(contours_[selected_].points.size()>=4096)throw std::invalid_argument("SOURCE_POINT_BUDGET_EXCEEDED");
+    loaded_[selected_].reset();
     contours_[selected_].points.emplace_back(x,y);invalidate();
 }
 void CxFastMatchHarmonicAudit::topology(int verified,int closed,int complete,int holes,int components) {
+    loaded_[selected_].reset();
     auto& c=contours_[selected_];
     c.topology_verified=verified!=0;c.closed=closed!=0;c.complete=complete!=0;
     c.holes=holes;c.components=components;invalidate();
@@ -66,8 +69,9 @@ void CxFastMatchHarmonicAudit::parameter(double v,const char* key) {
 void CxFastMatchHarmonicAudit::run() {
     result_={};
     try {
-        const auto a=cxgeom::so2::Build(contours_[0],config_,method_);
-        const auto b=cxgeom::so2::Build(contours_[1],config_,method_);
+        const auto a=loaded_[0]?*loaded_[0]:cxgeom::so2::Build(contours_[0],config_,method_);
+        auto expected=a;expected.config=config_;expected.method=method_;cxgeom::so2::Distance(a,expected);
+        const auto b=loaded_[1]?*loaded_[1]:cxgeom::so2::Build(contours_[1],config_,method_);
         result_=cxgeom::so2::Match(a,b);
     } catch(const std::invalid_argument& e) {
         result_.status=e.what();result_.fallback_reason="LEGACY_UNCHANGED";
@@ -86,6 +90,15 @@ void CxFastMatchHarmonicAudit::run() {
      <<",\"maximum_hypotheses\":"<<config_.maximum_hypotheses<<"},\"inputs\":[";
     for(int i=0;i<2;++i) {
         if(i)s<<",";
+        if(loaded_[i]) {
+            const cxgeom::so2::ReferenceAsset asset{*loaded_[i],sources_[i]};
+            s<<"{\"source\":\""<<JsonEscape(sources_[i])
+             <<"\",\"input_kind\":\"sha_checked_descriptor_asset\",\"sha256\":\""
+             <<cxgeom::so2::ReferenceSha256(cxgeom::so2::EncodeReference(asset))
+             <<"\",\"point_count\":null,\"topology_evidence\":\"not_embedded\",\"coefficient_count\":"
+             <<loaded_[i]->coefficients.size()<<"}";
+            continue;
+        }
         const auto& c=contours_[i];
         s<<"{\"source\":\""<<JsonEscape(sources_[i])<<"\",\"point_count\":"<<c.points.size()
          <<",\"topology_verified\":"<<(c.topology_verified?"true":"false")
@@ -124,6 +137,8 @@ void CxFastMatchHarmonicAudit::save(const char* path) {
       <<"\"measurement_evidence\":false,\"used_for_seed\":false,\"used_for_prefilter\":false,"
       <<"\"production_eligible\":false,\"assertions_passed\":"<<assertions_<<",\"runs\":[";
     for(size_t i=0;i<history_.size();++i){if(i)f<<",";f<<history_[i];}
+    f<<"],\"asset_events\":[";
+    for(size_t i=0;i<asset_events_.size();++i){if(i)f<<",";f<<asset_events_[i];}
     f<<"]}\n";f.close();
     if(!f)throw std::runtime_error(std::string("HARMONIC_RECEIPT_WRITE_FAILED:")+path);
 }
@@ -178,4 +193,40 @@ void CxFastMatchHarmonicAudit::expectunchanged(void* object) {
        fastmatch_snapshot_!=HarmonicFastMatchSnapshot(*static_cast<FastMatch*>(object)))
         throw std::runtime_error("HARMONIC_FASTMATCH_CHANGED");
     ++assertions_;
+}
+
+void CxFastMatchHarmonicAudit::trustedsha(const char* hash) {
+    trusted_sha_=hash?hash:"";
+}
+void CxFastMatchHarmonicAudit::saveasset(const char* path) {
+    if(!path || !*path)throw std::invalid_argument("ASSET_PATH_REQUIRED");
+    cxgeom::so2::ReferenceAsset a{
+        loaded_[selected_]?*loaded_[selected_]:cxgeom::so2::Build(contours_[selected_],config_,method_),
+        sources_[selected_]};
+    auto expected=a.descriptor;expected.config=config_;expected.method=method_;
+    cxgeom::so2::Distance(a.descriptor,expected);
+    const auto bytes=cxgeom::so2::EncodeReference(a);
+    const std::filesystem::path dest(path), pending(std::string(path)+".pending");
+    if(std::filesystem::exists(dest)||std::filesystem::exists(pending))
+        throw std::runtime_error("ASSET_OUTPUT_EXISTS");
+    std::ofstream f(pending,std::ios::binary);
+    f.write(bytes.data(),static_cast<std::streamsize>(bytes.size()));f.close();
+    if(!f)throw std::runtime_error("ASSET_WRITE_FAILED");
+    std::filesystem::rename(pending,dest);
+    trusted_sha_=cxgeom::so2::ReferenceSha256(bytes);
+    asset_events_.push_back("{\"operation\":\"save\",\"sha256\":\""+trusted_sha_+"\"}");
+}
+void CxFastMatchHarmonicAudit::loadasset(const char* path) {
+    if(!path || !*path)throw std::invalid_argument("ASSET_PATH_REQUIRED");
+    std::ifstream f(path,std::ios::binary|std::ios::ate);
+    if(!f)throw std::runtime_error("ASSET_READ_FAILED");
+    const auto n=f.tellg();
+    if(n<0 || n>262144)throw std::invalid_argument("ASSET_SIZE_LIMIT");
+    std::string bytes(static_cast<size_t>(n),'\0');f.seekg(0);
+    if(!f.read(bytes.data(),static_cast<std::streamsize>(bytes.size())))throw std::runtime_error("ASSET_READ_FAILED");
+    auto a=cxgeom::so2::DecodeReference(bytes,trusted_sha_,config_,method_);
+    // Commit only after all validation; a failed load preserves the previous slot.
+    loaded_[selected_]=std::move(a.descriptor);sources_[selected_]=std::move(a.provenance);
+    contours_[selected_]={};invalidate();
+    asset_events_.push_back("{\"operation\":\"load\",\"sha256\":\""+trusted_sha_+"\"}");
 }

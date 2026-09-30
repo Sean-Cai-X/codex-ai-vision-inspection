@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.16)
 project(cx_so2_numerical_tests LANGUAGES CXX)
 enable_testing()
 option(SO2_SANITIZERS "Enable address and undefined behavior sanitizers" OFF)
-add_library(cx_so2 STATIC ../../cxgeom/src/CxGeoSO2Harmonic.cpp)
+add_library(cx_so2 STATIC ../../cxgeom/src/CxGeoSO2Harmonic.cpp ../../cxgeom/src/CxGeoSO2ReferenceAsset.cpp)
 target_include_directories(cx_so2 PUBLIC ../../cxgeom/include)
 target_compile_features(cx_so2 PUBLIC cxx_std_17)
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
@@ -25,3 +25,7 @@ add_test(NAME native_parity COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE
 endif()
 
 add_executable(make_fastmatch_fixture make_fastmatch_fixture.cpp)
+
+add_executable(so2_native_asset_guards native_asset_test.cpp)
+target_link_libraries(so2_native_asset_guards PRIVATE cx_so2)
+add_test(NAME native_asset_guards COMMAND so2_native_asset_guards)

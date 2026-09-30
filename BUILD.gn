@@ -11,9 +11,11 @@ source_set("cxvision_source_inventory") {
   sources = filter_exclude(cxvision_default_sources, [
     "cximage/CxFastMatchHarmonicAudit.cpp",
     "cxgeom/src/CxGeoSO2Harmonic.cpp",
+    "cxgeom/src/CxGeoSO2ReferenceAsset.cpp",
   ]) + [
     "cximage/CxFastMatchHarmonicAudit.cpp",
     "cxgeom/src/CxGeoSO2Harmonic.cpp",
+    "cxgeom/src/CxGeoSO2ReferenceAsset.cpp",
     glad_root + "/src/gl.c",
   ]
   configs = [ "//build/config:common", "//build/config:platform" ]

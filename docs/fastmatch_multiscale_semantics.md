@@ -342,3 +342,86 @@ closure/provenance checks, occlusion/noise/rotation image regressions and
 live Prefilter/Pose Seed are still separate gates. This single fixed raster
 does not establish general business accuracy or production readiness.
 The optional Python oracle now requires SO2_PYTHON_ORACLE=ON explicitly.
+
+## P1d native descriptor assets and ordinary-user replay (2026-09-30)
+
+CxGeoSO2ReferenceAsset adds a bounded, canonical, locale-independent text
+codec (cxvision.so2_reference.v1, AUDIT_ONLY). It retains all configuration,
+DFT/EFD method, signed frequencies, complex coefficients (including phase),
+centroid, scale, perimeter and an ASCII provenance label (1..1024 bytes).
+Maximum payload size is 256 KiB. The codec has no image, GUI, Python or model
+registry dependency.
+
+DecodeReference requires a caller-trusted, lowercase SHA-256 digest and
+checks it BEFORE parsing. It rejects unknown schema/mode, oversized,
+truncated, trailing/noncanonical input, invalid descriptors, incompatible
+configuration/method and missing/wrong hashes. It returns a temporary value;
+validation failure does not replace an existing descriptor. SHA-256 is
+integrity against that supplied digest, NOT signing or authentication.
+Trust distribution, production approval and independent topology evidence
+are not supplied by this codec.
+
+HarmonicAudit script methods:
+
+- saveasset(path): serialize the selected valid descriptor (or Build from
+  the selected explicitly verified contour), refuse existing output/pending
+  files, write a pending file then rename; remember its SHA for same-instance
+  reloading. Failed I/O may leave a pending file for diagnosis.
+- trustedsha(hex): set the expected digest for subsequent loading. In a new
+  process obtain it from the trusted evidence manifest, not from the file
+  being loaded as a substitute for trust.
+- loadasset(path): bounded read, SHA/schema/descriptor/config checks, then
+  replace only the selected Audit slot. Failure propagates to headless
+  execution and does not install a candidate in FastMatch.
+- clear/point/topology reset the selected loaded descriptor; configuration
+  changes invalidate results, and run rechecks loaded config compatibility.
+
+Headless injects global_harmonic_asset_path under its output directory.
+Receipts record save/load SHA events and identify loaded inputs as
+sha_checked_descriptor_asset with topology_evidence=not_embedded.
+A provenance string is a trace label, not physical closure proof.
+No live FastMatch pointer, Prefilter, Pose Seed or production state is changed.
+
+Reproduce in the configured runtime (all output paths external):
+
+```sh
+cmake -G Ninja -S tests/fastmatch_harmonic -B /external/native-build \
+  -DSO2_PYTHON_ORACLE=OFF
+cmake --build /external/native-build
+ctest --test-dir /external/native-build --output-on-failure
+/external/native-build/make_fastmatch_fixture /external/rectangle.pgm
+sh tests/fastmatch_harmonic/run_reference_asset_replay.sh \
+  /absolute/app /external/rectangle.pgm /external/fresh-asset-run
+```
+
+Use ONLY the generated solid rectangle fixture for this suite: its script
+explicitly declares known closure. The image is actually processed by
+FindObject; its 436-point contour is encoded, cleared, loaded and compared.
+This is not an automatically verified arbitrary business contour.
+
+Verified this stage:
+
+- Native guard + asset guard tests: 2/2, also 2/2 with ASan/UBSan.
+  SHA known-answer vectors, DFT and EFD exact roundtrip, retained value after
+  rejected decode, schema/truncation/trailing/size/trust/config/method checks.
+- Actual application headless/cxscript: same-process roundtrip and independent
+  process reload, each 3 assertions; correct rejection of modified bytes and
+  incompatible configuration. External sha256sum agrees with native SHA.
+- Baseline/roundtrip/reload image overlays, tool display, object state and
+  measurement observations compare byte-for-byte.
+- Existing FastMatch/FormFit baseline-versus-Audit and deliberate failure
+  regressions pass; existing 56-run / 160-assertion Audit suite also passes.
+
+Evidence is outside the checkout:
+../cxscript_runs/fastmatch_harmonic_asset_20260930/
+(final_replay, final_fastmatch_regression, final_audit_regression,
+native-build, asan-build and build/test logs).
+This stage built and ran as devuan using bwrap with the existing mounted
+runtime, not sudo/chroot; mounting that runtime remains an administrator
+setup step. Python mediated gateway commands only; acceptance execution
+was C++ binaries, CTest, shell and cxscript (Python oracle OFF).
+
+Next gates remain rotated/scaled/noisy/occluded raster regressions, independently
+verified reference topology/provenance, signed trust distribution if required,
+and separately gated live Prefilter/Pose Seed. Successful asset replay is
+not business accuracy, APPROVED or ACTIVE.

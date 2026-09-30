@@ -100,6 +100,7 @@ set(CXIMAGE_CORE_SOURCES
   cximage/FastMatchDiagnostic.cpp
   cximage/CxFastMatchHarmonicAudit.cpp
   cxgeom/src/CxGeoSO2Harmonic.cpp
+  cxgeom/src/CxGeoSO2ReferenceAsset.cpp
   cximage/CxFastMatchRuntimeCapture.cpp
   cximage/Run.cpp
   cximage/ParserClass.cpp

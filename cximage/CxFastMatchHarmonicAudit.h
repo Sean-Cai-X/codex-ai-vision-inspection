@@ -1,6 +1,8 @@
 #pragma once
 #include "../cxgeom/include/CxGeoSO2Harmonic.h"
 #include <string>
+#include <optional>
+#include "../cxgeom/include/CxGeoSO2ReferenceAsset.h"
 #include <vector>
 
 // Explicit script-side observer. Owns copies only; no FastMatch pointer or seed setter.
@@ -25,6 +27,9 @@ public:
     void expectpose(double angle, double scale, double tolerance);
     void expectcount(int count);
     void save(const char* path);
+    void trustedsha(const char* hash);
+    void saveasset(const char* path);
+    void loadasset(const char* path);
 private:
     void invalidate();
     cxgeom::so2::Contour contours_[2];
@@ -38,4 +43,7 @@ private:
     int assertions_ = 0;
     std::vector<std::string> history_;
     std::string fastmatch_snapshot_;
+    std::optional<cxgeom::so2::Descriptor> loaded_[2];
+    std::string trusted_sha_;
+    std::vector<std::string> asset_events_;
 };
