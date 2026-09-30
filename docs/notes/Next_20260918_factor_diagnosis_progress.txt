@@ -1,0 +1,118 @@
+Experimental V2A frozen-checkpoint factor diagnosis
+Date: 2026-09-30
+Checkpoint provenance: cyclic_moment_20260930/run01, source step 4c4a016.
+Scope: DEVELOPMENT_DIAGNOSTIC. Acceptance NOT_EVALUATED.
+No training, optimizer, hyperparameter selection or production promotion.
+
+Purpose
+Separate the previous holdout's angle, scale, intensity and subpixel position
+effects without changing its weights. This is development analysis of already
+inspected data, NOT another independent acceptance evaluation.
+
+Implementation
+- tests/cyclic_pose/factor_sweep.cpp / cyclic_factor_sweep executable:
+  loads saved PoseBranch(1,2,12), eval mode and NoGradGuard.
+  Snapshots all parameters AND buffers and requires exact equality after run.
+  Generates analytic images and GT masks directly; never writes source images.
+  Source experiment directory mounted read-only in the validation runtime.
+  Refuses existing output directory.
+- tests/cyclic_pose/verify_factor_sweep.py:
+  independent modular angle errors, paired metadata/factor isolation checks,
+  combined-condition comparison against the original frozen-model predictions,
+  per-symmetry summaries, paired prediction drift and error changes.
+  Negative checks reject confounded factor rows and incorrect angular errors.
+
+Design (484 rows total)
+Seven matched scenarios, each with the same original 36 oriented instances
+and two q0 circles (38 rows). Each retains the original target angles:
+  baseline         scale1, intensity1, x0, y0
+  scale_only       original .92/1.08, intensity1, x0, y0
+  intensity_only   scale1, original .85, x0, y0
+  translation_only scale1, intensity1, original x/y offsets
+  x_only           scale1, intensity1, original x, y0
+  y_only           scale1, intensity1, x0, original y
+  combined         all original v2 holdout conditions
+Offsets are the original seeded values within +/-.75 pixel.
+Dense angle scenario adds 72 uniformly spaced angles per symmetry q1/q2/q4
+plus two circles (218 rows), at scale1/intensity1/center0.
+Dense spacing: 5, 2.5, 1.25 degrees respectively.
+The 12 dense angles matching training angles do not reproduce the entire
+training samples: their placement is centered rather than training jitter.
+
+Measured angle error, degrees
+scenario           MAE       P95       max
+baseline           .572339   1.177675  1.568740
+scale_only        2.248872   5.094870  5.094876
+intensity_only    1.588968   3.783011  3.783011
+translation_only   .579055   1.718194  1.915268
+x_only             .583818   1.568240  1.672969
+y_only             .505056   1.544762  1.711932
+combined          2.519420   5.433084  5.469931
+angle_dense        .589854   1.503475  1.686384
+
+No invalid oriented predictions; both circles angle-invalid per scenario.
+Dense off-training-grid angles: 204 rows, MAE .614561, P95 1.503475.
+Per-symmetry MAE:
+scenario          q1         q2         q4
+baseline           .565286    .483566    .668165
+scale_only        3.344262   2.560539    .841816
+intensity_only     .992201   2.912377    .862327
+translation_only   .791588    .321688    .623889
+combined          3.364288   3.398058    .795914
+angle_dense        .574541    .545311    .649710
+
+Interpretation
+On these fixtures, scale variation is the largest single tested factor;
+intensity reduction is also material, especially q2. Translation contributes
+much less in this small displacement range. Centered angle-only results are
+below the existing numerical MAE1/P952 reference limits, but this diagnostic
+does not confer independent validation or arbitrary-angle production approval.
+The combined case reproduces all previous v2 holdout angle predictions within
+1e-5 degree, supporting that these controls use the intended image/model path.
+Effects are not additive: do not sum individual error increases to explain the
+combined error. Signed angle shifts can reinforce or cancel one another.
+Scale tests rerender geometry AND its GT mask; brightness-only tests preserve
+the mask. This does not identify a specific faulty layer or prove BN is the
+cause; it measures end-to-end frozen-model sensitivity.
+Only one checkpoint, three oriented synthetic shapes, small images, prescribed
+factor values, GT masks and known q were tested. No unseen shape, real image,
+occlusion, predicted mask, CUDA or Windows assertion is supported.
+
+Verification
+Release CTest 6/6 PASS (existing regression contracts).
+Diagnostic replay predictions byte-identical.
+Source checkpoint and every source experiment asset hash unchanged.
+Parameters and normalization buffers unchanged.
+Existing-output refusal verified.
+Independent metadata/error checks and deliberate-corruption rejection PASS.
+This step does not rerun Debug.
+An initial read-only-root bind placement failed before execution; corrected
+to a read-only bind under /codex-data. Both attempt logs retained.
+
+Evidence and reproduction
+  ../cxscript_runs/cyclic_factors_20260930/
+  command_context.json : exact runtime with read-only checkpoint bind
+  input_sha256.json : source asset identity before execution
+  build_run.log : failed mount setup, no model run
+  build_run_bound.log : successful build/run
+  run01/protocol.json / predictions.csv : 484 rows, full input factors
+  independent_factor_audit.json : aggregate/per-q/paired metrics
+  replay.log / verification_checks.json / release_regression.log
+  step_receipt.json
+Build target cyclic_factor_sweep in tests/cyclic_pose.
+Inside the recorded runtime:
+  /codex-data/build/cyclic_factor_sweep /codex-data/frozen-run /codex-data/NEW_DIRECTORY
+Independent audit from repository:
+  python3 tests/cyclic_pose/verify_factor_sweep.py ../cxscript_runs/cyclic_moment_20260930/run01 ../cxscript_runs/cyclic_factors_20260930/run01
+Exit0 means successful diagnostic execution/audit, not model acceptance.
+No GUI Evidence case registered or existing test image changed.
+
+Next bounded step
+Prioritize training-only scale and intensity coverage. Compare fixed-budget
+controls (unchanged baseline, scale augmentation, intensity augmentation,
+both) on development fixtures; retain architecture and moment target first.
+Only if needed, separately investigate normalization/pooling via explicit
+ablations, rather than assuming the layer responsible.
+Do not tune on a new acceptance set: define an untouched angle/factor holdout,
+freeze training protocol and final weights, then evaluate once against the
+unchanged MAE1deg/P952deg gates. Existing v1/v2 holdouts are development data.

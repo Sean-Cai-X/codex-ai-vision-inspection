@@ -96,3 +96,16 @@ target_link_libraries(cyclic_moment_target_contract PRIVATE "${TORCH_LIBRARIES}"
 target_compile_options(cyclic_moment_target_contract PRIVATE ${TORCH_REQUIRED_FLAGS})
 add_test(NAME cyclic_moment_target_contract COMMAND cyclic_moment_target_contract)
 set_tests_properties(cyclic_moment_target_contract PROPERTIES TIMEOUT 60)
+
+# Fixed-checkpoint development diagnostic, not an accuracy acceptance test.
+add_executable(cyclic_factor_sweep
+    factor_sweep.cpp
+    ../../libtorch_module/torch_cyclic_group_ops.cpp
+    ../../libtorch_module/torch_cyclic_feature_ops.cpp
+    ../../libtorch_module/torch_cyclic_analytic_lift.cpp
+    ../../libtorch_module/torch_cyclic_analytic_group.cpp
+    ../../libtorch_module/torch_cyclic_pose_branch.cpp)
+target_compile_features(cyclic_factor_sweep PRIVATE cxx_std_17)
+target_include_directories(cyclic_factor_sweep PRIVATE ../../libtorch_module ${TORCH_INCLUDE_DIRS})
+target_link_libraries(cyclic_factor_sweep PRIVATE "${TORCH_LIBRARIES}")
+target_compile_options(cyclic_factor_sweep PRIVATE ${TORCH_REQUIRED_FLAGS})
