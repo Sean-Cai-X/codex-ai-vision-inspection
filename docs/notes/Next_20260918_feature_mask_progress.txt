@@ -1,0 +1,101 @@
+Next_20260918: group features, normalization, resize and mask pooling
+Date: 2026-09-30
+
+Added torch_cyclic_feature_ops.h/.cpp and feature_test.cpp.
+This is an opt-in research contract layer, not a deployed pose branch.
+V1, FastMatch, parser bindings, product defaults and image assets are unchanged.
+
+API and invariants
+------------------
+GroupFeature:
+  FP32 [B,C,K,H,W]; positive displayed CCW convention=1; zero bin unrotated.
+  K multiple of 4 in 4..24. Finite values and nonempty dimensions required.
+  The convention is explicitly checked, not silently inferred from shape.
+
+SharedBatchNorm:
+  BatchNorm3d(C) shares statistics and affine parameters over orientation.
+  K/C/convention contract metadata is serialized with the module.
+  Training/evaluation, running statistics, affine gradients and archive
+  roundtrip are covered. This is ordinary BatchNorm, not instance-independent
+  normalization: statistics intentionally aggregate across batch/spatial/K.
+
+ResizeGroup:
+  Changes only H/W, preserves B/C/K and convention.
+  Downsampling: area averaging. Upsampling: bilinear, align_corners=false.
+  Mixed-axis enlarge/shrink is rejected; equal sizes are an identity.
+  Returned identity may alias the input (callers must not mutate it in-place).
+  Area averaging is NOT an ideal low-pass filter or proof of arbitrary-angle
+  rotation equivariance. No custom CUDA or learned sampling kernel is added.
+
+ConcatGroup:
+  Concatenates base channels C only. K, convention, batch, spatial dimensions
+  and device must agree; empty lists and inconsistent metadata fail.
+
+InstanceMasks:
+  FP32 finite [B,N,H,W] masks in [0,1], IDs per batch and per instance.
+  Nonempty unique IDs are required within a batch. IDs may repeat across
+  separate batch items. Source is explicitly GroundTruth or Predicted.
+  Overlapping instance masks are allowed; the function does not apply NMS.
+  N=0 is rejected: an upstream no-detection path must skip pooling.
+  All-zero masks are allowed and become invalid pooled instances.
+  Source/IDs are carried from the caller, not independently authenticated.
+
+ResizeMasks:
+  Explicit spatial resize using the same resize policy. Preserves IDs/source.
+  PoolInstances never silently resizes or guesses an ROI transform.
+
+PoolInstances:
+  Inputs must share batch, spatial shape and device.
+  Caller remains responsible for the same coordinate frame, pixel alignment,
+  crop and ROI transform: matching dimensions do not prove that alignment.
+  Output [B,N,C,K], valid[B,N], mass[B,N], instance IDs and mask source.
+  Mass is the summed soft-mask weight on the FEATURE grid, not physical area.
+  Default minimum_mass=1e-6; must be finite positive and representable in FP32.
+  Invalid/empty instances return zero features and valid=false.
+  Downstream angular heads MUST gate on valid; zeros are not a valid pose.
+  Invalid instances use a safe denominator before division, retaining finite
+  zero gradients even with extremely small configured mass thresholds.
+
+Verification
+------------
+CPU FP32 tests cover K=8/12/24 and multiple batches/channels/instances:
+- Train/eval BN quarter-turn behaviour and shared running statistics.
+- Gamma/beta gradient availability and archive output equality.
+- 17->8 area / 17->25 bilinear / identity shapes and quarter-turn agreement.
+- Orientation-only channel permutation preservation through resizing.
+- Channel concat and invalid convention/shape/resize rejection.
+- Explicit manual per-instance pooling oracle.
+- Instance reordering, cross-batch and spatial gradient isolation.
+- GroundTruth/Predicted provenance preservation.
+- Joint image-feature/Mask quarter-turn produces the expected K roll.
+- Explicit resized Mask pooling and mismatched frame-shape rejection.
+- Empty masks, duplicate IDs, negative/nonfinite masks and invalid thresholds.
+- Pool, resize and safe empty-mask gradients.
+
+Release: 4/4 CTest groups PASS, checks 124 + 922 + 357 + 139.
+Debug: see the final debug log and feature_receipt.json for verified status.
+The additional 139 checks are implementation contracts, not accuracy cases.
+Random/synthetic tensors only; no dataset or GUI acceptance was performed.
+All CTest entries have 60-second per-test timeouts.
+
+External evidence:
+  ../cxscript_runs/cyclic_feature_20260930/
+  command_context.json
+  release.log (initial checks)
+  release_final.log
+  debug_final.log
+  feature_receipt.json
+  build/ and debug/
+Source code, tests and this note are the Git deliverables; generated logs,
+binaries and receipts remain outside the checkout.
+
+Remaining gates
+---------------
+No arbitrary-angle resize/mask pooling guarantee is established.
+No end-to-end high-frequency robustness, CUDA parity, real-image accuracy,
+runtime source-to-instance binding or business measurement acceptance.
+Full C_N/G1 remains NOT_PASSED; production_eligible=false.
+Next implement a group-shared angular projection and per-instance decoder
+adapter consuming this validity/source/identity contract, then compose an
+experimental V2A branch. Do not activate a production FastMatch seed until
+V1 baseline, held-out calibration and application-benefit gates pass.

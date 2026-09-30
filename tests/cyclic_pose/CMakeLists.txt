@@ -51,3 +51,13 @@ target_link_libraries(cyclic_stack_contract PRIVATE "${TORCH_LIBRARIES}")
 target_compile_options(cyclic_stack_contract PRIVATE ${TORCH_REQUIRED_FLAGS})
 add_test(NAME cyclic_stack_contract COMMAND cyclic_stack_contract)
 set_tests_properties(cyclic_stack_contract PROPERTIES TIMEOUT 60)
+add_executable(cyclic_feature_contract
+    feature_test.cpp
+    ../../libtorch_module/torch_cyclic_group_ops.cpp
+    ../../libtorch_module/torch_cyclic_feature_ops.cpp)
+target_compile_features(cyclic_feature_contract PRIVATE cxx_std_17)
+target_include_directories(cyclic_feature_contract PRIVATE ../../libtorch_module ${TORCH_INCLUDE_DIRS})
+target_link_libraries(cyclic_feature_contract PRIVATE "${TORCH_LIBRARIES}")
+target_compile_options(cyclic_feature_contract PRIVATE ${TORCH_REQUIRED_FLAGS})
+add_test(NAME cyclic_feature_contract COMMAND cyclic_feature_contract)
+set_tests_properties(cyclic_feature_contract PROPERTIES TIMEOUT 60)
