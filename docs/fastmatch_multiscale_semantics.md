@@ -104,3 +104,76 @@ independent ground truth.
    those gates. SO(3), bispectrum and GPU work remain later, evidence-driven work.
 
 No APPROVED or ACTIVE status is issued by this P0 work.
+
+## P1a native numerical module (2026-09-30)
+
+Implemented `cxgeom/include/CxGeoSO2Harmonic.h` and
+`cxgeom/src/CxGeoSO2Harmonic.cpp`, namespace `cxgeom::so2`.
+This is a dependency-free C++17 numerical library, built by the isolated
+`tests/fastmatch_harmonic/CMakeLists.txt`. It is not yet linked into the
+application and does not constitute the full P1 Audit adapter.
+
+The native API exposes Build, Distance and Match, with a configurable sample
+count, order, minimum point count/perimeter, scale normalization, phase
+residual limit, symmetry threshold, peak tolerance and hypothesis budget.
+All public descriptor operations validate dimensions, finite values,
+configuration compatibility, method identity and nonzero energy.
+
+Contour input requires an explicit topology_verified assertion, closed and
+complete flags, zero holes and one component. Defaults fail closed.
+The caller must establish those facts independently: this assertion is not
+proof of provenance. The library additionally rejects nonfinite points,
+self-intersections/touches/backtracking, insufficient source points and
+inputs over the 4096-point work budget. It never infers physical closure
+from point count. More detailed topology/provenance acquisition remains an
+adapter responsibility.
+
+Coordinates remain isotropic original pixel coordinates. Internal translation
+before energy calculations avoids cancellation at large coordinate origins.
+The module retains complex phase, handles winding as traversal order,
+preserves discrete symmetry branches and declines an observable pose for
+a circle. Reflection is not an enabled hypothesis. Geometrically symmetric
+shapes can be indistinguishable from their mirrors; this is not a universal
+chirality detector. Scores are numerical correlations, not calibrated confidence.
+
+Validation:
+
+- Release build: GCC 14.2, -Wall -Wextra -Werror -pedantic.
+- Three CTest groups: native guards, nine Python oracle tests, native parity.
+- Native parity: 864 controlled rotation/scale/winding scenarios plus four
+  asymmetric mirror/wrong-shape rejection cases.
+- Compare coefficients, centroid, perimeter, RMS scale, invariant distance,
+  result status, symmetry order, number of poses and pose values.
+- Debug build with AddressSanitizer + UndefinedBehaviorSanitizer: same suite.
+- Guard tests include malformed descriptors, unverified/open/partial/hole/
+  multicomponent inputs, self-intersections, nonfinite input, hypothesis
+  exhaustion and a large coordinate translation.
+
+A floating-point false self-intersection of rotated collinear rectangle
+segments was found by parity testing and corrected with an orientation
+tolerance. This case remains in the rotation sweep.
+
+Portable replay (use an existing compiler toolchain; output stays external):
+
+```sh
+cmake -G Ninja -S tests/fastmatch_harmonic \
+  -B ../cxscript_runs/fastmatch_harmonic_p1_20260930/build-ninja \
+  -DCMAKE_BUILD_TYPE=Release
+cmake --build ../cxscript_runs/fastmatch_harmonic_p1_20260930/build-ninja
+ctest --test-dir ../cxscript_runs/fastmatch_harmonic_p1_20260930/build-ninja --output-on-failure
+python3 tests/fastmatch_harmonic/run_native_parity.py \
+  --binary ../cxscript_runs/fastmatch_harmonic_p1_20260930/build-ninja/so2_native_probe \
+  --report ../cxscript_runs/fastmatch_harmonic_p1_20260930/native_parity.json
+```
+
+For sanitizers, configure a separate Debug build with SO2_SANITIZERS=ON.
+This remote host uses the already installed portable host-gcc/host-tools and
+its sysroot under /mnt/codex-gpu-runtime/opt/codex-ai-vision; the exact build
+commands and logs are recorded in the external evidence directory.
+Windows compilation and full application GN integration are not validated
+by this isolated Linux test.
+
+Remaining gates are unchanged: validated real observation contours and live
+model inventory; versioned reference assets/hash checks; native Audit adapter
+and legacy-output replay; then evidence-gated Prefilter/Pose Seed. No actual
+image accuracy, speedup, APPROVED or ACTIVE claim follows from this delivery.
