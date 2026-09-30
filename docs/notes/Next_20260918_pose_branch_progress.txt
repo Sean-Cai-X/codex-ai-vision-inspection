@@ -1,0 +1,113 @@
+Next_20260918: experimental V2A angle branch
+Date: 2026-09-30
+Implementation: libtorch_module/torch_cyclic_pose_branch.h/.cpp
+Contract tests: tests/cyclic_pose/branch_test.cpp
+
+Implemented
+-----------
+AngularHead:
+- Per-scale channel projection [S,C] is shared over every orientation bin.
+- Learned softmax scale weights [S] are also shared over orientations.
+- No independent per-orientation parameters or biases.
+- Validates C/K/S, pooled validity/mass, identity ordering and Mask source.
+- A missing/invalid scale invalidates the entire instance (conservative policy).
+- Produces [B,N,K] logits, probabilities, per-instance harmonic angle,
+  concentration, entropy, raw peak margin, bin angles, symmetry order/period,
+  mask validity, per-scale mass/weights, instance IDs and Mask source.
+- q=1/2/4 supports 360/180/90 degree symmetry; q=0 is angle undefined.
+- Output source=experimental_cyclic_pose_v2a, predictive_only=true.
+- Concentration is not calibrated probability or angular uncertainty.
+- Invalid angle is a zero sentinel, never usable without angle_valid.
+
+PoseBranch:
+  image -> AnalyticLift -> SharedBN -> SiLU                (scale 1)
+        -> area resize -> AnalyticGroup -> SharedBN -> SiLU (scale 1/2)
+        -> area resize -> AnalyticGroup -> SharedBN -> SiLU (scale 1/4)
+  Each feature scale + explicitly resized corresponding instance Masks
+        -> PoolInstances -> AngularHead -> DecodeAngles
+
+These are relative-resolution scales, NOT the YOLO P3/P4/P5 feature maps.
+No YOLO backbone/head or weight-loading path is modified.
+This is a standalone callable branch, not yet automatically bound to actual
+YOLO runtime outputs, dataset assignment, or canonical inference receipts.
+It estimates angle distributions only; no centre/size head is implemented.
+
+Inputs / use
+------------
+PoseBranch model(input_channels, channels, K);
+model->eval(); // Use train() explicitly only for training.
+auto output = model->forward(image, masks, harmonic_order, angle_requested);
+
+image: finite FP32 [B,C,H,H], H>=16 and divisible by 4, C=1..4.
+channels: 1..32, default 2. K must follow the cyclic module contract.
+masks: FP32 [B,N,H,H] in the same image frame, with per-instance IDs/source.
+harmonic_order: int64 [B,N] in exactly the same instance order.
+angle_requested: bool [B,N], caller-declared angle validity/eligibility.
+Geometry-to-q semantics remain the caller's responsibility; correct tensor
+shape cannot prove that a class label or instance ID is truthful.
+Cross-scale identity/source disagreement and image/Mask shape mismatch fail.
+All scales must have sufficient mask mass for mask_valid=true.
+
+The branch preserves mask provenance but does not authenticate it.
+Nothing marks a GT Mask as a predicted Mask or manufactures a runtime ID.
+The current branch starts from random parameters: it is not a ready model.
+
+Training boundary
+-----------------
+The test computes a symmetry-aware circular distribution loss using
+mask_valid & (q>0) & angle_requested. It deliberately does not suppress
+supervision based on the randomly initialized model's concentration.
+The loss propagates finite nonzero gradients through projection, scale
+weights, both Group blocks and Lift coefficients.
+This is a backward-connectivity check, NOT completed training, an optimizer
+convergence experiment, synthetic overfit or a calibrated pose model.
+Train-mode BatchNorm intentionally couples batch statistics; inference
+should use eval() and frozen learned statistics.
+
+Verification
+------------
+Release: CTest 5/5 PASS; group checks 124, 922, 357, 139, 48.
+Debug: final status is recorded in debug_final.log and branch_receipt.json.
+New branch tests include:
+- Known analytic circular distributions for q=1/2/4 at K=12 and K=24.
+- Circle/empty/request-disabled angles remain invalid.
+- One-bin orientation shifts preserve angular probability shifts.
+- Instance reorder follows IDs/q order, without numerical cross-assignment.
+- Missing one scale disables that instance.
+- Mismatched cross-scale IDs/source and requested tensor type are rejected.
+- Wrong serialized temperature contract is rejected.
+- Full two-batch, multi-instance branch forward and 90-degree test.
+- All learned paths receive finite nonzero backward gradients.
+- Full module archive reload reproduces logits/angles exactly.
+- Invalid input size, mask frame shape and q shape are rejected.
+
+Release full-branch quarter-turn max absolute logit difference: 5.58794e-9.
+Random-initialization test loss: about 2.47486. This is not a quality score.
+Quarter-turn agreement does not validate arbitrary-angle branch behaviour,
+nor the old G1~G5 application gates.
+No CUDA device was available in the isolated environment; CUDA is unverified.
+No Windows, GUI, actual YOLO results or real business-image test was done.
+
+External evidence:
+  ../cxscript_runs/cyclic_branch_20260930/
+  command_context.json
+  release.log (initial 44 checks)
+  release_final.log (48 checks)
+  debug_final.log
+  branch_receipt.json
+  build/ and debug/
+Source/tests/this note are committed; generated reports/binaries are external.
+
+Next gates
+----------
+1. Freeze V1 weights/data/inference baseline and source identity.
+2. Add controlled paired synthetic data, validated q/instance targets and
+   an explicit supervised loss/training harness. Verify small-set overfit.
+3. Measure arbitrary-angle/multiscale/high-frequency behaviour on held-out
+   data; calibrate uncertainty and document actual failure/fallback regimes.
+4. Bind real YOLO instance IDs/Masks only through a versioned opt-in adapter.
+5. Compare against no-seed and Mask-OBB baselines, including search budgets,
+   wrong-edge rate and final geometry quality, before any FastMatch admission.
+
+Full C_N/G1: NOT_PASSED. Production eligible: false.
+V1, FastMatch, Evidence catalog, test images and product defaults unchanged.
