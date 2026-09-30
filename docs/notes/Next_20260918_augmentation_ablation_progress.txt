@@ -1,0 +1,122 @@
+Experimental V2A equal-budget scale/intensity augmentation ablation
+Date: 2026-09-30
+Scope: DEVELOPMENT_ABLATION; independent acceptance NOT_EVALUATED.
+No network/decoder/moment-target change, production promotion or UI change.
+
+Implementation
+tests/cyclic_pose/synthetic_train.cpp accepts:
+  cyclic_synthetic_train NEW_OUTPUT_DIRECTORY [baseline|scale|intensity|joint]
+Default remains baseline. Invalid mode rejected before output creation.
+Canonical fixtures and previous numerical fields remain compatible; protocol
+and receipt now explicitly include evaluation_role=DEVELOPMENT and augmentation.
+Historical field name holdout_pass means numerical reference pass on the reused
+development set in this step, NOT independent validation.
+The analytic renderer is shared by canonical generation and augmentation.
+augmentation.csv records step,id,scale,intensity for every input example.
+verify_augmentation_ablation.py independently checks budget, fixture pairing,
+all scheduled factors, training curves, angle errors, factor sweeps,
+checkpoint reload and exact previous-baseline replay.
+
+Pre-registered design
+Same architecture PoseBranch(1,2,12), model seed918, train seed31415,
+Adam lr.01, 240 steps, batch14 for every arm. No early stopping or extra steps.
+Each arm receives 3,360 image presentations (2,880 oriented, 480 q0 circles).
+No added training angles or positions. Original four angles per q1/q2/q4,
+two circles, original subpixel placement.
+Scale levels .9,1,1.1; intensity levels .8,.9,1.
+At step t, sample index i:
+  scale level index = (t+i)%3
+  intensity level index = (floor(t/3)+i)%3
+Only enabled factors vary; disabled factors equal1. Joint arm cycles through
+all nine combinations in each complete nine-step cycle. 240 steps are fixed,
+so the final partial cycle need not have exactly equal counts.
+GT masks are regenerated for scale changes; intensity does not alter masks.
+Brightness is synthetic multiplicative dimming only, not arbitrary lighting.
+
+Development evaluation
+Reuses the already inspected v2 angles/placements and .92/1.08 scale, .85
+intensity. Same fixtures across arms. This is valid for development comparison,
+not for an independent generalization claim.
+Each frozen arm also runs the 484-row factor diagnostic, with independently
+verified paired scenarios and reconstruction of that arm's combined result.
+Source/protocol hashes saved before training; no post-result changes to budget.
+
+Measured combined development errors, degrees
+arm          MAE         P95         max         reference MAE1/P952
+baseline     2.519420    5.433084    5.469931    NOT_PASSED
+scale        1.984655    3.653540    3.702892    NOT_PASSED
+intensity    1.643555    5.098151    5.824253    NOT_PASSED
+joint         .562782    1.652952    2.341717    PASS_ON_DEVELOPMENT_ONLY
+
+Canonical training errors, degrees
+arm          MAE         max
+baseline      .139394     .434428
+scale         .237365     .542362
+intensity     .468090    1.455159
+joint         .327145     .941365
+All four satisfy the existing small-set overfit gates, correct angle validity
+and loss-ratio gate. All checkpoint reload logits exactly equal original.
+No invalid oriented outputs, both q0 circles invalid in each evaluation split.
+Initial canonical KL identical .177423194051 for all arms.
+
+Factor diagnostic MAE, degrees
+arm          centered    scale_only  intensity_only  combined   dense_angles
+baseline      .572339    2.248872    1.588968        2.519420    .589854
+scale         .645771     .645375    2.233049        1.984655    .582191
+intensity    1.067571    2.048043    1.090592        1.643555   1.048586
+joint         .668624     .737847     .600947         .562782    .560748
+
+Interpretation
+Joint augmentation is the strongest candidate under this fixed, single-seed
+development comparison. Scale-only training improves scale sensitivity but
+does not solve intensity sensitivity. Intensity-only training is not enough
+and worsens some clean-angle results in this run.
+These observations support adding both kinds of training coverage before
+changing normalization/pooling, but do not prove a universally optimal recipe.
+Same optimizer steps and batch size control sample-presentation budget, not
+identical wall-clock cost. Different arms necessarily see different images.
+No independent acceptance set was accessed or created in this step.
+
+Verification
+Release regression CTest 6/6 PASS.
+Independent ablation audit PASS; 13,440 per-step parameter rows checked.
+No-augmentation baseline angle predictions, learning curve and split manifests
+are byte-identical to the prior moment-supervision run.
+Joint repeat: augmentation schedule, learning curve, predictions and receipt
+byte-identical. Repeat is reproducibility evidence, not another seed.
+Invalid-mode refusal, existing-output refusal and corrupt-schedule rejection
+PASS. Prior moment-supervision input/checkpoint hashes unchanged.
+No Debug, CUDA, Windows or actual-image training/evaluation this step.
+
+Evidence
+  ../cxscript_runs/cyclic_augmentation_20260930/
+  pre_registered_protocol.json / command_context.json / build.log
+  baseline/ scale/ intensity/ joint/
+    protocol.json / training_receipt.json / augmentation.csv
+    training_curve.csv / angle_predictions.csv / experimental_weights.pt
+    train.csv / holdout.csv / canonical image and mask assets
+  baseline_factors/ scale_factors/ intensity_factors/ joint_factors/
+  independent_ablation_audit.json / verification_checks.json
+  joint_replay/ / joint_replay.log / release_regression.log / step_receipt.json
+All generated images are new synthetic files outside the repository; existing
+test images and GUI Evidence registries are untouched.
+
+Reproduction
+Build cyclic_synthetic_train and cyclic_factor_sweep in tests/cyclic_pose using
+the recorded command_context runtime.
+For MODE in baseline,scale,intensity,joint, use a NEW directory:
+  /codex-data/build/cyclic_synthetic_train /codex-data/MODE MODE
+  /codex-data/build/cyclic_factor_sweep /codex-data/MODE /codex-data/MODE_factors
+From repository:
+  python3 -B tests/cyclic_pose/verify_augmentation_ablation.py ../cxscript_runs/cyclic_augmentation_20260930 ../cxscript_runs/cyclic_moment_20260930/run01
+Training exit2 preserves failed numerical gates; audit exit0 only means
+consistency. Do not interpret either development label as production approval.
+
+Next bounded step
+Freeze the joint checkpoint and its source/protocol identity. Pre-register a
+new untouched angle/scale/intensity/placement evaluation with independent
+seed and disjoint angles, defining per-q and pooled gates before looking.
+Keep MAE<=1deg and P95<=2deg; record failures without tuning on that set.
+Only after this controlled synthetic check should real-image masks, multiple
+instances, unseen shapes, occlusion, multiple training seeds, calibration of
+uncertainty and CPU/CUDA consistency be addressed as separate release gates.
