@@ -913,6 +913,9 @@ void CxParserRuntime::ParserInitialClassFunction(int iusing) {
 
     CxFastMatchHarmonicAudit* harmonic_audit = nullptr;
     m_parser.DefineClass("HarmonicAudit", harmonic_audit);
+    m_parser.DefineClassFun("HarmonicAudit", harmonic_audit, "fromreference", &CxFastMatchHarmonicAudit::fromreference);
+    m_parser.DefineClassFun("HarmonicAudit", harmonic_audit, "snapshotfastmatch", &CxFastMatchHarmonicAudit::snapshotfastmatch);
+    m_parser.DefineClassFun("HarmonicAudit", harmonic_audit, "expectunchanged", &CxFastMatchHarmonicAudit::expectunchanged);
     m_parser.DefineClassFun("HarmonicAudit", harmonic_audit, "select", &CxFastMatchHarmonicAudit::select);
     m_parser.DefineClassFun("HarmonicAudit", harmonic_audit, "clear", &CxFastMatchHarmonicAudit::clear);
     m_parser.DefineClassFun("HarmonicAudit", harmonic_audit, "point", &CxFastMatchHarmonicAudit::point_script);

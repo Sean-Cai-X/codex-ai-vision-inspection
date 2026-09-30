@@ -1,0 +1,4 @@
+Image m_image;
+FastMatch m_match;
+HarmonicAudit audit;
+audit.snapshotfastmatch(m_match);

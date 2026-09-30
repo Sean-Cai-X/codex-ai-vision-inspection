@@ -268,3 +268,77 @@ FastMatch reference-asset registration, not a live candidate Prefilter/Pose
 Seed hook, and not a complete FastMatch/FormFit regression. The unchanged
 output check above is for the exercised FindObject pipeline only. Those
 remaining gates and industrial image-quality evaluation are still required.
+
+## P1c fixed FastMatch/FormFit replay and snapshot integrity (2026-09-30)
+
+The project headless path now exercises an actual nonempty FastMatch model,
+not only a FindObject pipeline. C++ fixture generation writes a deterministic
+320x240 raster outside the checkout; four cxscript files cover baseline,
+Audit, deliberately changed result and empty-baseline rejection.
+
+New HarmonicAudit methods:
+
+- fromreference(fastmatch): copy reference dense pixel coordinates and model
+  ID without trusting the legacy closed flag. Input remains unverified.
+- snapshotfastmatch(fastmatch): require an available reference, at least one
+  candidate, successful executed FormFit, a non-exhausted budget and mutual
+  pairs, then retain a value snapshot (no object pointer is retained).
+- expectunchanged(fastmatch): compare candidate count/score/boxes, reference
+  and observed dense geometry, FormFit pose/affine/residual and correspondence
+  records against that snapshot.
+
+The fixed rectangle requires falling-edge polarity for Top/Left and rising
+polarity for Bottom/Right. The initial all-rising configuration still
+returned a legacy candidate but had no FormFit reference; the new readiness
+assertion rejected it. The replay scripts specify all four directional
+profiles explicitly. This is a controlled test profile, not an automatic
+business-image tuning policy or a change to product defaults.
+
+Verified final replay: one candidate, FORM_FIT_COMPLETE, 440 reference and
+440 observed dense points, 349 mutual pairs, symmetric residual about
+0.040215 px, FormFit score about 0.989671. The Harmonic reference-copy
+operation correctly returns UNVERIFIED_TOPOLOGY_LEGACY_FALLBACK.
+No successful Harmonic matching of that reference is claimed.
+
+Baseline versus Audit result/evidence/tool-display images and shape_model.json
+are byte-identical. object_state.json is compared after normalizing only
+elapsed_ms fields; timing is not a determinism requirement. The same-instance
+native snapshot comparison independently guards the geometric results.
+Disabling FormFit after taking the snapshot is rejected; a fresh empty
+FastMatch object is also rejected. These are separate processes/cases.
+
+Replay in the configured offline Linux runtime:
+
+```sh
+# Build with the installed toolchain. Python is OFF by default.
+cmake -G Ninja -S tests/fastmatch_harmonic -B /external/native-build \
+  -DSO2_PYTHON_ORACLE=OFF
+cmake --build /external/native-build
+/external/native-build/make_fastmatch_fixture /external/rectangle.pgm
+sh tests/fastmatch_harmonic/run_fastmatch_replay.sh \
+  /absolute/app /external/rectangle.pgm /external/fresh-run
+# Optional fourth argument gates execution on a previously trusted hash list:
+sh tests/fastmatch_harmonic/run_fastmatch_replay.sh \
+  /absolute/app /external/rectangle.pgm /external/another-fresh-run \
+  /external/fresh-run/reference_bundle.sha256
+```
+
+The source-only runner emits reference_bundle_manifest.json
+(schema cxvision.fastmatch_reference_bundle.v1), shape snapshots, Audit
+receipt and reference_bundle.sha256. It checks hashes and deliberately
+tests a wrong executable digest: that child replay must fail before creating
+its output directory. The manifest is emitted only after all checks pass.
+Hashes cover the executable, fixture, scripts, reference snapshot and receipt.
+This is integrity checking against a caller-trusted list, NOT a digital
+signature or authentication of the list itself.
+
+Evidence remains at external cxscript_runs/fastmatch_harmonic_replay_20260930/
+final_replay; earlier replay_v1/v2 failures remain for diagnosis. Fixture
+images, snapshots, binaries and receipts are not committed.
+
+Current asset role is reference_snapshot_only, version 1, production=false.
+A native persisted-descriptor loader, signed asset trust, independent physical
+closure/provenance checks, occlusion/noise/rotation image regressions and
+live Prefilter/Pose Seed are still separate gates. This single fixed raster
+does not establish general business accuracy or production readiness.
+The optional Python oracle now requires SO2_PYTHON_ORACLE=ON explicitly.

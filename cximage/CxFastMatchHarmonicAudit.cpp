@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "CxFastMatchHarmonicAudit.h"
 #include "FindObject.h"
+#include "FastMatch.h"
 #include "ManualConsoleUtils.h"
 #include <cmath>
 #include <fstream>
@@ -125,4 +126,56 @@ void CxFastMatchHarmonicAudit::save(const char* path) {
     for(size_t i=0;i<history_.size();++i){if(i)f<<",";f<<history_[i];}
     f<<"]}\n";f.close();
     if(!f)throw std::runtime_error(std::string("HARMONIC_RECEIPT_WRITE_FAILED:")+path);
+}
+
+namespace {
+std::string HarmonicFastMatchSnapshot(FastMatch& f) {
+    const auto& r=f.getformfitresult();
+    const auto& ref=f.getreferenceshapemodel();
+    const auto& obs=f.getobservedshapemodel();
+    std::ostringstream s;s<<std::setprecision(17);
+    s<<f.getresultcandidatecount()<<' '<<f.getresultbestscore()<<' ';
+    for(int i=0;i<f.getresultcandidatecount();++i) {
+        auto box=f.getresultrect(i);
+        s<<box.TopLeft().X()<<' '<<box.TopLeft().Y()<<' '<<box.Width()<<' '<<box.Height()<<' ';
+    }
+    s<<r.executed<<' '<<r.succeeded<<' '<<r.status<<' '<<r.failure_stage<<' '
+     <<r.score<<' '<<r.mean_residual_px<<' '<<r.symmetric_residual_px<<' '
+     <<r.angle_deg<<' '<<r.scale_x<<' '<<r.scale_y<<' '<<r.translate_x<<' '<<r.translate_y<<' '
+     <<r.affine_a<<' '<<r.affine_b<<' '<<r.affine_c<<' '<<r.affine_d<<' ';
+    for(const auto* model:{&ref,&obs}) {
+        s<<model->model_id<<' '<<model->available<<' '<<model->dense_points.size()<<' ';
+        for(const auto& p:model->dense_points)
+            s<<p.x<<' '<<p.y<<' '<<p.normal_x<<' '<<p.normal_y<<' '<<p.confidence<<' ';
+    }
+    for(const auto& c:r.correspondences)
+        s<<c.reference_index<<' '<<c.observed_index<<' '<<c.distance_px<<' '
+         <<c.normal_delta_deg<<' '<<c.weight<<' '<<c.mutual<<' '<<c.accepted<<' ';
+    return s.str();
+}
+}
+void CxFastMatchHarmonicAudit::fromreference(void* object) {
+    if(!object)throw std::invalid_argument("HARMONIC_MISSING_FASTMATCH");
+    const auto& m=static_cast<const FastMatch*>(object)->getreferenceshapemodel();
+    if(!m.available || m.dense_points.empty())throw std::invalid_argument("HARMONIC_REFERENCE_NOT_READY");
+    clear();
+    for(const auto& p:m.dense_points)point(p.x,p.y);
+    sources_[selected_]="FastMatch.reference_dense:"+m.model_id;
+    // Legacy model.closed is not independent topology evidence.
+}
+void CxFastMatchHarmonicAudit::snapshotfastmatch(void* object) {
+    if(!object)throw std::invalid_argument("HARMONIC_MISSING_FASTMATCH");
+    auto& f=*static_cast<FastMatch*>(object);
+    const auto& r=f.getformfitresult();
+    if(!f.getreferenceshapemodel().available || f.getresultcandidatecount()<1 ||
+       !r.executed || !r.succeeded || r.budget_exceeded || r.dense_mutual_count<1)
+        throw std::runtime_error("HARMONIC_FASTMATCH_BASELINE_NOT_READY");
+    fastmatch_snapshot_=HarmonicFastMatchSnapshot(f);
+    ++assertions_;
+}
+void CxFastMatchHarmonicAudit::expectunchanged(void* object) {
+    if(!object || fastmatch_snapshot_.empty() ||
+       fastmatch_snapshot_!=HarmonicFastMatchSnapshot(*static_cast<FastMatch*>(object)))
+        throw std::runtime_error("HARMONIC_FASTMATCH_CHANGED");
+    ++assertions_;
 }

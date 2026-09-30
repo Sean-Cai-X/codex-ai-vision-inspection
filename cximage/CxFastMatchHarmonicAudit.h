@@ -14,6 +14,9 @@ public:
     void clear();
     void point(double x, double y);
     void topology(int verified, int closed, int complete, int holes, int components);
+    void fromreference(void* object);
+    void snapshotfastmatch(void* object);
+    void expectunchanged(void* object);
     void sourceindex(int index);
     void fromobject(void* object);
     void parameter(double value, const char* name);
@@ -34,4 +37,5 @@ private:
     bool ran_ = false;
     int assertions_ = 0;
     std::vector<std::string> history_;
+    std::string fastmatch_snapshot_;
 };
