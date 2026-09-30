@@ -1,0 +1,69 @@
+Next_20260918: analytic GroupConv and stacked regression
+Date: 2026-09-30
+
+Implemented torch_cyclic_analytic_group.h/.cpp:
+- Explicit [B,C,K,H,W] input/output.
+- Reuses AnalyticLift's basis generator as a registered submodule.
+- Coefficients [Cout,Cin*K,6] represent relative input directions.
+- Each output direction g uses analytically steered spatial kernels and
+  relative orientation h-g (positive roll of the input-kernel axis).
+- Stride 1, same zero padding, no cache or independent per-output kernels.
+- Constructor/input checks and inherited archive contract validation.
+
+No production runtime, V1 model, FastMatch, image asset or Evidence catalog
+is changed. Existing concurrent FastMatch/open-boundary work is excluded.
+
+tests/cyclic_pose/stack_test.cpp exercises:
+  AnalyticLift -> SiLU -> AnalyticGroup -> SiLU -> AnalyticGroup -> SiLU
+against a matched pixel-interpolated stack. Every unrotated pixel kernel
+is copied from the corresponding analytic bank before testing.
+Two coefficient seeds, K=8/12/24, steps 1, K/4, K/4+1, K-1.
+The 18 non-quarter-turn combinations share one fixed smooth image family;
+they are not independent business images or trained-model evaluations.
+Errors are relative RMS in the central 13x13 of a 49x49 field (crop 18).
+This excludes most boundary contamination; it does not establish full-frame
+padding robustness.
+
+Predeclared regression gates:
+- Every controlled smooth interior layer: error < 0.10.
+- Quarter-turn stacked/random group-only error < 5e-5.
+- Final-layer analytic mean below matched interpolated mean.
+- Nonzero reference energy, finite nonzero gradients in all three banks.
+- Wrong orientation-only action (without spatial rotation) must be detected.
+- Exact group archive roundtrip and rejection of wrong K/dtype/shape/options.
+
+Measured Release:
+- Base contract 124 checks.
+- Single-layer interpolation contract 922 checks.
+- Stacked contract 357 checks.
+- CTest 3/3 PASS.
+- Final-layer analytic mean 0.0041352 (0.414%).
+- Matched interpolated mean 0.0355896 (3.559%).
+- Final-layer analytic maximum 0.00625108 (0.625%).
+Per-layer errors are retained: some increase and others decrease.
+This is not a claim of monotonic or depth-independent error for all inputs.
+Debug results and exact source/binary hashes are in stack_receipt.json.
+
+Evidence outside repository:
+  ../cxscript_runs/cyclic_stack_20260930/
+  command_context.json, release_v1.log, debug_final.log, stack_receipt.json
+  build/ and debug/
+No generated tensor/image, model weight or binary is committed.
+
+Reproduce with the same external LibTorch CMake environment as the previous
+two increments: build tests/cyclic_pose, then ctest -V.
+All three CTest entries have a 60-second per-test timeout.
+
+Remaining gates
+---------------
+Full arbitrary-angle C_N/G1 remains NOT_PASSED. CUDA is not validated in the
+current no-device test environment. No training/measurement admission.
+This stack does not yet test nontrivial multi-channel routing, train-mode
+normalization, stride/downsampling, upsampling/concat, mask-aligned pooling,
+high-frequency texture through all layers, or business images.
+The random-feature group-only check is quarter-turn, not arbitrary-angle.
+Archive metadata checks are not a trusted/signed asset loader.
+
+Next: sampling/resizing and normalization contracts, followed by mask-aligned
+pooling and a separately gated angular head/pose branch. Keep V1 data/weight
+baseline, held-out accuracy and FastMatch application-value gates explicit.

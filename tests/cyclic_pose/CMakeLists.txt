@@ -40,3 +40,14 @@ target_link_libraries(cyclic_interpolation_contract PRIVATE "${TORCH_LIBRARIES}"
 target_compile_options(cyclic_interpolation_contract PRIVATE ${TORCH_REQUIRED_FLAGS})
 add_test(NAME cyclic_interpolation_contract COMMAND cyclic_interpolation_contract)
 set_tests_properties(cyclic_pose_contract cyclic_interpolation_contract PROPERTIES TIMEOUT 60)
+add_executable(cyclic_stack_contract
+    stack_test.cpp
+    ../../libtorch_module/torch_cyclic_group_ops.cpp
+    ../../libtorch_module/torch_cyclic_analytic_lift.cpp
+    ../../libtorch_module/torch_cyclic_analytic_group.cpp)
+target_compile_features(cyclic_stack_contract PRIVATE cxx_std_17)
+target_include_directories(cyclic_stack_contract PRIVATE ../../libtorch_module ${TORCH_INCLUDE_DIRS})
+target_link_libraries(cyclic_stack_contract PRIVATE "${TORCH_LIBRARIES}")
+target_compile_options(cyclic_stack_contract PRIVATE ${TORCH_REQUIRED_FLAGS})
+add_test(NAME cyclic_stack_contract COMMAND cyclic_stack_contract)
+set_tests_properties(cyclic_stack_contract PROPERTIES TIMEOUT 60)
