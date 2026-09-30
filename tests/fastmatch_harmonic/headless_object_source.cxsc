@@ -16,6 +16,7 @@ audit.sourceindex(0);
 audit.select(0);
 audit.fromobject(m_object);
 audit.select(1);
+audit.sourceindex(0);
 audit.fromobject(m_object);
 audit.run();
 audit.expectstatus("UNVERIFIED_TOPOLOGY_LEGACY_FALLBACK");

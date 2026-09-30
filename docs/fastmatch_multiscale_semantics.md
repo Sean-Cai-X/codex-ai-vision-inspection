@@ -572,3 +572,75 @@ line/arc/open_curve semantics, holes, multi-component association, automatic
 boundary selection, strong texture/noise, or arbitrary business photographs.
 It is not a learned Torch model upgrade and does not activate production
 Prefilter/Pose Seed. Images, assets and binaries are not committed.
+
+## P1g measured topology and explicit source selection (2026-09-30)
+
+This stage fixes two Audit adapter gaps, without enabling a production hook:
+
+- fromobject previously defaulted to source index 0 even when FindObject
+  retained several measurements. It now rejects ambiguous selection with
+  HARMONIC_AMBIGUOUS_SOURCE_SELECTION. Call sourceindex(index) explicitly
+  before EACH multi-source import. The selection is consumed on successful
+  import and resets to the default; it is not a persistent object identity.
+- topology previously could overwrite the measured hole count. It now
+  rejects a contradictory hole count or component count for an imported
+  measurement with HARMONIC_TOPOLOGY_CONTRADICTS_MEASUREMENT. A selected
+  FindObject measurement is one component; the retained source count is
+  recorded separately from that selected contour's component count.
+
+fromobject also rejects a configuration that disables hole-boundary evidence.
+Topology booleans/counts are validated. Raw-input receipts now record
+measured_source_count, measured_holes and selected_source_index; -1 means
+not a measured input. Clear, explicit point editing and loaded descriptor
+replacement discard that measurement metadata. Point editing changes the
+source label to script_points rather than retaining measured provenance.
+
+The source count is FindObject's retained, filtered measurement count,
+not a guarantee about every object in the image. Hole protection preserves
+the actual reported selected-measurement evidence; it does not prove perfect
+segmentation or completeness. Imported inputs still start unverified/open.
+
+New C++ fixtures and the actual headless/cxscript suite cover a half-plane
+interface, a ring with one hole, and two unequal disconnected rectangles.
+Eleven scenarios run under DFT and EFD (22 expected outcomes):
+
+- Unverified half-plane: UNVERIFIED_TOPOLOGY_LEGACY_FALLBACK.
+- Explicit open interface: OPEN_CONTOUR_LEGACY_FALLBACK.
+- Measured ring: UNSUPPORTED_TOPOLOGY_LEGACY_FALLBACK.
+- Attempt to declare that ring hole-free: rejected.
+- Multiple sources without selection: rejected.
+- Explicit source 0 and explicit source 1: valid self-matches.
+- Source 0 versus source 1: shape residual rejection.
+- Attempt to reuse a consumed source selection: rejected.
+- Out-of-range index: rejected.
+- Invalid topology boolean: rejected.
+
+All 22 passed. The suite also checks that ring and selection receipts contain
+the measured hole count, source count and selected index. Existing 48-case
+complex raster, 14-case rectangle raster, descriptor asset, FastMatch/FormFit,
+and 56-run/160-assertion Audit suites pass with the rebuilt application.
+Native CTest remains 2/2. The Audit suite was additionally rerun using the
+existing external Mpic arc image and passed its expected unverified fallback
+and unchanged FindObject output checks. Its explicit index selection is now
+repeated before each import to conform to the one-shot contract.
+
+```sh
+cmake --build /external/native-build
+sh tests/fastmatch_harmonic/run_topology_replay.sh \
+  /absolute/app /external/native-build/make_topology_fixtures \
+  /external/fresh-topology-run
+```
+
+Evidence: ../cxscript_runs/fastmatch_harmonic_topology_20260930/verified_replay
+and sibling regression directories, including mpic_regression. Source-only
+fixtures/runner are committed; generated images, receipts, assets and binaries
+remain outside the checkout.
+
+Important boundary: the half-plane raster's extracted region outline is
+closed by the image edges, whereas the intended physical interface is open.
+The explicit open declaration keeps that interface out of closed SO2
+matching; automatic physical-interface selection has NOT been implemented.
+This stage supplies safe rejection and traceable selection, not open-curve
+matching, hole-aware shape matching, multi-component association or automatic
+anchor tracking. Those require dedicated observation/selection semantics.
+No APPROVED/ACTIVE state or production Prefilter/Pose Seed is enabled.

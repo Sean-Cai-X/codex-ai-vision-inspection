@@ -16,15 +16,22 @@ void CxFastMatchHarmonicAudit::select(int side) {
     selected_=side;
 }
 void CxFastMatchHarmonicAudit::clear() {
+    measured_count_[selected_]=measured_holes_[selected_]=measured_index_[selected_]=-1;
     loaded_[selected_].reset();contours_[selected_]={};sources_[selected_]="script_points";invalidate();
 }
 void CxFastMatchHarmonicAudit::point(double x,double y) {
     if(!std::isfinite(x)||!std::isfinite(y))throw std::invalid_argument("NONFINITE_CONTOUR");
     if(contours_[selected_].points.size()>=4096)throw std::invalid_argument("SOURCE_POINT_BUDGET_EXCEEDED");
     loaded_[selected_].reset();
+    measured_count_[selected_]=measured_holes_[selected_]=measured_index_[selected_]=-1;
+    sources_[selected_]="script_points";
     contours_[selected_].points.emplace_back(x,y);invalidate();
 }
 void CxFastMatchHarmonicAudit::topology(int verified,int closed,int complete,int holes,int components) {
+    if((verified!=0 && verified!=1)||(closed!=0 && closed!=1)||(complete!=0 && complete!=1)||holes<0||components<1)
+        throw std::invalid_argument("HARMONIC_INVALID_TOPOLOGY");
+    if(measured_count_[selected_]>=0 && (holes!=measured_holes_[selected_] || components!=1))
+        throw std::invalid_argument("HARMONIC_TOPOLOGY_CONTRADICTS_MEASUREMENT");
     loaded_[selected_].reset();
     auto& c=contours_[selected_];
     c.topology_verified=verified!=0;c.closed=closed!=0;c.complete=complete!=0;
@@ -32,16 +39,26 @@ void CxFastMatchHarmonicAudit::topology(int verified,int closed,int complete,int
 }
 void CxFastMatchHarmonicAudit::sourceindex(int index) {
     if(index<0)throw std::invalid_argument("HARMONIC_INVALID_SOURCE_INDEX");
-    source_index_=index;
+    source_index_=index;source_index_explicit_=true;
 }
 void CxFastMatchHarmonicAudit::fromobject(void* object) {
     if(!object)throw std::invalid_argument("HARMONIC_MISSING_SOURCE");
-    const auto* m=static_cast<const FindObject*>(object)->getmeasurement(source_index_);
+    const auto& finder=*static_cast<const FindObject*>(object);
+    const int count=static_cast<int>(finder.getmeasurements().size());
+    if(count>1 && !source_index_explicit_)
+        throw std::invalid_argument("HARMONIC_AMBIGUOUS_SOURCE_SELECTION");
+    if(!finder.getmeasurementconfig().include_hole_boundaries)
+        throw std::invalid_argument("HARMONIC_HOLE_EVIDENCE_DISABLED");
+    const int chosen=source_index_;
+    const auto* m=finder.getmeasurement(chosen);
     if(!m)throw std::invalid_argument("HARMONIC_MISSING_MEASUREMENT");
     clear();
     for(const auto& p:m->outer_boundary)point(p.x,p.y);
     auto& c=contours_[selected_];
     c.holes=static_cast<int>(m->hole_boundaries.size());
+    measured_count_[selected_]=count;measured_holes_[selected_]=c.holes;
+    measured_index_[selected_]=chosen;
+    source_index_=0;source_index_explicit_=false; // Selection is one-shot, never a cross-image identity.
     sources_[selected_]="FindObject.outer_boundary:"+m->object_ref+
         ":generation="+std::to_string(m->generation)+":mask="+std::to_string(m->mask_hash);
     // Remains unverified/open until explicit caller topology evidence is supplied.
@@ -103,7 +120,10 @@ void CxFastMatchHarmonicAudit::run() {
         s<<"{\"source\":\""<<JsonEscape(sources_[i])<<"\",\"point_count\":"<<c.points.size()
          <<",\"topology_verified\":"<<(c.topology_verified?"true":"false")
          <<",\"closed\":"<<(c.closed?"true":"false")<<",\"complete\":"<<(c.complete?"true":"false")
-         <<",\"holes\":"<<c.holes<<",\"components\":"<<c.components<<"}";
+         <<",\"holes\":"<<c.holes<<",\"components\":"<<c.components
+         <<",\"measured_source_count\":"<<measured_count_[i]
+         <<",\"measured_holes\":"<<measured_holes_[i]
+         <<",\"selected_source_index\":"<<measured_index_[i]<<"}";
     }
     s<<"],\"poses\":[";
     for(size_t i=0;i<result_.poses.size();++i) {
@@ -232,6 +252,7 @@ void CxFastMatchHarmonicAudit::loadasset(const char* path) {
     auto a=cxgeom::so2::DecodeReference(bytes,trusted_sha_,config_,method_);
     // Commit only after all validation; a failed load preserves the previous slot.
     loaded_[selected_]=std::move(a.descriptor);sources_[selected_]=std::move(a.provenance);
-    contours_[selected_]={};invalidate();
+    contours_[selected_]={};
+    measured_count_[selected_]=measured_holes_[selected_]=measured_index_[selected_]=-1;invalidate();
     asset_events_.push_back("{\"operation\":\"load\",\"sha256\":\""+trusted_sha_+"\"}");
 }

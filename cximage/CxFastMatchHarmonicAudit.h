@@ -41,6 +41,10 @@ private:
     cxgeom::so2::Result result_;
     int selected_ = 0;
     int source_index_ = 0;
+    bool source_index_explicit_ = false;
+    int measured_count_[2] = {-1,-1};
+    int measured_holes_[2] = {-1,-1};
+    int measured_index_[2] = {-1,-1};
     bool ran_ = false;
     int assertions_ = 0;
     std::vector<std::string> history_;

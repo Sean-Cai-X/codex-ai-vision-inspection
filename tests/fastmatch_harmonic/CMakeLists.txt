@@ -36,3 +36,6 @@ add_executable(make_complex_raster_fixtures make_complex_raster_fixtures.cpp)
 
 target_compile_features(make_raster_fixtures PRIVATE cxx_std_17)
 target_compile_features(make_complex_raster_fixtures PRIVATE cxx_std_17)
+
+add_executable(make_topology_fixtures make_topology_fixtures.cpp)
+target_compile_features(make_topology_fixtures PRIVATE cxx_std_17)
