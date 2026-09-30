@@ -1,3 +1,7 @@
+#include <fstream>
+#include "../libtorchsegmentation/src/utils/json.hpp"
+#include <opencv2/imgcodecs.hpp>
+#include "CxHarmonicEvidenceParameters.h"
 #include "pch.h"
 #include "ManualConsoleScriptDebugPanel.h"
 #include "ManualConsoleCxScriptDebug.h"
@@ -17,6 +21,48 @@
 
 namespace
 {
+bool PrepareHarmonicAuditRun(ManualTestContext& context, ParserDebugBridge& bridge,
+                             std::string& reason) {
+  if(!cxharmonicui::IsCase(context.editor_text)) return true;
+  context.harmonic_audit_result_summary.clear();
+  if(!cxharmonicui::Validate(context.runtime_int_vars,reason)) return false;
+  try {
+    const auto root=ResolveCxVisionRunPath("cxscript_runs/harmonic_audit_manual");
+    std::filesystem::create_directories(root);
+    const auto stamp=std::chrono::system_clock::now().time_since_epoch().count();
+    std::filesystem::path dir;
+    bool created=false;
+    for(int attempt=0;attempt<100 && !created;++attempt) {
+      dir=root/("run_"+std::to_string(stamp)+"_"+std::to_string(attempt));
+      created=std::filesystem::create_directory(dir);
+    }
+    if(!created){reason="Cannot reserve unique Harmonic Audit output";return false;}
+    std::ofstream script(dir/"run.cxsc");
+    script<<context.editor_text;
+    for(const auto& p:cxharmonicui::parameters)
+      script<<"\n// harmonic_default "<<p.key<<" "<<context.runtime_int_vars.at(p.key);
+    script<<"\n";script.close();
+    std::ofstream snapshot(dir/"input_parameters.json");
+    snapshot<<"{\n  \"schema\":\"cxvision.harmonic_ui_input.v1\",\n  \"case_id\":\""
+            <<JsonEscape(context.active_case_id)<<"\",\n  \"image\":\""
+            <<JsonEscape(context.image_file_path)<<"\",\n  \"audit_only\":true,\n  \"parameters\":{";
+    bool first=true;
+    for(const auto& p:cxharmonicui::parameters) {
+      if(!first)snapshot<<",";first=false;
+      snapshot<<"\n    \""<<p.key<<"\":"<<context.runtime_int_vars.at(p.key);
+    }
+    snapshot<<"\n  }\n}\n";snapshot.close();
+    if(!script||!snapshot){reason="Cannot write Harmonic Audit input snapshot";return false;}
+    bridge.SetGlobalString("global_harmonic_receipt_path",(dir/"harmonic_audit_receipt.json").string());
+    bridge.SetGlobalString("global_open_boundary_receipt_path",(dir/"open_boundary_observation.json").string());
+    bridge.SetGlobalString("global_harmonic_asset_path",(dir/"harmonic_reference.so2").string());
+    context.harmonic_audit_output_path=dir.string();
+    RecordManualOperationTraceEvent(context,"harmonic_audit_run","prepared",dir.string());
+    return true;
+  } catch(const std::exception& e){reason=e.what();return false;}
+}
+
+
 bool FastMatchScriptSupportsNormalTrace(const std::string& scriptText)
 {
   return scriptText.find("fastmatch_normal_trace_binding_version: 3") !=
@@ -590,6 +636,40 @@ bool MigrateLegacyFindSegmentationPromptCallsForRun(
   return true;
 }
 } // namespace
+
+bool RunHarmonicAuditGuiBridgeSmoke(ManualTestContext& context, std::string& reason) {
+ try {
+  CxParserRuntimeOwner owner;
+  if(!owner.Initialize(reason))return false;
+  ParserDebugBridge bridge;bridge.Bind(&owner);
+  if(!bridge.StageGlobalMatInput(cv::imread(context.image_file_path))) {
+    reason="Cannot bind Evidence image";return false;
+  }
+  for(int run=0;run<2;++run) {
+    if(run)context.runtime_int_vars["global_harmonic_sample_count"]=128;
+    for(const auto& value:context.runtime_int_vars)bridge.SetGlobalInt(value.first,value.second);
+    bridge.SetGlobalInt("global_match_count",0);
+    if(!PrepareHarmonicAuditRun(context,bridge,reason))return false;
+    if(!bridge.RunScript(context.editor_text)){reason=bridge.LastError();return false;}
+    std::ifstream input(std::filesystem::path(context.harmonic_audit_output_path)/"harmonic_audit_receipt.json");
+    const auto receipt=nlohmann::json::parse(input);
+    if(receipt.at("runs").size()!=1) {
+      reason="Missing GUI bridge receipt";return false;
+    }
+    const int actual=receipt.at("runs").at(0).at("parameters").at("sample_count").get<int>();
+    if(actual!=context.runtime_int_vars.at("global_harmonic_sample_count")) {
+      reason="GUI parameter snapshot was not executed";return false;
+    }
+    std::string replay;std::unordered_map<std::string,int> replayValues;
+    if(!ReadTextFile((std::filesystem::path(context.harmonic_audit_output_path)/"run.cxsc").string(),replay)||
+       !cxharmonicui::Defaults(replay,replayValues,reason)||
+       replayValues.at("global_harmonic_sample_count")!=actual) {
+      reason="Archived GUI script is not replayable";return false;
+    }
+  }
+  return true;
+ } catch(const std::exception& e) {reason=e.what();return false;}
+}
 
 bool PrepareCurrentFastMatchScriptRun(ManualTestContext& context)
 {
@@ -1393,6 +1473,9 @@ void ViewController::DrawScriptDebugCompilerBlock(ManualTestContext& context)
       }
       context.debug_action = "Run";
       SetCxCrashBreadcrumb("drawManualStateTestConsole:DebugCompiler:Run:set_globals");
+      context.runtime_int_vars.erase("global_harmonic_receipt_path");
+      context.runtime_int_vars.erase("global_open_boundary_receipt_path");
+      context.runtime_int_vars.erase("global_harmonic_asset_path");
       for (const auto& input : context.runtime_int_vars)
       {
         if (input.first.rfind("global_", 0) == 0)
@@ -1407,7 +1490,10 @@ void ViewController::DrawScriptDebugCompilerBlock(ManualTestContext& context)
       // external-variable path.
       for (const ScriptVariableView& observed : context.global_variable_views)
       {
-        if (observed.name == "global_matInput" ||
+        if (observed.name == "global_harmonic_receipt_path" ||
+            observed.name == "global_open_boundary_receipt_path" ||
+            observed.name == "global_harmonic_asset_path" ||
+            observed.name == "global_matInput" ||
             observed.name.rfind("global_", 0) != 0)
           continue;
         if (context.runtime_int_vars.find(observed.name) ==
@@ -1520,7 +1606,9 @@ void ViewController::DrawScriptDebugCompilerBlock(ManualTestContext& context)
       // context.  Keep this in the existing serial Parser-owner chain: the UI
       // action only requests a run, and this compiler block performs it.
       std::string torchRequestReason;
-      const bool torchRequestReady = PrepareTorchUiRequestContext(
+      const bool harmonicRequestReady = PrepareHarmonicAuditRun(
+          context,m_parserDebugBridge,torchRequestReason);
+      const bool torchRequestReady = harmonicRequestReady && PrepareTorchUiRequestContext(
           context.editor_text,
           context.loaded_script_path,
           torchRequestReason);
@@ -1558,6 +1646,18 @@ void ViewController::DrawScriptDebugCompilerBlock(ManualTestContext& context)
       // and debug snapshot.  Keep the operator-facing reason compact so that
       // it does not hide Torch status and artifact panels after a run.
 
+      if (cxharmonicui::IsCase(context.editor_text)) {
+        context.harmonic_audit_result_summary = ran ? "Receipt unavailable" : context.debug_reason;
+        if (ran) try {
+          std::ifstream input(std::filesystem::path(context.harmonic_audit_output_path) / "harmonic_audit_receipt.json");
+          const auto receipt=nlohmann::json::parse(input);
+          if (receipt.at("schema")=="cxvision.harmonic_audit_receipt.v1" &&
+              receipt.at("runs").is_array() && !receipt.at("runs").empty()) {
+            const auto& result=receipt.at("runs").back();
+            context.harmonic_audit_result_summary=result.at("status").get<std::string>() + " | poses=" + std::to_string(result.at("poses").size()) + " | production=false";
+          }
+        } catch(const std::exception& e) { context.harmonic_audit_result_summary=e.what(); }
+      }
       if (ran)
       {
         CXLOG_INFO(

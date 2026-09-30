@@ -7,6 +7,7 @@
 #include <fstream>
 #include <filesystem>
 #include <iomanip>
+#include <locale>
 #include <sstream>
 #include <stdexcept>
 
@@ -16,11 +17,13 @@ void CxFastMatchHarmonicAudit::select(int side) {
     selected_=side;
 }
 void CxFastMatchHarmonicAudit::clear() {
+    open_runs_[selected_].reset();
     anchor_evidence_[selected_]="null";
     measured_count_[selected_]=measured_holes_[selected_]=measured_index_[selected_]=-1;
     loaded_[selected_].reset();contours_[selected_]={};sources_[selected_]="script_points";invalidate();
 }
 void CxFastMatchHarmonicAudit::point(double x,double y) {
+    if(open_runs_[selected_])throw std::invalid_argument("OPEN_SUBCURVE_EDIT_REQUIRES_CLEAR");
     if(!std::isfinite(x)||!std::isfinite(y))throw std::invalid_argument("NONFINITE_CONTOUR");
     if(contours_[selected_].points.size()>=4096)throw std::invalid_argument("SOURCE_POINT_BUDGET_EXCEEDED");
     loaded_[selected_].reset();
@@ -32,6 +35,7 @@ void CxFastMatchHarmonicAudit::point(double x,double y) {
 void CxFastMatchHarmonicAudit::topology(int verified,int closed,int complete,int holes,int components) {
     if((verified!=0 && verified!=1)||(closed!=0 && closed!=1)||(complete!=0 && complete!=1)||holes<0||components<1)
         throw std::invalid_argument("HARMONIC_INVALID_TOPOLOGY");
+    if(open_runs_[selected_] && (closed || complete))throw std::invalid_argument("OPEN_SUBCURVE_CANNOT_CLOSE");
     if(measured_count_[selected_]>=0 && (holes!=measured_holes_[selected_] || components!=1))
         throw std::invalid_argument("HARMONIC_TOPOLOGY_CONTRADICTS_MEASUREMENT");
     loaded_[selected_].reset();
@@ -55,7 +59,10 @@ void CxFastMatchHarmonicAudit::anchorpoints(int minimum) {
     if(minimum<1||minimum>4096)throw std::invalid_argument("HARMONIC_INVALID_ANCHOR_POINTS");
     anchor_minimum_points_=minimum;
 }
-void CxFastMatchHarmonicAudit::fromobject(void* object) {
+void CxFastMatchHarmonicAudit::fromobject(void* object) { importobject(object,false); }
+void CxFastMatchHarmonicAudit::fromobjectarc(void* object) { importobject(object,true); }
+void CxFastMatchHarmonicAudit::importobject(void* object,bool subcurve) {
+    if(subcurve && !pending_anchor_)throw std::invalid_argument("OPEN_SUBCURVE_ANCHOR_REQUIRED");
     if(!object)throw std::invalid_argument("HARMONIC_MISSING_SOURCE");
     const auto& finder=*static_cast<const FindObject*>(object);
     const int count=static_cast<int>(finder.getmeasurements().size());
@@ -95,9 +102,19 @@ void CxFastMatchHarmonicAudit::fromobject(void* object) {
     }
     const auto* m=finder.getmeasurement(chosen);
     if(!m)throw std::invalid_argument("HARMONIC_MISSING_MEASUREMENT");
+    if(m->outer_boundary.size()>4096)throw std::invalid_argument("SOURCE_POINT_BUDGET_EXCEEDED");
+    std::vector<std::complex<double>> parent;
+    for(const auto& p:m->outer_boundary)parent.emplace_back(p.x,p.y);
+    std::optional<cxgeom::OpenBoundaryRun> extracted;
+    if(subcurve) {
+        const auto a=*pending_anchor_;
+        extracted=cxgeom::ExtractOpenBoundaryRun(parent,a.x,a.y,a.width,a.height,
+            anchor_minimum_points_<2?2:anchor_minimum_points_);
+    }
     clear();
-    for(const auto& p:m->outer_boundary)point(p.x,p.y);
     auto& c=contours_[selected_];
+    c.points=extracted?extracted->points:parent;
+    if(extracted){c.closed=false;c.complete=false;open_runs_[selected_]=std::move(extracted);}
     c.holes=static_cast<int>(m->hole_boundaries.size());
     measured_count_[selected_]=count;measured_holes_[selected_]=c.holes;
     measured_index_[selected_]=chosen;
@@ -130,6 +147,7 @@ void CxFastMatchHarmonicAudit::parameter(double v,const char* key) {
 void CxFastMatchHarmonicAudit::run() {
     result_={};
     try {
+        if(open_runs_[0]||open_runs_[1])throw std::invalid_argument("OPEN_CONTOUR_LEGACY_FALLBACK");
         const auto a=loaded_[0]?*loaded_[0]:cxgeom::so2::Build(contours_[0],config_,method_);
         auto expected=a;expected.config=config_;expected.method=method_;cxgeom::so2::Distance(a,expected);
         const auto b=loaded_[1]?*loaded_[1]:cxgeom::so2::Build(contours_[1],config_,method_);
@@ -168,7 +186,8 @@ void CxFastMatchHarmonicAudit::run() {
          <<",\"measured_source_count\":"<<measured_count_[i]
          <<",\"measured_holes\":"<<measured_holes_[i]
          <<",\"selected_source_index\":"<<measured_index_[i]
-         <<",\"anchor_selection\":"<<anchor_evidence_[i]<<"}";
+         <<",\"anchor_selection\":"<<anchor_evidence_[i]
+         <<",\"open_subcurve\":"<<(open_runs_[i]?"true":"false")<<"}";
     }
     s<<"],\"poses\":[";
     for(size_t i=0;i<result_.poses.size();++i) {
@@ -269,6 +288,7 @@ void CxFastMatchHarmonicAudit::trustedsha(const char* hash) {
     trusted_sha_=hash?hash:"";
 }
 void CxFastMatchHarmonicAudit::saveasset(const char* path) {
+    if(open_runs_[selected_])throw std::invalid_argument("OPEN_SUBCURVE_NOT_CLOSED_DESCRIPTOR");
     if(!path || !*path)throw std::invalid_argument("ASSET_PATH_REQUIRED");
     cxgeom::so2::ReferenceAsset a{
         loaded_[selected_]?*loaded_[selected_]:cxgeom::so2::Build(contours_[selected_],config_,method_),
@@ -296,8 +316,55 @@ void CxFastMatchHarmonicAudit::loadasset(const char* path) {
     if(!f.read(bytes.data(),static_cast<std::streamsize>(bytes.size())))throw std::runtime_error("ASSET_READ_FAILED");
     auto a=cxgeom::so2::DecodeReference(bytes,trusted_sha_,config_,method_);
     // Commit only after all validation; a failed load preserves the previous slot.
+    open_runs_[selected_].reset();
     loaded_[selected_]=std::move(a.descriptor);sources_[selected_]=std::move(a.provenance);
     contours_[selected_]={};anchor_evidence_[selected_]="null";
     measured_count_[selected_]=measured_holes_[selected_]=measured_index_[selected_]=-1;invalidate();
     asset_events_.push_back("{\"operation\":\"load\",\"sha256\":\""+trusted_sha_+"\"}");
+}
+
+void CxFastMatchHarmonicAudit::expectsubcurve(void* object) {
+    if(!object || !open_runs_[selected_])throw std::runtime_error("OPEN_OBSERVATION_NOT_READY");
+    const auto& r=*open_runs_[selected_];
+    const auto* m=static_cast<const FindObject*>(object)->getmeasurement(measured_index_[selected_]);
+    if(!m || r.parent_point_count!=m->outer_boundary.size() || r.points.size()<2 ||
+       contours_[selected_].closed || contours_[selected_].complete ||
+       sources_[selected_]!="FindObject.outer_boundary:"+m->object_ref+
+         ":generation="+std::to_string(m->generation)+":mask="+std::to_string(m->mask_hash))
+        throw std::runtime_error("OPEN_OBSERVATION_PARENT_MISMATCH");
+    for(size_t k=0;k<r.points.size();++k) {
+        const size_t i=r.parent_indices[k];
+        if(i>=m->outer_boundary.size() ||
+           (k && i!=(r.parent_indices[k-1]+1)%r.parent_point_count) ||
+           r.points[k]!=std::complex<double>(m->outer_boundary[i].x,m->outer_boundary[i].y))
+            throw std::runtime_error("OPEN_OBSERVATION_ORDER_MISMATCH");
+    }
+    if(r.points.front()==r.points.back())throw std::runtime_error("OPEN_OBSERVATION_CLOSED");
+    ++assertions_;
+}
+void CxFastMatchHarmonicAudit::saveopen(const char* path) {
+    if(!path||!*path||!open_runs_[selected_])throw std::runtime_error("OPEN_OBSERVATION_NOT_READY");
+    const auto& r=*open_runs_[selected_];
+    const std::filesystem::path dest(path),pending(std::string(path)+".pending");
+    if(std::filesystem::exists(dest)||std::filesystem::exists(pending))throw std::runtime_error("OPEN_OUTPUT_EXISTS");
+    std::ofstream f(pending,std::ios::binary);f.imbue(std::locale::classic());f<<std::setprecision(17);
+    f<<"{\"schema\":\"cxvision.open_boundary_observation.v1\",\"mode\":\"AUDIT\","
+     <<"\"closed\":false,\"complete_parent\":false,\"physical_boundary_verified\":false,"
+     <<"\"production_eligible\":false,\"order\":\"parent_cyclic_forward\","
+     <<"\"endpoint_semantics\":\"first_last_retained_samples\","
+     <<"\"source\":\""<<JsonEscape(sources_[selected_])<<"\","
+     <<"\"selected_source_index\":"<<measured_index_[selected_]
+     <<",\"parent_holes\":"<<measured_holes_[selected_]
+     <<",\"parent_point_count\":"<<r.parent_point_count
+     <<",\"wraps_parent_origin\":"<<(r.wraps_parent_origin?"true":"false")
+     <<",\"anchor\":"<<anchor_evidence_[selected_]
+     <<",\"start\":["<<r.points.front().real()<<","<<r.points.front().imag()<<"]"
+     <<",\"end\":["<<r.points.back().real()<<","<<r.points.back().imag()<<"]"
+     <<",\"point_count\":"<<r.points.size()<<",\"samples\":[";
+    for(size_t k=0;k<r.points.size();++k) {
+        if(k)f<<",";
+        f<<"{\"parent_index\":"<<r.parent_indices[k]<<",\"x\":"<<r.points[k].real()<<",\"y\":"<<r.points[k].imag()<<"}";
+    }
+    f<<"]}\n";f.close();if(!f)throw std::runtime_error("OPEN_OBSERVATION_WRITE_FAILED");
+    std::filesystem::rename(pending,dest);
 }

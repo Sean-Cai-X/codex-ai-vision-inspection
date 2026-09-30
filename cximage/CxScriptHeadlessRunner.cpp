@@ -1,3 +1,4 @@
+#include "CxHarmonicEvidenceParameters.h"
 #include "pch.h"
 #include "CxScriptHeadlessRunner.h"
 #include "imagemanager.h"
@@ -1341,6 +1342,8 @@ bool InjectCxScriptRuntimeStrings(
             torch_context.str() +
             separator + options.torch_dataset_root;
         runtime.DefineStringConstant("global_torch_request_context", request_context);
+        runtime.DefineStringConstant("global_open_boundary_receipt_path",
+            (std::filesystem::path(options.output_dir) / "open_boundary_observation.json").string());
         runtime.DefineStringConstant("global_harmonic_asset_path",
             (std::filesystem::path(options.output_dir) / "harmonic_reference.so2").string());
         runtime.DefineStringConstant("global_harmonic_receipt_path",
@@ -1414,6 +1417,16 @@ bool ExecuteCxScriptSequential(
 
     if (script_source.empty())
         return false;
+
+    if (cxharmonicui::IsCase(script_source)) {
+        std::unordered_map<std::string,int> defaults;
+        if (!cxharmonicui::Defaults(script_source, defaults, reason) ||
+            !cxharmonicui::Validate(defaults, reason)) return false;
+        for (const auto& p : defaults) {
+            global_values[p.first] = p.second;
+            runtime.m_parser.DefineVar(p.first, &global_values[p.first]);
+        }
+    }
 
     std::map<std::string, double> script_locals;
     DefineCxScriptLocalVariables(runtime, script_source, script_locals);

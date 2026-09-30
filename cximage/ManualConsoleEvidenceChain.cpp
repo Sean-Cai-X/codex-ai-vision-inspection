@@ -9,6 +9,9 @@
 #include <commdlg.h>
 #endif
 
+#include "CxHarmonicEvidenceParameters.h"
+#include "ManualConsoleParamRegressionPanel.h"
+#include <iostream>
 #include "CircleShape.h"
 #include "CxScriptCasePackageWriter.h"
 #include "CxScriptCatalogRuntime.h"
@@ -5394,6 +5397,62 @@ static bool IsCuratedAssetOnlyEvidenceQueueLocal() {
              "CURATED_ASSET_ONLY";
 }
 
+bool RunHarmonicAuditGuiBridgeSmoke(ManualTestContext&, std::string&);
+
+int RunHarmonicEvidenceCatalogSmoke() {
+  auto context=std::make_unique<ManualTestContext>();
+  std::string reason;
+  auto findGroup=[&](const std::string& name)->ScriptEvidenceGroup& {
+    for(auto& group:context->script_evidence_groups)if(group.label==name)return group;
+    ScriptEvidenceGroup group;group.label=name;
+    context->script_evidence_groups.push_back(group);
+    return context->script_evidence_groups.back();
+  };
+  AppendAssetDrivenEvidenceCasesLocal(*context,findGroup,reason);
+  std::set<std::string> found;
+  ImGui::CreateContext();
+  auto& io=ImGui::GetIO();io.DisplaySize=ImVec2(1200,1600);io.DeltaTime=1.0f/60;
+  io.IniFilename=nullptr;
+  unsigned char* pixels=nullptr;int width=0,height=0;
+  io.Fonts->GetTexDataAsRGBA32(&pixels,&width,&height);
+  bool pass=true;
+  for(const auto& group:context->script_evidence_groups)for(const auto& item:group.thumbs) {
+    if(item.tool!="CxFastMatchHarmonicAudit")continue;
+    std::string source;
+    if(!ReadTextFile(item.script_path,source)||!cxharmonicui::IsCase(source)||
+       cv::imread(item.image_path).empty()||cv::imread(item.thumbnail_path).empty()){
+      pass=false;continue;
+    }
+    context->editor_text=source;context->runtime_int_vars.clear();
+    SeedDefaultManualGlobals(*context,item.script_path);
+    if(!cxharmonicui::Validate(context->runtime_int_vars,reason)){pass=false;continue;}
+    // ImGui's first frame measures a new window before displaying its contents.
+    for(int frame=0;frame<2;++frame) {
+      ImGui::NewFrame();
+      ImGui::SetNextWindowPos(ImVec2(0,0));
+      ImGui::SetNextWindowSize(ImVec2(520,520));
+      ImGui::Begin("Key Parameter Controls");
+      DrawKeyParameterControlPanel(*context,nullptr);
+      ImGui::End();ImGui::Render();
+    }
+    const int vertices=ImGui::GetDrawData()?ImGui::GetDrawData()->TotalVtxCount:0;
+    std::cout<<"harmonic_panel_vertices="<<vertices<<"\n";
+    if(vertices<=0)pass=false;
+    context->active_case_id=item.case_id;context->image_file_path=item.image_path;
+    if(!RunHarmonicAuditGuiBridgeSmoke(*context,reason)) {
+      std::cout<<"harmonic_gui_bridge_error="<<reason<<"\n";pass=false;
+    }
+    found.insert(item.case_id);
+    std::cout<<"harmonic_evidence_case="<<item.case_id<<" parameters="
+             <<std::size(cxharmonicui::parameters)<<"\n";
+  }
+  ImGui::DestroyContext();
+  for(const auto* id:{"harmonic_audit_closed_reference","harmonic_audit_open_interface","harmonic_audit_open_arc"})
+    if(!found.count(id))pass=false;
+  std::cout<<"HARMONIC_EVIDENCE_CATALOG_UI_"<<(pass?"PASS":"FAIL")<<"\n";
+  return pass?0:1;
+}
+
 void ViewController::EnsureCxScriptWorkbenchAssetsLoaded() {
   if (m_manualTest.script_evidence_groups_dirty == false)
     return;
@@ -6626,6 +6685,8 @@ bool ViewController::ApplyEvidenceSelectionSnapshotToManualContext(
 
   ManualTestContext staged = m_manualTest;
   staged.runtime_int_vars.clear();
+  staged.harmonic_audit_output_path.clear();
+  staged.harmonic_audit_result_summary.clear();
 
   staged.runtime_objects.clear();
 

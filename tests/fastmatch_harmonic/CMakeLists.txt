@@ -39,3 +39,11 @@ target_compile_features(make_complex_raster_fixtures PRIVATE cxx_std_17)
 
 add_executable(make_topology_fixtures make_topology_fixtures.cpp)
 target_compile_features(make_topology_fixtures PRIVATE cxx_std_17)
+
+add_executable(so2_open_boundary_guards native_open_boundary_test.cpp)
+target_link_libraries(so2_open_boundary_guards PRIVATE cx_so2)
+add_test(NAME open_boundary_guards COMMAND so2_open_boundary_guards)
+
+add_executable(harmonic_ui_parameter_guards native_ui_parameter_test.cpp)
+target_compile_features(harmonic_ui_parameter_guards PRIVATE cxx_std_17)
+add_test(NAME harmonic_ui_parameter_guards COMMAND harmonic_ui_parameter_guards)

@@ -2,6 +2,7 @@
 #include "../cxgeom/include/CxGeoSO2Harmonic.h"
 #include <string>
 #include <optional>
+#include "../cxgeom/include/CxGeoOpenBoundary.h"
 #include "../cxgeom/include/CxGeoSO2ReferenceAsset.h"
 #include <vector>
 
@@ -25,6 +26,9 @@ public:
     void anchorrect_script(double height,double width,double y,double x) { anchorrect(x,y,width,height); }
     void anchorpoints(int minimum);
     void fromobject(void* object);
+    void fromobjectarc(void* object);
+    void expectsubcurve(void* object);
+    void saveopen(const char* path);
     void parameter(double value, const char* name);
     void run();
     void expectstatus(const char* expected);
@@ -37,6 +41,8 @@ public:
     void loadasset(const char* path);
 private:
     void invalidate();
+    void importobject(void* object,bool subcurve);
+    std::optional<cxgeom::OpenBoundaryRun> open_runs_[2];
     cxgeom::so2::Contour contours_[2];
     std::string sources_[2] = {"script_points", "script_points"};
     cxgeom::so2::Config config_;

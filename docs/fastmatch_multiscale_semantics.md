@@ -722,3 +722,127 @@ open-curve matcher, GUI integration or production activation. The next
 stage is a distinct open-subcurve observation contract with endpoint/order/
 provenance preservation; it must not reuse closed SO2 matching by forcibly
 closing the selected boundary segment.
+
+## P1i open-subcurve observations (2026-09-30)
+
+`HarmonicAudit.fromobjectarc(FindObject)` consumes a boundary anchor and
+retains exactly one contiguous run of measured outer-boundary samples.
+`CxGeoOpenBoundary.h` is the pure numerical extraction contract. It retains
+the parent's forward cyclic order, original sample indices and endpoint
+coordinates, including a run crossing the parent's index-zero seam.
+No sorting, reversing, endpoint interpolation, fitting or forced closure is
+performed. Whole-contour selection, multiple arcs/components, coincident
+endpoints, missing anchors and point-budget violations are rejected.
+
+`saveopen(global_open_boundary_receipt_path)` writes
+`cxvision.open_boundary_observation.v1`: source object/generation/mask trace,
+parent point count, parent hole count, selected component index, anchor
+selection, ordered samples with parent indices, start/end, and seam-wrap
+flag. Files are published from a pending file and refuse overwrite.
+`closed=false`, `physical_boundary_verified=false` and
+`production_eligible=false` remain explicit.
+
+An extracted run cannot be declared closed/complete, edited in place, or
+exported as a closed SO2 descriptor. Call `clear()` before independent point
+editing. `run()` returns `OPEN_CONTOUR_LEGACY_FALLBACK` with no SO2 poses;
+this is intentional, not a successful open-curve match. Ring-source hole
+evidence is retained even when only an outer arc is selected.
+
+Native extraction guards and 28 actual headless/cxscript cases pass,
+covering left/right/corner, physical interface and ring arcs, cyclic order,
+stale/absent anchor, whole contour, separated arcs, force-close/complete,
+descriptor export and edit/clear rejection. Existing anchor, topology,
+complex combined transform, raster, reference-asset, FastMatch/FormFit and
+Mpic Audit regressions also pass.
+
+## P1j Harmonic Audit Evidence / Key Parameter Controls (2026-09-30)
+
+Three external cases have been published under
+`../cxscript_runs/harmonic_audit_evidence_20260930/` and the root added to
+`../cxscript_runs/_shared/evidence_case_roots.json`, retaining existing roots:
+
+| case_id | Evidence display name | Meaning |
+| --- | --- | --- |
+| harmonic_audit_closed_reference | Harmonic Audit - Closed Reference | Controlled rectangle self-comparison; explicit fixture topology, not business-image verification |
+| harmonic_audit_open_interface | Harmonic Audit - Open Interface | Anchored straight physical interface, open output |
+| harmonic_audit_open_arc | Harmonic Audit - Open Arc | Anchored outer arc of a ring; parent hole evidence retained |
+
+These are `REFERENCE_ONLY`/AUDIT fixtures, not Torch training candidates,
+approved models or production matches. Labels remain proposed and are not
+human-accepted training annotations. Each package includes the unmodified
+source raster, typed fixture label, actual observation/Audit receipt,
+headless overlay, result summary, replay script, manifest and SHA list.
+The inherited headless overlay shows source-tool evidence; it must not be
+interpreted as a dedicated live open-subcurve overlay.
+
+Operator flow:
+
+1. Run the rebuilt application with the established external
+   `CXVISION_RUN_ROOT`. In Evidence click **Reload Evidence Assets**.
+2. Select **CxFastMatchHarmonicAudit / Audit Cases** and one of the names above.
+   These registered asset cases are scanned into the current Evidence list.
+   If manually hidden, restore through the existing visibility controls.
+3. Return the annotation tool to Pointer/Pan if Magic Wand/Auto Boundary
+   controls currently own the parameter window.
+4. Open **Key Parameter Controls**. It has a dedicated Harmonic Audit path,
+   not the ordinary FastMatch panel.
+5. Change parameters and click **Run Harmonic Audit**. The existing serial
+   Debug Compiler consumes a frozen input snapshot. **Reset Harmonic Case
+   Defaults** restores the selected script's defaults.
+6. Review **Audit result**, status/reason and **Last output** in that panel.
+   Each run gets a new external `cxscript_runs/harmonic_audit_manual/run_*/`
+   directory containing input_parameters.json, replayable run.cxsc and
+   harmonic_audit_receipt.json; open cases also contain
+   open_boundary_observation.json. Failed runs retain inputs and do not
+   fabricate a successful receipt. Inputs are local and not uploaded.
+
+Shared schema: `cximage/CxHarmonicEvidenceParameters.h`, consumed by both
+GUI seeding and headless replay. All 21 controls have defaults and bounds:
+
+| Control | Default / unit |
+| --- | --- |
+| Method | 0 DFT; 1 EFD |
+| Resample points / maximum harmonic order | 256 / 12; order must be less than half the sample count |
+| Minimum source points / minimum perimeter | 16 / 20000 milli-pixels = 20 px |
+| Normalize scale | 1 |
+| Maximum pose residual | 35000 ppm = 0.035 |
+| Symmetry relative amplitude | 2000 ppm = 0.002 |
+| Peak relative tolerance | 100 ppm = 0.0001 |
+| Maximum pose hypotheses | 16 |
+| Anchor x/y/width/height | Interface 150/100/20/20 px; rectangle 35/55/15/20; ring arc 210/105/20/30 |
+| Minimum anchor points | 3 |
+| Foreground threshold / minimum component area | 128 / 20 pixels |
+| Source ROI x/y/width/height | 0/0/320/240 px |
+
+SO2 descriptor/pose settings are recorded but cannot turn an open observation
+into a closed match. The extraction and source-image settings control the
+open cases. Topology verification is not a permissive UI checkbox.
+The rectangle self-comparison script's explicit topology declaration is
+only justified by its controlled fixture, and must not be reused to
+declare arbitrary business images verified.
+
+Verification commands (native application, no Python test harness):
+
+```sh
+ctest --test-dir /external/native-build --output-on-failure
+sh tests/fastmatch_harmonic/run_evidence_replay.sh \
+  /absolute/app /external/native-build/make_topology_fixtures /external/new-run
+sh tests/fastmatch_harmonic/publish_evidence_cases.sh \
+  /external/new-run /external/cxscript_runs/new-case-root
+CXVISION_RUN_ROOT=/external/cxscript_runs /absolute/app \
+  --harmonic-evidence-catalog-smoke
+```
+
+The publisher creates local assets only; register its relative destination
+in evidence_case_roots.json before refreshing Evidence. No images or
+generated packages belong in the source repository.
+
+Evidence is recorded under
+`../cxscript_runs/fastmatch_open_boundary_20260930/`.
+Native CTest: 4/4. Evidence-script replay: 6/6, including changed method,
+sample count and residual recorded in the receipt, invalid-order rejection
+and ambiguous-anchor rejection. Catalog smoke uses the real asset scanner,
+decodes thumbnails/images and renders the actual ImGui parameter component
+without a display. It also exercises the GUI ParserDebugBridge with defaults
+and edited sample count, verifies receipts and replayed defaults.
+This is not desktop click/screenshot acceptance; that remains human review.

@@ -1,3 +1,4 @@
+#include "CxHarmonicEvidenceParameters.h"
 #include "CircleRingGauge.h"
 #include "CxCrashLogHandler.h"
 #include "CxImageRuntimeOverlay.h"
@@ -673,6 +674,13 @@ void SeedDefaultManualGlobals(ManualTestContext &context,
   auto set = [&](const char *name, int value) {
     context.runtime_int_vars[name] = value;
   };
+
+  if (cxharmonicui::IsCase(context.editor_text)) {
+    std::unordered_map<std::string,int> defaults; std::string reason;
+    if (cxharmonicui::Defaults(context.editor_text, defaults, reason))
+      for (const auto& p : defaults) set(p.first.c_str(), p.second);
+    else context.debug_reason = reason;
+  }
 
   set("global_threshold", 20);
   set("global_method", 0);
@@ -2161,6 +2169,8 @@ void ViewController::drawKeyParameterControlsWindow() {
           "formfit_mode=closed_polygon_formfit_v1 max_nodes=64 "
           "minimum_node_spacing_px=4 minimum_region_pixels=32 boundary_anchor_mode=custom");
     }
+  } else if (cxharmonicui::IsCase(m_manualTest.editor_text)) {
+    DrawKeyParameterControlPanel(m_manualTest, &m_parserDebugBridge);
   } else if (IsTorchContext(m_manualTest) &&
       !IsFindLineFindCircleContext(m_manualTest)) {
     std::string promptSyncReason;

@@ -1,0 +1,36 @@
+// harmonic_default global_harmonic_anchor_x 210
+// harmonic_default global_harmonic_anchor_y 105
+// harmonic_default global_harmonic_anchor_h 30
+// harmonic_evidence_binding: 1
+// GUI and headless share CxHarmonicEvidenceParameters.h defaults.
+Image m_image;
+FindObject m_object;
+HarmonicAudit m_audit;
+m_image.copyFromMat(global_matInput);
+m_object.setrect(global_harmonic_roi_x,global_harmonic_roi_y,global_harmonic_roi_w,global_harmonic_roi_h);
+m_object.setsearchtype(0);
+m_object.setdistance(1);
+m_object.setbrow(2);
+m_object.setroithre(global_harmonic_threshold);
+m_object.setminmax(global_harmonic_min_area,99999999);
+m_object.setminmaxwh(0,99999,0,99999);
+m_object.measurecc(m_image);
+global_match_count = m_object.getresultobjsnum();
+m_audit.parameter(global_harmonic_method,"method");
+m_audit.parameter(global_harmonic_sample_count,"sample_count");
+m_audit.parameter(global_harmonic_max_order,"max_order");
+m_audit.parameter(global_harmonic_minimum_source_points,"minimum_source_points");
+m_audit.parameter(global_harmonic_minimum_perimeter_milli/1000.0,"minimum_perimeter");
+m_audit.parameter(global_harmonic_normalize_scale,"normalize_scale");
+m_audit.parameter(global_harmonic_residual_ppm/1000000.0,"maximum_pose_residual");
+m_audit.parameter(global_harmonic_symmetry_ppm/1000000.0,"symmetry_relative_amplitude");
+m_audit.parameter(global_harmonic_peak_ppm/1000000.0,"peak_relative_tolerance");
+m_audit.parameter(global_harmonic_maximum_hypotheses,"maximum_hypotheses");
+m_audit.anchorpoints(global_harmonic_anchor_points);
+m_audit.select(0);
+m_audit.anchorrect(global_harmonic_anchor_x,global_harmonic_anchor_y,global_harmonic_anchor_w,global_harmonic_anchor_h);
+m_audit.fromobjectarc(m_object);
+m_audit.expectsubcurve(m_object);
+m_audit.saveopen(global_open_boundary_receipt_path);
+m_audit.run();
+m_audit.save(global_harmonic_receipt_path);

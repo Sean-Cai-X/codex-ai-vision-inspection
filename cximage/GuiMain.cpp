@@ -2762,7 +2762,11 @@ int RunBusinessWorkflowAcceptanceCli(int argc, char **argv) {
   return accepted ? 0 : 1;
 }
 
+int RunHarmonicEvidenceCatalogSmoke();
+
 int RunCxVisionApplication(int argc, char **argv) {
+  if (HasCliArg(argc, argv, "--harmonic-evidence-catalog-smoke"))
+    return RunHarmonicEvidenceCatalogSmoke();
   if (HasCliArg(argc, argv, "--evidence-configuration-projection-smoke"))
     return RunEvidenceConfigurationProjectionSmokeCli(argc, argv);
 
