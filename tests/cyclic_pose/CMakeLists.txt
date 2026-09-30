@@ -74,3 +74,15 @@ target_link_libraries(cyclic_branch_contract PRIVATE "${TORCH_LIBRARIES}")
 target_compile_options(cyclic_branch_contract PRIVATE ${TORCH_REQUIRED_FLAGS})
 add_test(NAME cyclic_branch_contract COMMAND cyclic_branch_contract)
 set_tests_properties(cyclic_branch_contract PROPERTIES TIMEOUT 60)
+# Explicit experiment: not a CTest accuracy claim or part of production runtime.
+add_executable(cyclic_synthetic_train
+    synthetic_train.cpp
+    ../../libtorch_module/torch_cyclic_group_ops.cpp
+    ../../libtorch_module/torch_cyclic_feature_ops.cpp
+    ../../libtorch_module/torch_cyclic_analytic_lift.cpp
+    ../../libtorch_module/torch_cyclic_analytic_group.cpp
+    ../../libtorch_module/torch_cyclic_pose_branch.cpp)
+target_compile_features(cyclic_synthetic_train PRIVATE cxx_std_17)
+target_include_directories(cyclic_synthetic_train PRIVATE ../../libtorch_module ${TORCH_INCLUDE_DIRS})
+target_link_libraries(cyclic_synthetic_train PRIVATE "${TORCH_LIBRARIES}")
+target_compile_options(cyclic_synthetic_train PRIVATE ${TORCH_REQUIRED_FLAGS})

@@ -1,0 +1,105 @@
+Experimental V2A controlled training and independent angle audit
+Date: 2026-09-30
+Scope: Next_20260918.txt continuation; standalone CPU LibTorch experiment.
+Status: infrastructure verified; OVERFIT_NOT_PASSED; HOLDOUT_NOT_PASSED.
+No production, measurement, CUDA, Windows or actual-image accuracy claim.
+
+Implementation
+- tests/cyclic_pose/synthetic_train.cpp: deterministic analytic synthetic images,
+  GT masks, symmetry-aware training, final frozen checkpoint, holdout evaluation.
+- tests/cyclic_pose/verify_synthetic_angles.py: independent standard-library
+  angle-error recomputation, split/ID checks, per-symmetry metrics, exact target
+  distribution diagnostic and artifact SHA256 inventory.
+- CMake target cyclic_synthetic_train is an explicit experiment, not a passing
+  accuracy CTest. Exit 0 = gates pass, 2 = completed but quality gates fail,
+  1 = execution/archive failure. Audit exit 0 means report consistency only.
+
+Protocol fixed before training
+- Seeds: model 918; train placement 31415; holdout placement 92653.
+- 32x32 grayscale analytic fixtures: asymmetric two-lobe q1, ellipse q2,
+  soft square q4; circle q0 means orientation undefined.
+- Train: four angles per q1/q2/q4 plus two circles (14 images).
+- Holdout: twelve unseen angles per q1/q2/q4 plus two circles (38 images).
+  Angles disjoint modulo each symmetry period. Holdout also changes scale
+  (.92/1.08), intensity (.85) and placement. This is a combined controlled
+  shift, not an isolated angle-only robustness sweep.
+- One instance/image, GT mask and known q supplied. Circle invalidity verifies
+  supplied q0 gating; it does not demonstrate learned symmetry classification.
+- PoseBranch input1/channels2/K12; Adam .01; full batch; 240 fixed steps.
+- Target: softmax(2*cos(q*(bin-theta))); KL objective.
+- Train acceptance: final/initial KL <= .35, MAE <= 2 deg, max <= 5 deg,
+  no invalid non-circle predictions, both circles angle-invalid.
+- Holdout acceptance: MAE <= 1 deg, P95 <= 2 deg, same validity rules.
+- Freeze/save final weights before constructing/evaluating holdout. No
+  holdout-based model selection, threshold adjustment or early stopping.
+- GT geometry generates labels, not another model. PGM files are previews;
+  serialized float image/mask tensors are the exact training data.
+- Existing output directories refused; no existing test image is modified.
+
+Observed first run
+Initial KL .563369274139 -> final .000247423799010.
+Training: MAE 1.03008582212 deg; max/P95 5.46023655619 deg.
+Holdout: MAE 1.86962068815; P95 4.77670437898; max 4.88651932563 deg.
+All 12 training and 36 holdout non-circle angles valid; both circles per
+split invalid. Neither quality gate passed. Do not equate low KL with accuracy.
+
+Symmetry-stratified MAE (degrees)
+               train        holdout
+q1             .137341      1.287020
+q2             .214804       .779863
+q4            2.738113      3.541979
+
+Identified limitation
+The independent checker computes the harmonic angle of the ideal target
+distribution, without using any learned weights. For K12/q4 the train-label
+maximum error is already 5.496837 deg (e.g. 22.5 deg target); holdout ideal
+target MAE 4.347233 and max 5.619076 deg.
+K12/q4 supplies only three distinct harmonic phases. The sampled exponential
+target contains higher harmonics that alias into the decoded moment. K>2q
+alone does not make this target-to-moment conversion unbiased.
+This explains the dominant train q4 error despite near-zero KL. Other
+holdout errors still include learning/rasterization/scale-intensity effects;
+do not attribute all model error to this single issue.
+
+Verification
+- Release contract suite 5/5 PASS, checks 124/922/357/139/48.
+- Exact checkpoint reload logits PASS.
+- Deterministic replay matches training curve, prediction CSV, metrics receipt
+  and split manifests byte-for-byte. Replay is not another independent test.
+- Independent Python metrics agree with C++ receipt within 1e-6 degree.
+- Existing-directory overwrite rejection and unchanged asset hashes PASS.
+- Deliberately incorrect copied accuracy receipt rejected by independent audit.
+- This step did not rerun Debug or CUDA. Prior results are not new evidence.
+- Original V1 source hashes checked separately in the external step receipt.
+
+Artifacts and reproduction
+Remote evidence root (sibling of repository):
+  ../cxscript_runs/cyclic_training_20260930/
+Files:
+  command_context.json : exact bwrap/runtime environment used
+  build.log / release_regression.log / training.log / replay.log
+  run01/protocol.json
+  run01/train.csv / holdout.csv / angle_predictions.csv / training_curve.csv
+  run01/*_images.pt / *_masks.pt / *.pgm
+  run01/experimental_weights.pt / training_receipt.json
+  independent_angle_audit.json / negative_checks.json / deterministic_replay.json
+  step_receipt.json
+Use the command_context runtime to build tests/cyclic_pose with target
+cyclic_synthetic_train. In that runtime:
+  /codex-data/build/cyclic_synthetic_train /codex-data/NEW_RUN_DIRECTORY
+On the remote host, from repository:
+  python3 tests/cyclic_pose/verify_synthetic_angles.py ../cxscript_runs/cyclic_training_20260930/run01
+Audit prints JSON to stdout; keep it outside the run directory.
+No GUI Evidence registry entries were added. These are headless experimental
+artifacts, not newly available Manual Review cases.
+
+Next bounded step
+1. Use training-only angles to establish a moment-consistent supervision
+   contract (or compare larger K); test dense angles and symmetry boundaries
+   against ideal labels before training. Do not relax accuracy thresholds.
+2. Preserve run01 and its failed gates. Any model/loss change after inspecting
+   this holdout makes it development data; pre-register a new unseen holdout.
+3. Repeat overfit then frozen-weight independent evaluation, with angle-only
+   and nuisance-factor sweeps separated, more seeds and unseen shapes.
+4. Real masks/occlusion, multiple instances, real images, CUDA/CPU alignment,
+   uncertainty calibration and V1 business baseline remain separate gates.
