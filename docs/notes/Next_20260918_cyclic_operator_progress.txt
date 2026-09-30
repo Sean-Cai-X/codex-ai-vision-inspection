@@ -1,0 +1,131 @@
+Next_20260918 continuation: experimental cyclic operators
+Date: 2026-09-30
+Specification:
+https://github.com/Sean-Cai-X/cxvision/blob/codex/cxcore-integration/Next_20260918.txt
+Implementation base: 15694aa (codex-ai-vision-inspection, main)
+
+Scope
+-----
+This is the first independently testable LibTorch operator increment for
+the September 18 YOLOv8-Seg V2A plan. It is NOT the September 20 FastMatch
+SO(2) contour descriptor project, and neither project's checks substitute
+for the other's acceptance gates.
+
+Added:
+- libtorch_module/torch_cyclic_group_ops.h/.cpp
+- tests/cyclic_pose/contract_test.cpp and CMakeLists.txt
+
+The V1 model, runtime executor, FastMatch, parser bindings, Evidence catalog,
+image assets and default application build are unchanged by this increment.
+Pre-existing uncommitted HarmonicAudit/CI/UI changes were left untouched.
+No model weights/dataset/inference baseline has been frozen here: Stage A
+of the specification is still incomplete. Source non-modification is not
+a substitute for that model/data baseline.
+
+Implemented contract
+--------------------
+LiftConv: [B,Cin,H,W] -> [B,Cout,K,H,W].
+GroupConv: shared relative-orientation kernels [Cout,Cin,K,k,k], with
+(h-g) routing and spatial kernel rotation. Stride 1, odd kernels, same
+zero padding, no bias, no materialized-kernel cache.
+The group axis remains explicit except during the native 2D convolution.
+Positive rotation follows torch::rot90 (displayed counterclockwise);
+zero orientation is unrotated. This convention must be converted explicitly
+before any future OBB/FastMatch adapter.
+K is a multiple of 4 from 4 through 24; tests cover 4/8/12/24.
+Spatial rotation utilities currently require square support.
+Quarter turns use exact rot90; other bins use bilinear grid_sample,
+zero padding, align_corners=false. No custom CUDA kernel is introduced.
+
+The parameter/buffer archive retains schema, convention, channel counts,
+K and kernel dimensions. A conflicting archive is rejected on forward.
+This is not a trusted model manifest, atomic migration loader or signed asset.
+
+DecodeAngles consumes per-instance logits and q/valid tensors.
+q=1,2,4 means 360/180/90 degree symmetry; q=0 is angle undefined.
+K must exceed 2*q to avoid harmonic aliasing.
+Output: probabilities, angle in radians, concentration, entropy, raw top-two
+margin and angle_valid. Every output is predictive-only.
+Invalid angles have zero as a sentinel and MUST be ignored using angle_valid.
+Concentration is not calibrated probability/uncertainty; raw top-two margin
+is symmetry-sensitive and must not alone drive admission.
+Nonfinite inputs, invalid target shape/type, harmonic aliases, invalid
+temperature and FP32 scaling overflow fail explicitly.
+Decoder probabilities/moments use FP32. No centre/size prediction is provided.
+
+Verification
+------------
+Actual C++ LibTorch execution, GCC 14.2, CPU FP32:
+- Release: 124 checks passed (CTest 1/1).
+- Debug: 124 checks passed (CTest 1/1).
+- CPU/CUDA comparison: SKIPPED_NO_DEVICE in the isolated test runtime.
+- Windows: not tested.
+- GUI/headless Evidence workflow: not changed or claimed tested here.
+
+Checks include quarter-turn equivariance, explicit feature shapes, shared
+BatchNorm3d/SiLU behaviour, nonzero finite Lift/Group/projection gradients,
+one descending distribution-loss update, analytic circular decoding with
+q=1/2/4, wrap-around, circle/uniform rejection, per-instance masking,
+decoder gradients, archive roundtrip/mismatch and invalid inputs.
+The projection and distribution loss in the test are a harness, not the
+implemented V2A Angular Extraction Head or a synthetic-overfit experiment.
+No upsample, concat, CyclicC2f, feature pyramid or instance-mask pooling
+gate is claimed.
+
+Important negative evidence
+---------------------------
+Quarter-turn maximum relative RMS error: about 5.25326e-7.
+For the fixed random high-frequency input, one interpolated group step:
+K=8: 0.683751; K=12: 0.645784; K=24: 0.590932.
+These are DIAGNOSTIC / UNQUALIFIED_INTERPOLATION, not passing E1 metrics.
+The test's PASS means its bounded implementation contracts pass, NOT that
+full C_N equivariance, G1, a trained pose model or production admission pass.
+No threshold was loosened to conceal these interpolation errors.
+A discrete sharp von Mises distribution also has finite-bin decoding bias;
+the analytic decoder test uses a positive single-harmonic distribution
+with an exactly known moment instead. It makes no learned sub-bin accuracy claim.
+
+Reproduction
+------------
+Normal installed LibTorch toolchain:
+  cmake -G Ninja -S tests/cyclic_pose -B <external-build> \
+    -DCMAKE_PREFIX_PATH=<libtorch> -DCMAKE_BUILD_TYPE=Release
+  cmake --build <external-build> --parallel 2
+  ctest --test-dir <external-build> -V
+
+This remote portable runtime contains CUDA-enabled LibTorch binaries but
+no CUDA toolkit/nvcc. The opt-in portable link path mirrors its existing
+GN dynamic linking rather than installing or changing dependencies:
+  -DCXVISION_PREBUILT_TORCH_ROOT=<existing-libtorch>
+  -DCXVISION_TORCH_CXX11_ABI=1
+The ABI must match that package's TorchConfig.cmake (not guessed).
+No CUDA compilation is performed by this operator module.
+
+Actual remote evidence (outside checkout):
+  ../cxscript_runs/cyclic_pose_20260930/
+  command_context.json          existing ordinary-user bwrap environment
+  configure*.log                includes earlier environment failures
+  build.log
+  ctest.log                     first failing decoder test retained
+  ctest_v2.log
+  ctest_final.log               final Release checks
+  debug.log                     final Debug checks
+  operator_receipt.json          scope, hashes, metrics and explicit gates
+
+Next sequence / gates
+---------------------
+1. Freeze actual V1 model/weights/data/inference baseline and trust inputs.
+2. Diagnose interpolation separately: interior vs padding, band-limited vs
+   high-frequency inputs, kernel sampling and antialiasing. Compare C4 exact
+   controls and C8/C12/C24 approximations; declare tolerances before admission.
+3. Extend operator tests to stacked blocks, normalization training mode,
+   resizing/concat and CPU/CUDA when a device is exposed. Keep G1 unqualified
+   until those measurements support it.
+4. Only then implement the independent V2A pyramid, per-instance mask pool,
+   learned shared angular projection, target assignment and controlled losses.
+5. Run synthetic overfit, all-angle held-out validation and G1-G5. Only
+   calibrated predictions may narrow FastMatch search, with legacy fallback.
+6. V2B and CxGeoMetry CPU/CUDA migration remain downstream gates.
+
+No APPROVED/ACTIVE status, production model, new human Evidence Case or
+GUI parameter controls were issued by this experimental increment.
