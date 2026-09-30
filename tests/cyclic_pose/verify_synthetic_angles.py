@@ -58,8 +58,12 @@ def audit(directory):
         # Exact target distribution, without any model: exposes finite-bin phase bias.
         if q:
             angles = [2 * math.pi * g / protocol["K"] for g in range(protocol["K"])]
-            weights = [math.exp(protocol["kappa"] * math.cos(q * (a - math.radians(target))))
-                       for a in angles]
+            if protocol.get("target") == "moment_cosine":
+                weights = [1 + 2 * protocol["rho"] * math.cos(q * (a - math.radians(target)))
+                           for a in angles]
+            else:
+                weights = [math.exp(protocol["kappa"] * math.cos(q * (a - math.radians(target))))
+                           for a in angles]
             c = sum(w * math.cos(q * a) for w, a in zip(weights, angles))
             s = sum(w * math.sin(q * a) for w, a in zip(weights, angles))
             ideal = math.degrees(math.atan2(s, c) / q)

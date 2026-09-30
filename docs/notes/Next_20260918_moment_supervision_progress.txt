@@ -1,0 +1,104 @@
+Experimental V2A moment-consistent supervision
+Date: 2026-09-30
+Continuation of controlled synthetic experiment commit 6c0edc5.
+Status: TARGET_CONTRACT_PASS; SMALL_SAMPLE_OVERFIT_PASS; HOLDOUT_NOT_PASSED.
+No production eligibility; no application defaults, V1 runtime or test images changed.
+
+Change and mathematical contract
+The previous softmax(kappa*cos(q*(bin-theta))) target has higher harmonics.
+On a finite K grid, those can alias into the q-th moment used for decoding.
+The experimental training target is now:
+  p[g] = (1 + 2*rho*cos(q*(2*pi*g/K-theta))) / K, rho=.4.
+For q>0 and K>2q, uniform-grid root-of-unity sums yield exactly:
+  sum(p[g])=1
+  sum(p[g]*exp(i*q*2*pi*g/K))=rho*exp(i*q*theta).
+Probabilities stay strictly positive for 0<rho<.5. q0 uses a uniform target
+and remains excluded from angle supervision. Concentration is not confidence.
+Only training supervision changed; the network, decoder and optimizer did not.
+
+Source changes
+- tests/cyclic_pose/moment_target.h: experimental target with tensor, symmetry,
+  bin count and rho validation; intentionally not a production API.
+- moment_target_test.cpp: K12/16/24, q1/2/4, 1441 angles per combination.
+  Verifies normalization, positivity, decoded phase, moment magnitude,
+  q0 invalidity and rejection of invalid rho / insufficient K.
+- synthetic_train.cpp: protocol v2, moment target, new holdout seed/angles.
+- verify_synthetic_angles.py: independent math supports both v1 and v2 receipts.
+- CMakeLists.txt: cyclic_moment_target_contract added to CTest.
+
+Pre-registered v2 protocol
+Same model seed918, train seed31415, train images, K12/channels2,
+Adam lr.01, 240 steps and accuracy gates as v1.
+New holdout seed48127; angles (i+.25)*period/12 instead of (i+.5)*period/12.
+New angles are disjoint from both training and previous holdout modulo q.
+Holdout retains scale .92/1.08, intensity .85 and subpixel placement variation.
+Source hashes captured before training; final weights saved before holdout.
+No post-holdout hyperparameter changes, retries for selection, or relaxed gates.
+A deterministic replay verifies execution only; it is not new independent data.
+
+Measured results
+Ideal target dense contract: 12,969 angles, max error .0000273208 deg.
+The FP32 tolerance is .0001 deg. Release and Debug both PASS.
+Initial KL .177423194051 -> final .0000828271513456.
+Small-set train: MAE .139393735391 deg; max/P95 .434428035215 deg.
+Train gate PASS (MAE<=2, max<=5, loss ratio<=.35, correct validity).
+New holdout: MAE 2.51942000218, P95 5.43308357550, max 5.46993143111 deg.
+Holdout gate NOT_PASSED (requires MAE<=1 and P95<=2).
+No invalid non-circle angles; both circles per split angle-invalid.
+
+Per-symmetry MAE degrees:
+     training     new holdout
+q1    .233139     3.364288
+q2    .155915     3.398058
+q4    .029127      .795914
+
+Interpretation and boundaries
+The former q4 target bias is fixed, and small-sample overfit now passes.
+The new holdout still fails, primarily q1/q2 in this combined shift.
+Its angles differ from v1, so aggregate v1/v2 holdout numbers are NOT a
+same-input model comparison. No claim that generic accuracy improved.
+Ideal-target error alone is not learned-model accuracy. Likewise known q0
+gating is not learned shape/symmetry recognition.
+This experiment uses GT masks, one instance/image, four analytic shapes,
+one training seed and tiny images. Real masks, occlusion, unknown shapes,
+multi-instance operation, real images and CUDA are not validated here.
+The current sweep mixes angle, scale, intensity and placement. It cannot
+identify which nuisance factor caused each residual model error.
+
+Verification and artifacts
+Release CTest 6/6 PASS (previous five contracts plus new target contract).
+New target contract only additionally tested in Debug (not full Debug suite).
+Checkpoint exact-logit reload PASS.
+Independent Python metrics agree with C++ within 1e-6 deg.
+New/old holdout angle disjointness checked.
+Deterministic replay: curve, predictions, metrics and split manifests identical.
+Previous run01 file hashes unchanged; v1 receipt remains readable.
+Old V1 runtime source hashes checked at commit.
+
+Evidence sibling directory:
+  ../cxscript_runs/cyclic_moment_20260930/
+Includes command_context.json, pre_run_source_sha256.json,
+build_target_contract.log, debug_target_contract.log, release_regression.log,
+training.log, run01/{protocol.json,training_receipt.json,angle_predictions.csv,
+training_curve.csv,experimental_weights.pt,train.csv,holdout.csv,*_images.pt,
+*_masks.pt,*.pgm}, replay_checks.json, independent_angle_audit.json,
+previous_evidence_compatibility.json and step_receipt.json.
+No new Manual Review GUI case registered.
+
+Reproduction
+Build tests/cyclic_pose targets cyclic_synthetic_train and
+cyclic_moment_target_contract using command_context.json's portable runtime.
+Run target contract before training.
+  /codex-data/build/cyclic_synthetic_train /codex-data/NEW_DIRECTORY
+Completed quality failure returns 2 intentionally; do not convert this to PASS.
+Independent audit from repo:
+  python3 tests/cyclic_pose/verify_synthetic_angles.py ../cxscript_runs/cyclic_moment_20260930/run01
+Audit exit0 means evidence consistency, not holdout acceptance.
+
+Next bounded step
+Freeze this checkpoint. On development fixtures, separate angle-only,
+scale-only, intensity-only and translation-only sweeps before choosing a fix.
+Then consider training-only angle/nuisance coverage and normalization changes.
+The already inspected v1/v2 holdouts become development evidence for any
+subsequent changes; reserve a new locked holdout before another acceptance run.
+Keep 1deg MAE/2deg P95 gate unchanged and retain both failure receipts.

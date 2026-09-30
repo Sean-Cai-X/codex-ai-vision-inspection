@@ -1,4 +1,5 @@
 #include "torch_cyclic_pose_branch.h"
+#include "moment_target.h"
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
@@ -13,7 +14,7 @@ constexpr double pi=3.14159265358979323846;
 struct Sample {std::string id;int q;double angle,scale,cx,cy,intensity;};
 struct Data {torch::Tensor image,q,theta,requested;InstanceMasks masks;std::vector<Sample> samples;};
 Data Generate(bool holdout,const fs::path& dir) {
-    std::mt19937 rng(holdout?92653:31415);
+    std::mt19937 rng(holdout?48127:31415);
     auto jitter=[&](){return (double(rng())/double(rng.max())-0.5)*1.5;};
     std::vector<torch::Tensor> images,masks;
     std::vector<int64_t> orders;std::vector<float> angles;
@@ -27,7 +28,7 @@ Data Generate(bool holdout,const fs::path& dir) {
         int count=q==0?2:(holdout?12:4);
         for(int i=0;i<count;++i) {
             double period=q?360.0/q:360.0;
-            double angle=q?(holdout?(i+0.5)*period/12:i*period/4):0;
+            double angle=q?(holdout?(i+0.25)*period/12:i*period/4):0;
             // Holdout angle sets are disjoint modulo the declared symmetry.
             double scale=holdout?(i%2?1.08:0.92):1.0;
             double cx=jitter(),cy=jitter(),intensity=holdout?0.85:1.0;
@@ -64,8 +65,7 @@ Data Generate(bool holdout,const fs::path& dir) {
     return d;
 }
 torch::Tensor Loss(const InstancePoseOutput& out,const Data& d) {
-    auto target=torch::softmax(2*torch::cos(d.q.unsqueeze(-1)*
-        (out.bins_rad.view({1,1,-1})-d.theta.unsqueeze(-1))),-1);
+    auto target=experiment::MomentTarget(d.theta,d.q,out.logits.size(-1));
     auto kl=(target*(target.clamp_min(1e-20).log()-torch::log_softmax(out.logits,-1))).sum(-1);
     auto valid=out.mask_valid&d.requested;
     if(valid.sum().item<int>()!=12)throw std::runtime_error("unexpected training supervision count");
@@ -109,7 +109,7 @@ int main(int argc,char** argv){
     torch::set_num_threads(1);torch::manual_seed(918);
     // Fixed BEFORE training; no holdout-based selection or early stopping.
     std::ofstream protocol(dir/"protocol.json");
-    protocol<<R"({"schema":"cxvision.synthetic_pose_protocol.v1","seed":918,"train_seed":31415,"holdout_seed":92653,"steps":240,"lr":0.01,"K":12,"channels":2,"kappa":2,"overfit":{"loss_ratio_max":0.35,"mae_deg_max":2,"max_deg_max":5},"holdout":{"mae_deg_max":1,"p95_deg_max":2},"production_eligible":false})";
+    protocol<<R"({"schema":"cxvision.synthetic_pose_protocol.v2","seed":918,"train_seed":31415,"holdout_seed":48127,"holdout_angle_offset":0.25,"steps":240,"lr":0.01,"K":12,"channels":2,"target":"moment_cosine","rho":0.4,"overfit":{"loss_ratio_max":0.35,"mae_deg_max":2,"max_deg_max":5},"holdout":{"mae_deg_max":1,"p95_deg_max":2},"production_eligible":false})";
     protocol.close();
     auto train=Generate(false,dir);
     PoseBranch model(1,2,12);
@@ -153,7 +153,7 @@ int main(int argc,char** argv){
     bool overfit=final_loss<=initial*0.35&&tm.invalid==0&&tm.mean<=2&&tm.maximum<=5&&tm.circle_invalid==2;
     bool generalization=hm.invalid==0&&hm.mean<=1&&hm.p95<=2&&hm.circle_invalid==2;
     std::ofstream report(dir/"training_receipt.json");
-    report<<std::setprecision(12)<<"{\"schema\":\"cxvision.synthetic_pose_training.v1\",\"production_eligible\":false,"
+    report<<std::setprecision(12)<<"{\"schema\":\"cxvision.synthetic_pose_training.v2\",\"production_eligible\":false,"
         <<"\"initial_kl\":"<<initial<<",\"final_kl\":"<<final_loss
         <<",\"overfit_pass\":"<<(overfit?"true":"false")
         <<",\"holdout_pass\":"<<(generalization?"true":"false")
