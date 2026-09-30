@@ -21,6 +21,9 @@ public:
     void snapshotfastmatch(void* object);
     void expectunchanged(void* object);
     void sourceindex(int index);
+    void anchorrect(double x,double y,double width,double height);
+    void anchorrect_script(double height,double width,double y,double x) { anchorrect(x,y,width,height); }
+    void anchorpoints(int minimum);
     void fromobject(void* object);
     void parameter(double value, const char* name);
     void run();
@@ -42,6 +45,10 @@ private:
     int selected_ = 0;
     int source_index_ = 0;
     bool source_index_explicit_ = false;
+    struct Anchor { double x,y,width,height; };
+    std::optional<Anchor> pending_anchor_;
+    int anchor_minimum_points_ = 3;
+    std::string anchor_evidence_[2] = {"null","null"};
     int measured_count_[2] = {-1,-1};
     int measured_holes_[2] = {-1,-1};
     int measured_index_[2] = {-1,-1};

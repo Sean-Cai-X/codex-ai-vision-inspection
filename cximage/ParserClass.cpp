@@ -924,6 +924,8 @@ void CxParserRuntime::ParserInitialClassFunction(int iusing) {
     m_parser.DefineClassFun("HarmonicAudit", harmonic_audit, "point", &CxFastMatchHarmonicAudit::point_script);
     m_parser.DefineClassFun("HarmonicAudit", harmonic_audit, "topology", &CxFastMatchHarmonicAudit::topology_script);
     m_parser.DefineClassFun("HarmonicAudit", harmonic_audit, "sourceindex", &CxFastMatchHarmonicAudit::sourceindex);
+    m_parser.DefineClassFun("HarmonicAudit", harmonic_audit, "anchorrect", &CxFastMatchHarmonicAudit::anchorrect_script);
+    m_parser.DefineClassFun("HarmonicAudit", harmonic_audit, "anchorpoints", &CxFastMatchHarmonicAudit::anchorpoints);
     m_parser.DefineClassFun("HarmonicAudit", harmonic_audit, "fromobject", &CxFastMatchHarmonicAudit::fromobject);
     m_parser.DefineClassFun("HarmonicAudit", harmonic_audit, "parameter", &CxFastMatchHarmonicAudit::parameter);
     m_parser.DefineClassFun("HarmonicAudit", harmonic_audit, "run", &CxFastMatchHarmonicAudit::run);

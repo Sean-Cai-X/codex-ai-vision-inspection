@@ -644,3 +644,81 @@ This stage supplies safe rejection and traceable selection, not open-curve
 matching, hole-aware shape matching, multi-component association or automatic
 anchor tracking. Those require dedicated observation/selection semantics.
 No APPROVED/ACTIVE state or production Prefilter/Pose Seed is enabled.
+
+## P1h measured-boundary anchor selection (2026-09-30)
+
+HarmonicAudit adds script-configurable anchorrect(x,y,width,height) and
+anchorpoints(minimum). Coordinates are original image pixels, with a
+half-open rectangle [x,x+width) x [y,y+height). All values must be finite,
+x/y nonnegative and width/height positive. Minimum support defaults to 3
+measured points and accepts 1..4096. Parser numeric reversal is handled
+by an explicit wrapper, as with the existing pose/topology APIs.
+
+This is an outer-boundary point selector, NOT bounding-box overlap or
+centroid selection. On the next fromobject call it examines retained
+FindObject measurements:
+
+1. Count components with at least one measured outer-boundary point inside
+   the anchor. Zero is HARMONIC_ANCHOR_NO_BOUNDARY; more than one is
+   HARMONIC_ANCHOR_AMBIGUOUS_COMPONENTS.
+2. For the unique component, count cyclic contiguous runs of inside points.
+   More than one is HARMONIC_ANCHOR_AMBIGUOUS_ARCS. An entirely contained
+   contour counts as one run.
+3. Require the configured minimum number of inside points, otherwise return
+   HARMONIC_ANCHOR_INSUFFICIENT_SUPPORT.
+4. Import the selected complete outer contour with the existing measured
+   hole protections. Selection is consumed only after successful import.
+   It does not change topology verification, closed/completeness flags.
+
+Explicit sourceindex and pending anchor selection cannot coexist; either
+order raises HARMONIC_SELECTION_CONFLICT. Reusing a successfully consumed
+anchor does not silently reselect in a multi-component image. Before import,
+another valid anchorrect call can replace the pending rectangle. After a
+failed import the pending selector remains for explicit correction/retry.
+No persistent cross-image object identity or automatic tracking is implied.
+
+Successful input receipts include anchor_selection with basis
+outer_boundary_points, rect_half_open (x,y,width,height), minimum_points,
+candidate_count, hit_points and contiguous_runs. Existing source ID,
+generation, mask hash and selected index remain recorded. Explicit point
+editing, clearing or loading an asset removes live anchor evidence. The
+descriptor asset does not pretend to embed that live image-selection proof.
+
+Headless verification: 15 scenarios x DFT/EFD = 30 expected outcomes passed:
+
+- Left/right component boundary anchors and a full-component anchor select
+  the expected source and preserve valid self-matching.
+- A rectangle covering both components rejects ambiguity.
+- A strip hitting two separated arcs of the same contour rejects ambiguity.
+- Interior-only and background-only anchors reject instead of selecting by
+  bounding box. An inner-hole-only anchor does not select the outer boundary.
+- Insufficient support, invalid rectangles and invalid support counts reject.
+- Both index/anchor conflict orders and stale anchor reuse reject.
+- An anchor on a physical interface selects its region source but retains
+  UNVERIFIED_TOPOLOGY_LEGACY_FALLBACK; anchoring is not closure evidence.
+
+The test checks the serialized rectangle, selected indices and actual
+boundary-point basis, not just application exit status. Run with:
+
+```sh
+sh tests/fastmatch_harmonic/run_anchor_replay.sh \
+  /absolute/app /external/native-build/make_topology_fixtures \
+  /external/fresh-anchor-run
+```
+
+Evidence: ../cxscript_runs/fastmatch_harmonic_anchor_20260930/verified_replay.
+The application was rebuilt as devuan. Native CTest 2/2 and the topology,
+complex raster, rectangle raster, reference asset, FastMatch/FormFit and
+Audit suites passed, including the existing Mpic arc fallback regression.
+All acceptance execution remains native application/headless/cxscript;
+images, binaries and receipts remain outside Git.
+
+Limitations: this selects an outer-contour source and does not yet extract
+the anchored subcurve. A segment crossing a tiny anchor without a sampled
+point may be missed (safe rejection); there is no segment interpolation.
+Coordinates are not automatically transformed across rotations/scales.
+There is no automatic closed/open determination, inner-hole selection,
+open-curve matcher, GUI integration or production activation. The next
+stage is a distinct open-subcurve observation contract with endpoint/order/
+provenance preservation; it must not reuse closed SO2 matching by forcibly
+closing the selected boundary segment.

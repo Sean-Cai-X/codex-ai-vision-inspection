@@ -16,6 +16,7 @@ void CxFastMatchHarmonicAudit::select(int side) {
     selected_=side;
 }
 void CxFastMatchHarmonicAudit::clear() {
+    anchor_evidence_[selected_]="null";
     measured_count_[selected_]=measured_holes_[selected_]=measured_index_[selected_]=-1;
     loaded_[selected_].reset();contours_[selected_]={};sources_[selected_]="script_points";invalidate();
 }
@@ -24,6 +25,7 @@ void CxFastMatchHarmonicAudit::point(double x,double y) {
     if(contours_[selected_].points.size()>=4096)throw std::invalid_argument("SOURCE_POINT_BUDGET_EXCEEDED");
     loaded_[selected_].reset();
     measured_count_[selected_]=measured_holes_[selected_]=measured_index_[selected_]=-1;
+    anchor_evidence_[selected_]="null";
     sources_[selected_]="script_points";
     contours_[selected_].points.emplace_back(x,y);invalidate();
 }
@@ -39,17 +41,58 @@ void CxFastMatchHarmonicAudit::topology(int verified,int closed,int complete,int
 }
 void CxFastMatchHarmonicAudit::sourceindex(int index) {
     if(index<0)throw std::invalid_argument("HARMONIC_INVALID_SOURCE_INDEX");
+    if(pending_anchor_)throw std::invalid_argument("HARMONIC_SELECTION_CONFLICT");
     source_index_=index;source_index_explicit_=true;
+}
+void CxFastMatchHarmonicAudit::anchorrect(double x,double y,double width,double height) {
+    if(!std::isfinite(x)||!std::isfinite(y)||!std::isfinite(width)||!std::isfinite(height)||
+       x<0||y<0||width<=0||height<=0||!std::isfinite(x+width)||!std::isfinite(y+height))
+        throw std::invalid_argument("HARMONIC_INVALID_ANCHOR");
+    if(source_index_explicit_)throw std::invalid_argument("HARMONIC_SELECTION_CONFLICT");
+    pending_anchor_=Anchor{x,y,width,height};
+}
+void CxFastMatchHarmonicAudit::anchorpoints(int minimum) {
+    if(minimum<1||minimum>4096)throw std::invalid_argument("HARMONIC_INVALID_ANCHOR_POINTS");
+    anchor_minimum_points_=minimum;
 }
 void CxFastMatchHarmonicAudit::fromobject(void* object) {
     if(!object)throw std::invalid_argument("HARMONIC_MISSING_SOURCE");
     const auto& finder=*static_cast<const FindObject*>(object);
     const int count=static_cast<int>(finder.getmeasurements().size());
-    if(count>1 && !source_index_explicit_)
+    if(count>1 && !source_index_explicit_ && !pending_anchor_)
         throw std::invalid_argument("HARMONIC_AMBIGUOUS_SOURCE_SELECTION");
     if(!finder.getmeasurementconfig().include_hole_boundaries)
         throw std::invalid_argument("HARMONIC_HOLE_EVIDENCE_DISABLED");
-    const int chosen=source_index_;
+    int chosen=source_index_;
+    std::string anchor_record="null";
+    if(pending_anchor_) {
+        const auto a=*pending_anchor_;
+        int candidates=0,selected_hits=0,selected_runs=0;
+        for(int index=0;index<count;++index) {
+            const auto& points=finder.getmeasurements()[index].outer_boundary;
+            std::vector<bool> hits;int hit_count=0,runs=0;
+            for(const auto& p:points) {
+                bool hit=p.x>=a.x && p.x<a.x+a.width && p.y>=a.y && p.y<a.y+a.height;
+                hits.push_back(hit);if(hit)++hit_count;
+            }
+            if(hit_count==0)continue;
+            for(size_t j=0;j<hits.size();++j)
+                if(hits[j] && !hits[(j+hits.size()-1)%hits.size()])++runs;
+            if(hit_count==static_cast<int>(hits.size()))runs=1;
+            ++candidates;chosen=index;selected_hits=hit_count;selected_runs=runs;
+        }
+        if(candidates==0)throw std::invalid_argument("HARMONIC_ANCHOR_NO_BOUNDARY");
+        if(candidates!=1)throw std::invalid_argument("HARMONIC_ANCHOR_AMBIGUOUS_COMPONENTS");
+        if(selected_runs!=1)throw std::invalid_argument("HARMONIC_ANCHOR_AMBIGUOUS_ARCS");
+        if(selected_hits<anchor_minimum_points_)throw std::invalid_argument("HARMONIC_ANCHOR_INSUFFICIENT_SUPPORT");
+        std::ostringstream record;record<<std::setprecision(17);
+        record<<"{\"basis\":\"outer_boundary_points\",\"rect_half_open\":["
+              <<a.x<<","<<a.y<<","<<a.width<<","<<a.height
+              <<"],\"minimum_points\":"<<anchor_minimum_points_
+              <<",\"candidate_count\":"<<candidates<<",\"hit_points\":"<<selected_hits
+              <<",\"contiguous_runs\":"<<selected_runs<<"}";
+        anchor_record=record.str();
+    }
     const auto* m=finder.getmeasurement(chosen);
     if(!m)throw std::invalid_argument("HARMONIC_MISSING_MEASUREMENT");
     clear();
@@ -58,6 +101,7 @@ void CxFastMatchHarmonicAudit::fromobject(void* object) {
     c.holes=static_cast<int>(m->hole_boundaries.size());
     measured_count_[selected_]=count;measured_holes_[selected_]=c.holes;
     measured_index_[selected_]=chosen;
+    anchor_evidence_[selected_]=anchor_record;pending_anchor_.reset();
     source_index_=0;source_index_explicit_=false; // Selection is one-shot, never a cross-image identity.
     sources_[selected_]="FindObject.outer_boundary:"+m->object_ref+
         ":generation="+std::to_string(m->generation)+":mask="+std::to_string(m->mask_hash);
@@ -123,7 +167,8 @@ void CxFastMatchHarmonicAudit::run() {
          <<",\"holes\":"<<c.holes<<",\"components\":"<<c.components
          <<",\"measured_source_count\":"<<measured_count_[i]
          <<",\"measured_holes\":"<<measured_holes_[i]
-         <<",\"selected_source_index\":"<<measured_index_[i]<<"}";
+         <<",\"selected_source_index\":"<<measured_index_[i]
+         <<",\"anchor_selection\":"<<anchor_evidence_[i]<<"}";
     }
     s<<"],\"poses\":[";
     for(size_t i=0;i<result_.poses.size();++i) {
@@ -252,7 +297,7 @@ void CxFastMatchHarmonicAudit::loadasset(const char* path) {
     auto a=cxgeom::so2::DecodeReference(bytes,trusted_sha_,config_,method_);
     // Commit only after all validation; a failed load preserves the previous slot.
     loaded_[selected_]=std::move(a.descriptor);sources_[selected_]=std::move(a.provenance);
-    contours_[selected_]={};
+    contours_[selected_]={};anchor_evidence_[selected_]="null";
     measured_count_[selected_]=measured_holes_[selected_]=measured_index_[selected_]=-1;invalidate();
     asset_events_.push_back("{\"operation\":\"load\",\"sha256\":\""+trusted_sha_+"\"}");
 }
