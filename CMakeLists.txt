@@ -98,6 +98,8 @@ set(CXIMAGE_CORE_SOURCES
   cximage/GridPatternClassTool.cpp
   cximage/RegionPatternTool.cpp
   cximage/FastMatchDiagnostic.cpp
+  cximage/CxFastMatchHarmonicAudit.cpp
+  cxgeom/src/CxGeoSO2Harmonic.cpp
   cximage/CxFastMatchRuntimeCapture.cpp
   cximage/Run.cpp
   cximage/ParserClass.cpp

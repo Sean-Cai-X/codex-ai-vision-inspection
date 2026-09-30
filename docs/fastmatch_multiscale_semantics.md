@@ -177,3 +177,94 @@ Remaining gates are unchanged: validated real observation contours and live
 model inventory; versioned reference assets/hash checks; native Audit adapter
 and legacy-output replay; then evidence-gated Prefilter/Pose Seed. No actual
 image accuracy, speedup, APPROVED or ACTIVE claim follows from this delivery.
+
+## P1b application headless + cxscript gate (2026-09-30)
+
+The primary acceptance path now executes the actual application, not the
+Python oracle. GN and CMake include the native math and
+`CxFastMatchHarmonicAudit`; `ParserClass` exposes it as `HarmonicAudit`.
+
+Script API (all arguments below are in script order):
+
+- `select(0|1)`: select reference/observation; `clear()` resets that input.
+- `point(x,y)`: append original isotropic pixel coordinates.
+- `topology(verified,closed,complete,holes,components)`: explicit caller facts.
+- `sourceindex(index)`, `fromobject(findobject)`: copy measured outer_boundary,
+  hole count and source identity/generation/mask hash; topology stays unverified.
+- `parameter(value,"name")`: method (0 DFT / 1 EFD), sample_count, max_order,
+  minimum_source_points, minimum_perimeter, normalize_scale,
+  maximum_pose_residual, symmetry_relative_amplitude,
+  peak_relative_tolerance, maximum_hypotheses.
+- `run()`: append one structured Audit result.
+- `expectstatus("...")`, `expectcount(n)`,
+  `expectpose(angle_deg,scale,tolerance)`: fail the script on mismatch.
+- `save(global_harmonic_receipt_path)`: write the receipt into the current
+  headless output directory, with parameters, input provenance/topology,
+  hypotheses, fallback reason and assertion count.
+
+Input/configuration changes invalidate the current result. The class owns
+copies and has no mutable FastMatch reference, no seed/candidate setters and
+no production activation method. Explicit topology flags are caller
+assertions, not automatic approval of business labels. The receipt is
+`cxvision.harmonic_audit_receipt.v1`, always AUDIT and non-production.
+
+Four source-only replay scripts live under tests/fastmatch_harmonic:
+
+1. headless_image_baseline.cxsc: actual FindObject connected-components run.
+2. headless_audit.cxsc: the same image operation plus 56 controlled Audit
+   runs and 160 assertions (rotation/scale, rectangle/square/asymmetric
+   shapes, circle ambiguity, topology rejection and hypothesis budget).
+3. headless_object_source.cxsc: copy the actual measured pixel boundary;
+   two assertions require unverified-topology fallback.
+4. headless_assertion_failure.cxsc: deliberately wrong expectation must
+   fail with HARMONIC_STATUS_ASSERTION_FAILED and a nonzero application exit.
+
+Linux offline replay, inside the existing application's runtime environment:
+
+```sh
+sh tests/fastmatch_harmonic/run_headless_audit.sh \
+  /absolute/path/to/cxvision_imgui_acceptance \
+  /external/path/to/input.png \
+  /external/path/to/a-new-output-directory 800 600
+```
+
+Use an absolute executable/image path, fresh output directory and actual ROI
+width/height. No Python is needed by this runner. The supplied image must
+produce at least one FindObject component for the source-copy test; arbitrary
+images are not promised to pass the component configuration. This is a
+replay harness, not an image-quality acceptance policy.
+
+Verified on the external Mpic arc image in the configured Linux runtime:
+three successful headless runs; expected failing script rejected; 56 Audit
+runs / 160 assertions and two real-source assertions. Baseline, Audit and
+source-copy variants produced byte-identical result_overlay.png,
+evidence_overlay.png, tool_display.png, object_state.json and
+measurement_observations.json. SHA256 receipts cover the actual executable,
+input image, scripts and Audit receipts. Files remain outside Git under
+cxscript_runs/fastmatch_harmonic_headless_20260930/verified_replay.
+
+The measured source component contained 2311 outer-boundary points and
+25 holes and touched the image boundary. It is deliberately NOT admitted as
+a valid simple closed Harmonic target. This demonstrates actual image-to-
+contour-to-fallback execution, not successful matching of the Mpic arc.
+The mathematical pose assertions use scripted controlled contours and must
+not be presented as image-derived recognition accuracy.
+
+Integration issues found and fixed by actual replay:
+
+- Numeric class-call arguments are reversed by the legacy parser ABI.
+  New Audit wrappers preserve natural script point/topology/pose order.
+  The baseline uses FindObject setrect(x,y,width,height), as verified by
+  the real binding, rather than the misleading reversed-order old example.
+- DefineStrConst used the transient expression-literal buffer size as the
+  index into the persistent constant buffer. A second constant resolved to
+  the Torch request context instead of its receipt path. Registration now
+  indexes the correct buffer; these replay scripts exercise that regression.
+- RunCollectedScript now retains std::exception diagnostics so assertions
+  and I/O failures are distinguishable from an unknown native failure.
+
+Scope: this is an explicit script-side Audit adapter. It is not automatic
+FastMatch reference-asset registration, not a live candidate Prefilter/Pose
+Seed hook, and not a complete FastMatch/FormFit regression. The unchanged
+output check above is for the exercised FindObject pipeline only. Those
+remaining gates and industrial image-quality evaluation are still required.

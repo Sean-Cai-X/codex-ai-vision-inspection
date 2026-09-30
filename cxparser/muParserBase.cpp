@@ -450,7 +450,8 @@ void ParserBase::DefineStrConst(const string_type &a_strName, const string_type 
 
   m_vStringVarBuf.push_back(a_strVal);
 
-  m_StrVarDef[a_strName] = m_vStringBuf.size();
+  // Named constants index the persistent variable buffer, not expression literals.
+  m_StrVarDef[a_strName] = m_vStringVarBuf.size() - 1;
 
   ReInit();
 }

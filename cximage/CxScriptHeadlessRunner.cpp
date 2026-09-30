@@ -1341,6 +1341,8 @@ bool InjectCxScriptRuntimeStrings(
             torch_context.str() +
             separator + options.torch_dataset_root;
         runtime.DefineStringConstant("global_torch_request_context", request_context);
+        runtime.DefineStringConstant("global_harmonic_receipt_path",
+            (std::filesystem::path(options.output_dir) / "harmonic_audit_receipt.json").string());
     }
     catch (const std::exception& e)
     {

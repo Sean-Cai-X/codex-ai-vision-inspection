@@ -14,6 +14,7 @@
 #include "CxTextInspect.h"
 #include "FastMatch.h"
 #include "FastMatchDiagnostic.h"
+#include "CxFastMatchHarmonicAudit.h"
 #include "FindCircle.h"
 #include "FindEllipse.h"
 #include "FindLine.h"
@@ -909,6 +910,21 @@ void CxParserRuntime::ParserInitialClassFunction(int iusing) {
                             &CircleRingGauge::score);
     m_parser.DefineClassFun("CircleRingGauge", pcircle_ring_gauge,
                             "status_code", &CircleRingGauge::status_code);
+
+    CxFastMatchHarmonicAudit* harmonic_audit = nullptr;
+    m_parser.DefineClass("HarmonicAudit", harmonic_audit);
+    m_parser.DefineClassFun("HarmonicAudit", harmonic_audit, "select", &CxFastMatchHarmonicAudit::select);
+    m_parser.DefineClassFun("HarmonicAudit", harmonic_audit, "clear", &CxFastMatchHarmonicAudit::clear);
+    m_parser.DefineClassFun("HarmonicAudit", harmonic_audit, "point", &CxFastMatchHarmonicAudit::point_script);
+    m_parser.DefineClassFun("HarmonicAudit", harmonic_audit, "topology", &CxFastMatchHarmonicAudit::topology_script);
+    m_parser.DefineClassFun("HarmonicAudit", harmonic_audit, "sourceindex", &CxFastMatchHarmonicAudit::sourceindex);
+    m_parser.DefineClassFun("HarmonicAudit", harmonic_audit, "fromobject", &CxFastMatchHarmonicAudit::fromobject);
+    m_parser.DefineClassFun("HarmonicAudit", harmonic_audit, "parameter", &CxFastMatchHarmonicAudit::parameter);
+    m_parser.DefineClassFun("HarmonicAudit", harmonic_audit, "run", &CxFastMatchHarmonicAudit::run);
+    m_parser.DefineClassFun("HarmonicAudit", harmonic_audit, "expectstatus", &CxFastMatchHarmonicAudit::expectstatus);
+    m_parser.DefineClassFun("HarmonicAudit", harmonic_audit, "expectpose", &CxFastMatchHarmonicAudit::expectpose_script);
+    m_parser.DefineClassFun("HarmonicAudit", harmonic_audit, "expectcount", &CxFastMatchHarmonicAudit::expectcount);
+    m_parser.DefineClassFun("HarmonicAudit", harmonic_audit, "save", &CxFastMatchHarmonicAudit::save);
 
     FastMatchDiagnostic *fastmatch_diagnostic = nullptr;
     m_parser.DefineClass("FastMatchDiagnostic", fastmatch_diagnostic);
@@ -2913,6 +2929,10 @@ bool CxParserRuntime::RunCollectedScript(std::string &reason) {
     return true;
   } catch (mu::Parser::exception_type &e) {
     reason = "RunCollectedScript failed: " + e.GetMsg();
+    m_collectedScriptStatements.clear();
+    return false;
+  } catch (const std::exception& e) {
+    reason = std::string("RunCollectedScript failed: ") + e.what();
     m_collectedScriptStatements.clear();
     return false;
   } catch (...) {

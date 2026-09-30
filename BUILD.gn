@@ -8,7 +8,14 @@ group("gn_configuration") {
 
 # Opt-in inventory target; the default target intentionally does not compile it.
 source_set("cxvision_source_inventory") {
-  sources = cxvision_default_sources + [ glad_root + "/src/gl.c" ]
+  sources = filter_exclude(cxvision_default_sources, [
+    "cximage/CxFastMatchHarmonicAudit.cpp",
+    "cxgeom/src/CxGeoSO2Harmonic.cpp",
+  ]) + [
+    "cximage/CxFastMatchHarmonicAudit.cpp",
+    "cxgeom/src/CxGeoSO2Harmonic.cpp",
+    glad_root + "/src/gl.c",
+  ]
   configs = [ "//build/config:common", "//build/config:platform" ]
 }
 
