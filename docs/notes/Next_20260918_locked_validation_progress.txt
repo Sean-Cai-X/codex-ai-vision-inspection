@@ -1,0 +1,112 @@
+Experimental V2A locked synthetic validation
+Date: 2026-09-30
+Candidate: joint augmentation from a9151f7.
+Decision: CONTROLLED_SYNTHETIC_NOT_PASSED; production_eligible=false.
+Pooled accuracy passes, but mandatory q1 P95 gate fails. No threshold change.
+
+Frozen candidate and preregistration
+Checkpoint SHA256:
+  4116fa2c2f5fbf0a774142db30faaf991b1487c2ce45f042f5b410022a0cf3ec
+Manifest SHA256:
+  c2654232dd6fd7a42b149c07b3b84c86611d65137b7a17a900b2a38e6024fa4c
+Before model inference, locked_pose_validation.py prepare wrote:
+- candidate identity checked against the previous step receipt;
+- source hashes for model implementation, renderer/evaluator and audit;
+- exact fixture manifest and digest;
+- seed2026093001, parameter ranges, class counts and fixed gates.
+Checkpoint and registration mounted read-only for inference.
+No retraining, early stopping, checkpoint selection or test-based tuning.
+The new locked set is independent of training/development draws but uses the
+same synthetic shape families; it is not an unseen-shape/real-image test.
+
+Data
+372 fixtures: q1 asymmetric two-lobe120, q2 ellipse120, q4 soft square120,
+q0 circles12. 32x32 analytic images; known symmetry and GT masks.
+Angle stratification: one random offset in [.1,.9] of each of 120 bins over
+the object's symmetry period, independent for each q.
+Angles explicitly exclude previous train, v1/v2 holdout and 72-grid dense
+diagnostic angles by at least .0001 degree modulo the appropriate period.
+Scale uniform [.91,1.09], intensity uniform [.82,.98], x/y uniform [-.7,.7] px.
+These are interpolation-range checks inside augmentation coverage, not
+out-of-range stress tests. Canonical images are generated only in memory;
+the exact CSV, generator and source hashes provide reproducible fixtures.
+
+Acceptance fixed before inference
+Both pooled and each q1/q2/q4 must meet:
+  MAE <=1 deg; nearest-rank P95 <=2 deg; zero invalid oriented predictions.
+All12 q0 circles must remain angle-invalid.
+q0 is supplied metadata; this is not learned detection of rotational symmetry.
+Audit uses modular angular error independently of C++ reported errors.
+No rule excludes high-error examples. Invalid predictions cannot disappear
+from acceptance merely because valid-only averages look good.
+
+Measured results (degrees)
+group   n      MAE         P95         max         gate
+pooled  360     .532995    1.590517    3.013005     PASS
+q1      120     .833780    2.141743    3.013005     FAIL
+q2      120     .358766     .966488    1.584720     PASS
+q4      120     .406438    1.233585    1.472863     PASS
+All oriented predictions valid; 12/12 circles angle-invalid.
+Whole-check decision FAIL because every required group must pass.
+
+Tail evidence
+9 samples have error >2deg, all q1: 9/120=7.5% of that group, although only
+9/360=2.5% pooled. This explains why the pooled P95 alone hides this failure.
+All input factors and predictions saved in tail_samples.json.
+Examples:
+  locked_1_22 target67.297857deg, scale.917933,
+    prediction70.310862deg, error3.013005deg.
+  locked_1_83 target249.745395deg, scale.918776,
+    prediction252.190282deg, error2.444887deg.
+  locked_1_0 target.514429deg, scale.962702,
+    prediction2.875096deg, error2.360667deg.
+Do not infer one universal root cause from these few examples.
+
+Implementation
+tests/cyclic_pose/factor_sweep.cpp now has explicit optional mode:
+  cyclic_factor_sweep MODEL_RUN NEW_OUTPUT --locked-manifest MANIFEST_CSV
+The legacy development sweep remains available with two arguments.
+Locked mode runs the exact registered 372 rows without perturbing parameters,
+then confirms all model parameters and normalization buffers are unchanged.
+Inference exit0 only means successful execution. External audit owns acceptance.
+tests/cyclic_pose/locked_pose_validation.py:
+  prepare SOURCE_RUN NEW_REGISTRATION
+  verify SOURCE_RUN REGISTRATION
+  audit SOURCE_RUN REGISTRATION OUTPUT
+Audit exit2 = internally consistent result that fails quality gates;
+exit0 = controlled synthetic gates pass (still not production authorization).
+Malformed/changed sources, checkpoint, manifest or gate settings are rejected.
+
+Verification
+Release regression CTest6/6 PASS.
+Legacy factor sweep predictions byte-identical to prior joint-arm diagnostic.
+Existing-output refusal, modified-gate rejection and modified-manifest
+rejection verified on separate negative-test copies.
+Frozen checkpoint/source/manifest hashes verified before/after audit.
+No locked inference replay used as additional independent evidence.
+No Debug, CUDA, Windows or real-image checks in this step.
+
+Artifacts
+  ../cxscript_runs/cyclic_locked_20260930/
+  registration/protocol.json / manifest.csv
+  registration.log / command_context.json / build_run.log
+  run01/protocol.json / predictions.csv
+  locked_result.json / tail_samples.json
+  verification_checks.json / release_regression.log / step_receipt.json
+No existing test images changed. No GUI Evidence entry was registered.
+
+Reproduction/audit
+Use command_context.json for the recorded build/inference runtime.
+Frozen evaluation command:
+  /codex-data/build/cyclic_factor_sweep /codex-data/checkpoint /codex-data/NEW_OUTPUT --locked-manifest /codex-data/registration/manifest.csv
+From repository:
+  python3 -B tests/cyclic_pose/locked_pose_validation.py audit ../cxscript_runs/cyclic_augmentation_20260930/joint ../cxscript_runs/cyclic_locked_20260930/registration ../cxscript_runs/cyclic_locked_20260930/run01
+
+Next bounded step
+Retain this failure; do not raise the P95 gate to2.2 or substitute pooled-only
+acceptance. Investigate q1 angle/scale/placement tail on development fixtures,
+with fixed-model paired probes before changing training.
+If this locked set guides any change, it becomes development evidence for
+that change: register a new untouched set for subsequent acceptance.
+Real-image domain shift, multiple instances, predicted masks, unseen shapes,
+training-seed stability and CPU/CUDA agreement remain separate release gates.

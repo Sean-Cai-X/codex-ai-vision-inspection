@@ -8,7 +8,7 @@ using namespace cxvision::cyclic;
 namespace fs=std::filesystem;
 constexpr double pi=3.14159265358979323846;
 struct Sample {std::string id;int q;double angle,scale,x,y,intensity;};
-std::vector<Sample> Read(const fs::path& path) {
+std::vector<Sample> Read(const fs::path& path,size_t expected=38) {
     std::ifstream in(path);std::string line;
     if(!std::getline(in,line)||line!="id,q,angle_deg,scale,cx,cy,intensity")
         throw std::runtime_error("unexpected holdout manifest");
@@ -20,7 +20,7 @@ std::vector<Sample> Read(const fs::path& path) {
         result.push_back({f[0],std::stoi(f[1]),std::stod(f[2]),std::stod(f[3]),
                           std::stod(f[4]),std::stod(f[5]),std::stod(f[6])});
     }
-    if(result.size()!=38)throw std::runtime_error("expected 38 v2 holdout fixtures");
+    if(result.size()!=expected)throw std::runtime_error("unexpected fixture count");
     return result;
 }
 std::pair<torch::Tensor,torch::Tensor> Render(const Sample& s) {
@@ -62,10 +62,12 @@ void Run(PoseBranch& model,const std::vector<Sample>& samples,const std::string&
 }
 int main(int argc,char** argv) {
  try {
-    if(argc!=3)throw std::runtime_error("usage: cyclic_factor_sweep V2_RUN_DIRECTORY NEW_OUTPUT_DIRECTORY");
+    if(argc!=3&&argc!=5)throw std::runtime_error("usage: cyclic_factor_sweep MODEL_RUN NEW_OUTPUT [--locked-manifest MANIFEST_CSV]");
+    const bool locked=argc==5;
+    if(locked&&std::string(argv[3])!="--locked-manifest")throw std::runtime_error("invalid mode");
     fs::path input=argv[1],output=argv[2];
     if(fs::exists(output))throw std::runtime_error("refuse existing output directory");
-    auto original=Read(input/"holdout.csv");
+    auto original=locked?Read(argv[4],372):Read(input/"holdout.csv");
     torch::set_num_threads(1);torch::NoGradGuard guard;
     PoseBranch model(1,2,12);
     torch::serialize::InputArchive archive;archive.load_from((input/"experimental_weights.pt").string());
@@ -75,10 +77,13 @@ int main(int argc,char** argv) {
     for(auto& p:model->buffers())before.push_back(p.clone());
     fs::create_directories(output);
     std::ofstream protocol(output/"protocol.json");
-    protocol<<R"({"schema":"cxvision.factor_sweep.v1","scope":"DEVELOPMENT_DIAGNOSTIC","production_eligible":false,"training":false,"K":12,"channels":2,"angle_grid_per_symmetry":72,"scenarios":["baseline","scale_only","intensity_only","translation_only","x_only","y_only","combined","angle_dense"],"reference_mae_deg":1,"reference_p95_deg":2})";
+    if(locked)protocol<<R"({"schema":"cxvision.locked_pose_inference.v1","training":false,"K":12,"channels":2,"rows":372,"acceptance":"REQUIRES_EXTERNAL_AUDIT","production_eligible":false})";
+    else protocol<<R"({"schema":"cxvision.factor_sweep.v1","scope":"DEVELOPMENT_DIAGNOSTIC","production_eligible":false,"training":false,"K":12,"channels":2,"angle_grid_per_symmetry":72,"scenarios":["baseline","scale_only","intensity_only","translation_only","x_only","y_only","combined","angle_dense"],"reference_mae_deg":1,"reference_p95_deg":2})";
     protocol.close();
     std::ofstream csv(output/"predictions.csv");
     csv<<"scenario,id,q,target_deg,scale,cx,cy,intensity,prediction_deg,valid,error_deg,concentration\n"<<std::setprecision(17);
+    if(locked)Run(model,original,"locked_holdout",csv);
+    else {
     for(std::string scenario:{"baseline","scale_only","intensity_only","translation_only","x_only","y_only","combined"}) {
         auto samples=original;
         for(auto& s:samples) {
@@ -94,11 +99,12 @@ int main(int argc,char** argv) {
         dense.push_back({"dense_"+std::to_string(q)+"_"+std::to_string(i),q,i*(360.0/q)/72,1,0,0,1});
     for(int i=0;i<2;++i)dense.push_back({"dense_circle_"+std::to_string(i),0,0,1,0,0,1});
     Run(model,dense,"angle_dense",csv);
+    }
     size_t index=0;
     for(auto& p:model->parameters())TORCH_CHECK(torch::equal(p,before[index++]),"parameter changed");
     for(auto& p:model->buffers())TORCH_CHECK(torch::equal(p,before[index++]),"buffer changed");
     csv.close();if(!csv||!protocol)throw std::runtime_error("evidence write failure");
-    std::cout<<"FROZEN_STATE PASS rows=484 acceptance=NOT_EVALUATED"<<std::endl;
+    std::cout<<"FROZEN_STATE PASS rows="<<(locked?372:484)<<" acceptance=REQUIRES_EXTERNAL_AUDIT"<<std::endl;
     return 0;
  } catch(const std::exception& e) {std::cerr<<e.what()<<std::endl;return 1;}
 }
