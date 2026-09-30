@@ -1,0 +1,96 @@
+Next_20260918: interpolation diagnosis and analytic lifting increment
+Date: 2026-09-30
+Previous record: Next_20260918_cyclic_operator_progress.txt
+
+Added research-only AnalyticLift in torch_cyclic_analytic_lift.h/.cpp.
+It learns six shared basis coefficients per input/output channel pair:
+radial order 0, cosine/sine order 1, cosine/sine order 2 and a second radial
+profile. Each orientation is evaluated by harmonic steering, not by
+bilinearly resampling a learned pixel kernel. The smooth radial envelope
+has circular compact support. This is not a strictly band-limited filter,
+not a generic arbitrary-kernel replacement and not a trained pose model.
+
+Defaults: kernel 9, sigma 1.4. Valid odd kernel sizes 7..15; sigma 0.8 to
+(size-1)/3; K multiple of 4 from 4..24. The validated path is CPU FP32.
+No separate preprocessing is installed in the application, and no stored
+image is changed. All synthetic tensors live inside the test executable.
+
+Controlled experiment
+---------------------
+tests/cyclic_pose/interpolation_test.cpp compares:
+1. Arbitrary 9x9 pixel kernels (diagnostic baseline).
+2. A pixel LiftConv whose orientation-zero weight is copied exactly from
+   AnalyticLift. This is the matched-function, same-support control.
+3. AnalyticLift, with the same base coefficients at every orientation.
+
+For 3 coefficient seeds and K=8/12/24, all nonidentity group rotations are
+tested. The 96 non-quarter-turn combinations use one fixed asymmetric
+Gaussian-mixture image family, not 96 independent business images.
+Quarter turns are separate exact-lattice controls.
+
+The field can be evaluated directly at rotated coordinates, so input
+resampling error is reported independently. Full-image errors and central
+25x25 errors (crop 12 from 49x49) are both retained. A centre crop avoids
+conflating padding/corner loss with interior behaviour; it does not remove
+these errors from the full-image metric.
+The analytic_ideal_input column still compares with an interpolated output
+feature map, so it is NOT a pure independent kernel-error decomposition.
+Error terms can cancel and must not be added as a causal percentage split.
+
+Acceptance limits were set before this experiment:
+- Quarter-turn analytic error < 2e-5.
+- Smooth fixed-field interior error < 0.08.
+- Aggregate analytic interior error below matched sampled-bank error.
+These are bounded regression criteria, not industrial pose tolerances or
+a replacement for E1/G1. White-noise results remain diagnostic, not admitted.
+
+Measured Release and Debug results (identical summary):
+- Original contract: 124 checks PASS.
+- Interpolation/analytic contract: 922 checks PASS.
+- CTest: 2/2 PASS in each build, approximately 22 seconds per suite.
+- Matched sampled-bank mean interior error: 0.0160195 (1.602%).
+- Analytic-bank mean interior error: 0.00307817 (0.308%).
+- Maximum analytic interior error: 0.0062306 (0.623%).
+- White-noise analytic interior errors: 0.13082..0.208145 (13.1..20.8%).
+
+This supports a real reduction of kernel-resampling error for the exercised
+smooth field. It does NOT show exact arbitrary-angle equivariance, nor
+robustness to arbitrary texture. Removing kernel interpolation alone does
+not resolve the lattice/input-feature sampling problem.
+
+Additional checks include output-energy guards (no zero-feature shortcut),
+finite nonzero coefficient gradients, bit-identical archive roundtrip,
+invalid dimensions/sigma/dtype rejection and archive group-order mismatch.
+Archives remain trusted research artifacts, not signed production assets.
+CUDA was unavailable in the isolated runtime and remains unverified.
+Windows, full GUI/headless pipeline and real images were not tested here.
+
+Reproduce using tests/cyclic_pose/CMakeLists.txt as in the previous record:
+  cmake --build <external-build> --parallel 2
+  ctest --test-dir <external-build> -V
+Both tests have a 60-second CTest timeout.
+
+Remote evidence outside source checkout:
+  ../cxscript_runs/cyclic_interpolation_20260930/
+  command_context.json
+  release_v1.log
+  release_final.log
+  debug_final.log
+  interpolation_receipt.json
+  build/ and debug/ (binaries, not source-control assets)
+
+Gate status and next work
+-------------------------
+Full C_N E1/G1: NOT_PASSED.
+V1 source/runtime, FastMatch, Evidence cases and product defaults: unchanged.
+No production/APPROVED/ACTIVE state, model registry entry or automatic seed
+was enabled.
+
+Next: independently validate antialiased input/feature sampling and extend
+the same analytic kernel representation to GroupConv. Current GroupConv
+still resamples arbitrary kernels and was NOT upgraded by this increment.
+Then test stacked blocks, nonlinearities, stride/downsampling, upsampling,
+instance mask pooling and CUDA parity before training the V2A pose branch.
+Freeze V1 weights/data/inference evidence in parallel; source preservation
+alone does not satisfy that baseline. Application value and G1-G5 remain
+necessary before production FastMatch seed admission.
