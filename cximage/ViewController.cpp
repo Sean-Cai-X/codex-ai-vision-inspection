@@ -1,3 +1,5 @@
+#include "CxSetMatchEvidenceParameters.h"
+#include "ManualConsoleScriptDebugPanel.h"
 #include "CircleShape.h"
 #include "CxCrashLogHandler.h"
 #include "CxRuntimePaths.h"
@@ -6628,6 +6630,17 @@ void ViewController::drawScriptAcceptancePanels() {
   ImGui::Checkbox("Show legacy GPU work (debug)", &m_showLegacyGpuWork);
   ImGui::Checkbox("Business Workflow Acceptance Analysis",
                   &m_showBusinessWorkflowPanel);
+  const bool setMatchEvidence=cxsetmatchui::IsCase(m_manualTest.editor_text);
+  if(setMatchEvidence) {
+    ImGui::TextWrapped("Evidence Set Match: %s",m_manualTest.active_case_id.c_str());
+    std::string reason;
+    const bool valid=cxsetmatchui::Validate(m_manualTest.runtime_int_vars,reason);
+    ImGui::BeginDisabled(!valid || m_manualTest.has_pending_execution_snapshot);
+    if(ImGui::Button("Run Evidence Set Match") && !RequestSetMatchRun(m_manualTest,reason))
+      m_manualTest.debug_reason=reason;
+    ImGui::EndDisabled();
+    if(!valid)ImGui::TextWrapped("Cannot run: %s",reason.c_str());
+  } else {
   if (m_selectedScript >= 0 &&
       m_selectedScript < static_cast<int>(m_scriptCatalog.size()))
     ImGui::TextWrapped("Selected: %s",
@@ -6662,6 +6675,7 @@ void ViewController::drawScriptAcceptancePanels() {
         m_scriptResult.status == "BLOCKED" ? "BLOCKED" : "runtime_executed");
     m_scriptRunRequested = false;
   }
+  } // Legacy catalog run remains separate from active Set Match Evidence.
   ImGui::SameLine();
   if (ImGui::Button("Stop")) {
     m_scriptRunRequested = false;
@@ -6672,6 +6686,11 @@ void ViewController::drawScriptAcceptancePanels() {
   }
   ImGui::SameLine();
   if (ImGui::Button("Clear Result")) {
+    if(setMatchEvidence) {
+      m_manualTest.setmatch_receipt.clear();
+      m_manualTest.debug_status="RESULT_CLEARED";
+      m_manualTest.debug_reason="Set Match result cleared; run again to obtain a current receipt.";
+    }
     m_scriptResult = ScriptResult();
     m_scriptResult.status = "PENDING";
     m_scriptResult.reason = "result cleared";

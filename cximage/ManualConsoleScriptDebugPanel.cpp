@@ -103,6 +103,21 @@ bool PrepareHarmonicAuditRun(ManualTestContext& context, ParserDebugBridge& brid
 }
 
 
+void CollectSetMatchReceipt(ManualTestContext& context,bool ran) {
+      if(cxsetmatchui::IsCase(context.editor_text)) {
+        context.setmatch_receipt.clear();
+        if(ran)try {
+          const auto path=std::filesystem::path(context.setmatch_output_path)/"setmatch_receipt.json";
+          if(std::filesystem::file_size(path)>16*1024*1024)throw std::runtime_error("Receipt exceeds UI byte limit");
+          std::ifstream input(path);
+          const auto receipt=nlohmann::json::parse(input);
+          if(receipt.at("schema")!="cxvision.geometric_set_match.receipt.v1" ||
+             receipt.at("production_eligible")!=false)throw std::runtime_error("Invalid development receipt");
+          context.setmatch_receipt=receipt.dump();
+        }catch(const std::exception& e){context.debug_reason=std::string("Set-match receipt unavailable: ")+e.what();}
+      }
+}
+
 bool FastMatchScriptSupportsNormalTrace(const std::string& scriptText)
 {
   return scriptText.find("fastmatch_normal_trace_binding_version: 3") !=
@@ -678,8 +693,94 @@ bool MigrateLegacyFindSegmentationPromptCallsForRun(
 } // namespace
 
 
+
+
+bool RequestSetMatchRun(ManualTestContext& context,std::string& reason) {
+  if(!cxsetmatchui::IsCase(context.editor_text)) {reason="No Set Match Evidence selected";return false;}
+  if(context.has_pending_execution_snapshot) {reason="A run is already pending";return false;}
+  if(!cxsetmatchui::Validate(context.runtime_int_vars,reason))return false;
+  context.setmatch_receipt.clear();
+  context.debug_action="Key Parameter Controls Run Script";
+  context.pending_execution_gauge=context.current_gauge;
+  context.pending_execution_globals=context.runtime_int_vars;
+  context.has_pending_execution_snapshot=true;
+  context.debug_status="MANUAL_RUN_REQUESTED";
+  context.debug_reason="Set match: execute frozen parameter snapshot";
+  context.run_state="running";
+  return true;
+}
+
+bool ViewController::RunSetMatchPendingEntrySmoke(ManualTestContext& source,std::string& reason) {
+ try {
+  m_parserOwner.ConfigureStreams(&m_os,&m_createcodeos);
+  m_parserDebugBridge.Bind(&m_parserOwner);
+  if(!m_parserOwner.Initialize(reason))return false;
+  m_manualTest=source;
+  m_imageViewImage=cv::imread(source.image_file_path);
+  if(m_imageViewImage.empty()){reason="Missing test diagram";return false;}
+  auto& context=m_manualTest;
+  std::string previous;
+  for(int run=0;run<3;++run) {
+    if(run==1)context.runtime_int_vars["global_setmatch_pair_checks"]=1;
+    if(run==2) {
+      context.runtime_int_vars["global_setmatch_scale_min"]=2000;
+      context.runtime_int_vars["global_setmatch_scale_max"]=1000;
+    }
+    if(run<2) {
+      if(!RequestSetMatchRun(context,reason))return false;
+      std::string duplicateReason;
+      if(RequestSetMatchRun(context,duplicateReason)){reason="Duplicate Run accepted";return false;}
+    } else {
+      // A corrupted queued input must still be rejected at execution boundary.
+      context.pending_execution_globals=context.runtime_int_vars;
+      context.pending_execution_gauge=context.current_gauge;
+      context.has_pending_execution_snapshot=true;
+      context.debug_action="Key Parameter Controls Run Script";
+      context.debug_status="MANUAL_RUN_REQUESTED";
+    }
+    // Prove that the button's frozen snapshot wins over later mutable globals.
+    context.runtime_int_vars["global_setmatch_pair_checks"]=17;
+    if(!ConsumePendingManualScriptRun(context,"setmatch_pending_entry_smoke")) {
+      reason="Pending button request not consumed";return false;
+    }
+    if(context.has_pending_execution_snapshot ||
+       ConsumePendingManualScriptRun(context,"setmatch_duplicate_consume")) {
+      reason="Pending run was not consumed exactly once";return false;
+    }
+    if(run==2) {
+      if(context.run_state!="failed" || !context.setmatch_receipt.empty() ||
+         context.setmatch_output_path!=previous) {
+        reason="Invalid input retained result or created another run";return false;
+      }
+      continue;
+    }
+    if(context.setmatch_receipt.empty()){reason="Missing pending-entry receipt: "+context.debug_reason;return false;}
+    const auto receipt=nlohmann::json::parse(context.setmatch_receipt);
+    const int expected=context.active_case_id=="setmatch_symmetric_square"?4:
+                       context.active_case_id=="setmatch_budget_stop"?0:1;
+    if(!run && receipt.at("result").at("candidates").size()!=std::size_t(expected)) {
+      reason="Pending-entry candidate mismatch";return false;
+    }
+    if(run==1 && (receipt.at("result").at("execution_status")!="BUDGET_EXHAUSTED" ||
+       receipt.at("request").at("parameters").at("max_pair_checks")!=1)) {
+      reason="Frozen budget edit did not reach the native matcher";return false;
+    }
+    if(context.setmatch_output_path==previous){reason="Run path reused";return false;}
+    previous=context.setmatch_output_path;
+    if(!std::filesystem::is_regular_file(std::filesystem::path(previous)/"request.json")) {
+      reason="Missing frozen request";return false;
+    }
+  }
+  std::cout<<"SETMATCH_PENDING_ENTRY_PASS "<<context.active_case_id<<" success/budget/invalid/once\n";
+  return true;
+ }catch(const std::exception& e){reason=e.what();return false;}
+}
+
+
 bool RunSetMatchGuiBridgeSmoke(ManualTestContext& context,std::string& reason) {
  try {
+  auto controller=std::make_unique<ViewController>();
+  if(!controller->RunSetMatchPendingEntrySmoke(context,reason))return false;
   CxParserRuntimeOwner owner;
   if(!owner.Initialize(reason))return false;
   ParserDebugBridge bridge;bridge.Bind(&owner);
@@ -979,6 +1080,9 @@ bool ViewController::ConsumePendingManualScriptRun(ManualTestContext& context,
         context.pending_execution_candidate_id;
   }
 
+  for(const auto* key:{"global_setmatch_request_path","global_setmatch_receipt_path",
+      "global_harmonic_receipt_path","global_open_boundary_receipt_path","global_harmonic_asset_path"})
+    context.runtime_int_vars.erase(key);
   for (const auto& input : context.runtime_int_vars)
   {
     if (input.first.rfind("global_", 0) == 0)
@@ -987,6 +1091,11 @@ bool ViewController::ConsumePendingManualScriptRun(ManualTestContext& context,
   for (const ScriptVariableView& observed : context.global_variable_views)
   {
     if (observed.name == "global_matInput" ||
+        observed.name == "global_setmatch_request_path" ||
+        observed.name == "global_setmatch_receipt_path" ||
+        observed.name == "global_harmonic_receipt_path" ||
+        observed.name == "global_open_boundary_receipt_path" ||
+        observed.name == "global_harmonic_asset_path" ||
         observed.name.rfind("global_", 0) != 0)
       continue;
     if (context.runtime_int_vars.find(observed.name) ==
@@ -1067,10 +1176,11 @@ bool ViewController::ConsumePendingManualScriptRun(ManualTestContext& context,
     imageBound = m_parserDebugBridge.StageGlobalMatInput(s_img0);
 
   std::string torchRequestReason;
-  const bool torchRequestReady = PrepareTorchUiRequestContext(
-      context.editor_text,
-      context.loaded_script_path,
-      torchRequestReason);
+  const bool torchRequestReady =
+      PrepareSetMatchRun(context,m_parserDebugBridge,torchRequestReason) &&
+      PrepareHarmonicAuditRun(context,m_parserDebugBridge,torchRequestReason) &&
+      PrepareTorchUiRequestContext(
+          context.editor_text,context.loaded_script_path,torchRequestReason);
   if (!torchRequestReady)
   {
     CXLOG_ERROR(
@@ -1162,6 +1272,8 @@ bool ViewController::ConsumePendingManualScriptRun(ManualTestContext& context,
     context.current_gauge = frozenGauge;
     context.runtime_int_vars = frozenGlobals;
   }
+
+  CollectSetMatchReceipt(context,ran);
 
   std::string snapshotPath;
   std::string snapshotReason;
@@ -1575,7 +1687,9 @@ void ViewController::DrawScriptDebugCompilerBlock(ManualTestContext& context)
       // external-variable path.
       for (const ScriptVariableView& observed : context.global_variable_views)
       {
-        if (observed.name == "global_harmonic_receipt_path" ||
+        if (observed.name == "global_setmatch_request_path" ||
+            observed.name == "global_setmatch_receipt_path" ||
+            observed.name == "global_harmonic_receipt_path" ||
             observed.name == "global_open_boundary_receipt_path" ||
             observed.name == "global_harmonic_asset_path" ||
             observed.name == "global_matInput" ||
@@ -1732,18 +1846,7 @@ void ViewController::DrawScriptDebugCompilerBlock(ManualTestContext& context)
       // it does not hide Torch status and artifact panels after a run.
 
 
-      if(cxsetmatchui::IsCase(context.editor_text)) {
-        context.setmatch_receipt.clear();
-        if(ran)try {
-          const auto path=std::filesystem::path(context.setmatch_output_path)/"setmatch_receipt.json";
-          if(std::filesystem::file_size(path)>16*1024*1024)throw std::runtime_error("Receipt exceeds UI byte limit");
-          std::ifstream input(path);
-          const auto receipt=nlohmann::json::parse(input);
-          if(receipt.at("schema")!="cxvision.geometric_set_match.receipt.v1" ||
-             receipt.at("production_eligible")!=false)throw std::runtime_error("Invalid development receipt");
-          context.setmatch_receipt=receipt.dump();
-        }catch(const std::exception& e){context.debug_reason=std::string("Set-match receipt unavailable: ")+e.what();}
-      }
+      CollectSetMatchReceipt(context,ran);
       if (cxharmonicui::IsCase(context.editor_text)) {
         context.harmonic_audit_result_summary = ran ? "Receipt unavailable" : context.debug_reason;
         if (ran) try {

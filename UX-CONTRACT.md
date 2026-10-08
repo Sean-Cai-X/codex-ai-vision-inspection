@@ -19,3 +19,5 @@ Input scripts, effective parameters, diagrams and receipts stay outside the repo
 
 ## Verification
 Native parameter tests, actual headless cxscript execution, catalog discovery and ImGui draw/ParserDebugBridge smoke precede handoff. Mouse clicking and visual screen capture remain explicitly unverified until performed. The web-oriented UI audit is supplementary only.
+
+2026-10-08 update: actual Linux X11 mouse/capture acceptance completed for all three Set Match cases, parameter invalidation, invalid-scale blocking, reset, shared top Run and Clear Result. Queued-consumer native regressions now supplement direct bridge smoke. Windows and broader desktop usability are not certified. Private evidence: ../cxscript_runs/setmatch_desktop_20261008/.

@@ -1218,3 +1218,45 @@ The existing ImGui appearance and interaction ownership are preserved, recorded
 in DESIGN.md and UX-CONTRACT.md. The skill's strict web-oriented audit reports
 no findings, but cannot certify native C++ rendering/accessibility. Desktop
 screenshots/click acceptance and Windows rebuild are still pending.
+
+
+## Real X11 desktop acceptance and execution repair (2026-10-08)
+
+A real 1920x1080 devuan X11 session exposed a missing binding in the queued
+Run-button consumer: direct ParserDebugBridge smoke passed, but clicking
+Run Set Match failed at m_set.load(global_setmatch_request_path).
+The pending consumer now prepares the frozen request and string globals before
+execution and collects the native receipt after object-table refresh. Numeric
+global discovery excludes geometry string paths.
+
+Both Key Parameter Controls and top Run Control now use RequestSetMatchRun,
+with identical validation and frozen snapshots. The top button names the active
+Evidence case instead of running a previously selected catalog script. Editing
+parameters sets PARAMETERS_CHANGED and invalidates the receipt; Clear Result
+sets RESULT_CLEARED. Neither state is a successful current result.
+
+Actual desktop clicks verified:
+- Asymmetric Mixed: COMPLETED, one pose, translation (10,-5), angle 90 degrees,
+  scale 1, four reference/target ID correspondences.
+- Symmetric Multiple Poses: COMPLETED, four candidates retained.
+- Budget Stop and edited pair-check budget 1: BUDGET_EXHAUSTED, zero candidates.
+- Invalid min/max scale disables Run and creates no new run directory.
+- Reset defaults, case switching, top Run, Clear Result and parameter-edit
+  invalidation behave consistently. Final desktop is left on the asymmetric
+  result with candidate details expanded.
+
+The native catalog smoke now exercises ConsumePendingManualScriptRun itself
+for every case, including frozen-versus-mutable globals, duplicate-request
+rejection, exactly-once consumption, invalid queued input and fresh receipts.
+All three pending-entry regressions passed after the final build. A fresh
+native adapter run passed 33 assertions; ten actual application/cxscript replays
+passed. Python only mediated desktop input/capture and command/report handling;
+matching and regression execution remained native C++/cxscript.
+
+Private screenshots, logs and screenshot_index.html are under
+../cxscript_runs/setmatch_desktop_20261008/. Fresh headless replay is under
+../cxscript_runs/geometric_set_ui_20261008/desktop_final_replay/.
+These assets are not committed. This closes the Linux Set Match operator-flow
+check, not Windows rebuild, certified solvability, partial/clutter matching,
+image extraction or production approval. Existing overlapping floating panels
+and missing Chinese glyphs remain separate desktop usability issues.

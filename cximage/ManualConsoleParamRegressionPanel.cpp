@@ -8891,22 +8891,16 @@ static void DrawSetMatchControls(ManualTestContext& context) {
   if(edited) {
     ++context.key_parameter_edit_revision;context.current_gauge.dirty=true;
     context.setmatch_receipt.clear();
+    context.debug_status="PARAMETERS_CHANGED";
+    context.run_state="idle";
     context.debug_reason="Parameters changed; previous result invalidated. Run again.";
     RecordManualOperationTraceEvent(context,"setmatch_parameter_edit","staged",context.debug_reason);
   }
   std::string reason;const bool valid=cxsetmatchui::Validate(context.runtime_int_vars,reason);
   if(!valid)ImGui::TextWrapped("Cannot run: %s",reason.c_str());
-  ImGui::BeginDisabled(!valid);
-  if(ImGui::Button("Run Set Match")) {
-    context.setmatch_receipt.clear();
-    context.debug_action="Key Parameter Controls Run Script";
-    context.pending_execution_gauge=context.current_gauge;
-    context.pending_execution_globals=context.runtime_int_vars;
-    context.has_pending_execution_snapshot=true;
-    context.debug_status="MANUAL_RUN_REQUESTED";
-    context.debug_reason="Set match: execute frozen parameter snapshot";
-    context.run_state="running";
-  }
+  ImGui::BeginDisabled(!valid || context.has_pending_execution_snapshot);
+  if(ImGui::Button("Run Set Match") && !RequestSetMatchRun(context,reason))
+    context.debug_reason=reason;
   ImGui::EndDisabled();
   ImGui::TextWrapped("Status: %s | %s",context.debug_status.c_str(),context.debug_reason.c_str());
   if(!context.setmatch_output_path.empty())
