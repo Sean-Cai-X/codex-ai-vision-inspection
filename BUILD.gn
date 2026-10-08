@@ -14,8 +14,6 @@ source_set("cxvision_source_inventory") {
     "cxgeom/src/CxGeoSO2ReferenceAsset.cpp",
   ]) + [
     "cximage/CxFastMatchHarmonicAudit.cpp",
-    "cxgeom/src/CxGeoSO2Harmonic.cpp",
-    "cxgeom/src/CxGeoSO2ReferenceAsset.cpp",
     glad_root + "/src/gl.c",
   ]
   configs = [ "//build/config:common", "//build/config:platform" ]
@@ -24,7 +22,7 @@ source_set("cxvision_source_inventory") {
 # Linux/Windows application link target. Third-party binaries remain external
 # inputs selected by GN args; this target contains source and build metadata only.
 executable("cxvision_imgui_acceptance") {
-  deps = [ ":cxvision_source_inventory" ]
+  deps = [ ":cxvision_source_inventory", ":cxgeom_set_match_adapter" ]
   configs = [ "//build/config:common", "//build/config:platform" ]
   libs = [ "torch", "torch_cpu", "c10" ]
 }
@@ -67,5 +65,22 @@ executable("geometric_set_contract_test") {
 executable("geometric_set_matching_test") {
   sources = [ "tests/geometric_set_matching/matching_test.cpp" ]
   deps = [ ":cxgeom_geometric_set_matching" ]
+  configs = [ ":geometric_set_platform" ]
+}
+
+
+static_library("cxgeom_set_match_adapter") {
+  sources = [
+    "cximage/FindSetMatch.cpp",
+    "cxgeom/src/CxGeoSO2Harmonic.cpp",
+    "cxgeom/src/CxGeoSO2ReferenceAsset.cpp",
+  ]
+  include_dirs = [ "cxgeom/include" ]
+  deps = [ ":cxgeom_geometric_set_matching" ]
+  configs = [ ":geometric_set_platform" ]
+}
+executable("geometric_set_adapter_test") {
+  sources = [ "tests/geometric_set_matching/adapter_test.cpp" ]
+  deps = [ ":cxgeom_set_match_adapter" ]
   configs = [ ":geometric_set_platform" ]
 }

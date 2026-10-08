@@ -7,6 +7,7 @@
 #include "FindRect.h"
 #include "FindSegmentation.h"
 #include "FastMatch.h"
+#include "FindSetMatch.h"
 #include "CxTextInspect.h"
 #include "TorchTask.h"
 #include "CxTorchResultProjector.h"
@@ -2263,9 +2264,48 @@ bool CaptureRuntimeToolResults(
         MergeToolCapture(tool_capture, capture);
     }
 
+    // Structured set candidates have no image-derived box or boundary overlay.
+    const bool other_tool_found = supported_object_found;
+    const int setmatch_count = runtime.GetClassObjSum("FindSetMatch");
+    for (int i = 0; i < setmatch_count; ++i)
+    {
+        auto* tool = static_cast<FindSetMatch*>(runtime.GetClassObj("FindSetMatch", i));
+        if (!tool || !captured_objects.insert(tool).second)
+            continue;
+        try
+        {
+            const auto& result = tool->result();
+            CxScriptToolResultCapture item;
+            item.type = "FindSetMatch";
+            item.name = runtime.GetClassObjName("FindSetMatch", i);
+            item.owner_ref = item.name;
+            item.algorithm_executed =
+                result.execution_status == cxgeom::gsm::ExecutionStatus::Completed ||
+                result.execution_status == cxgeom::gsm::ExecutionStatus::BudgetExhausted;
+            item.budget_exceeded =
+                result.execution_status == cxgeom::gsm::ExecutionStatus::BudgetExhausted;
+            item.candidate_count = static_cast<int>(result.candidates.size());
+            item.elapsed_ms = static_cast<int>(result.elapsed_ms);
+            item.reason = std::string("FindSetMatch:") + cxgeom::gsm::Name(result.execution_status) +
+                ";development_candidates_only;image_extraction=false;production_eligible=false";
+            for (const auto& message : result.reasons)
+                item.reason += ";" + message;
+            capture.geometric_set_receipts.push_back(tool->receipt());
+            capture.geometric_set_only = !other_tool_found;
+            // No measure_completed / fit_completed / has_best_result fabrication.
+            MergeToolCapture(item, capture);
+            supported_object_found = true;
+        }
+        catch (const std::exception& e)
+        {
+            reason = std::string("FindSetMatch capture failed: ") + e.what();
+            return false;
+        }
+    }
+
     if (!supported_object_found)
     {
-        reason = "no supported cximage runtime object found; expected one of Findline, FindCircle, FindEllipse, FindObject, FindRect, FindSegmentation, Match, fastmatch or TorchTask";
+        reason = "no supported cximage runtime object found; expected one of Findline, FindCircle, FindEllipse, FindObject, FindRect, FindSegmentation, Match, fastmatch, FindSetMatch or TorchTask";
         return false;
     }
 

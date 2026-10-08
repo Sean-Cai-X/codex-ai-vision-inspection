@@ -15,6 +15,7 @@
 #include "FastMatch.h"
 #include "FastMatchDiagnostic.h"
 #include "CxFastMatchHarmonicAudit.h"
+#include "FindSetMatch.h"
 #include "FindCircle.h"
 #include "FindEllipse.h"
 #include "FindLine.h"
@@ -910,6 +911,17 @@ void CxParserRuntime::ParserInitialClassFunction(int iusing) {
                             &CircleRingGauge::score);
     m_parser.DefineClassFun("CircleRingGauge", pcircle_ring_gauge,
                             "status_code", &CircleRingGauge::status_code);
+
+    FindSetMatch* set_match = nullptr;
+    m_parser.DefineClass("FindSetMatch", set_match);
+    m_parser.DefineClassFun("FindSetMatch", set_match, "load", &FindSetMatch::load);
+    m_parser.DefineClassFun("FindSetMatch", set_match, "requestjson", &FindSetMatch::requestjson);
+    m_parser.DefineClassFun("FindSetMatch", set_match, "parameter", &FindSetMatch::parameter);
+    m_parser.DefineClassFun("FindSetMatch", set_match, "run", &FindSetMatch::run);
+    m_parser.DefineClassFun("FindSetMatch", set_match, "clear", &FindSetMatch::clear);
+    m_parser.DefineClassFun("FindSetMatch", set_match, "expectstatus", &FindSetMatch::expectstatus);
+    m_parser.DefineClassFun("FindSetMatch", set_match, "expectcount", &FindSetMatch::expectcount);
+    m_parser.DefineClassFun("FindSetMatch", set_match, "save", &FindSetMatch::save);
 
     CxFastMatchHarmonicAudit* harmonic_audit = nullptr;
     m_parser.DefineClass("HarmonicAudit", harmonic_audit);

@@ -100,6 +100,7 @@ set(CXIMAGE_CORE_SOURCES
   cximage/GridPatternClassTool.cpp
   cximage/RegionPatternTool.cpp
   cximage/FastMatchDiagnostic.cpp
+  cximage/FindSetMatch.cpp
   cximage/CxFastMatchHarmonicAudit.cpp
   cxgeom/src/CxGeoSO2Harmonic.cpp
   cxgeom/src/CxGeoSO2ReferenceAsset.cpp
@@ -338,6 +339,7 @@ if(CXVISION_ENABLE_CXPARSER_EXT_DEBUG_INPROC)
   )
 endif()
 target_link_libraries(cxvision_imgui_acceptance PRIVATE
+  cxgeom_geometric_set_matching
   glfw
   opengl32
   comdlg32

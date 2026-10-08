@@ -19,3 +19,16 @@ add_test(NAME GSM0_contract_topology COMMAND geometric_set_contract_test
 add_executable(geometric_set_matching_test matching_test.cpp)
 target_link_libraries(geometric_set_matching_test PRIVATE cxgeom_geometric_set_matching)
 add_test(NAME GSM1_full_set COMMAND geometric_set_matching_test)
+
+
+add_executable(geometric_set_adapter_test adapter_test.cpp
+  ../../cximage/FindSetMatch.cpp
+  ../../cxgeom/src/CxGeoSO2Harmonic.cpp
+  ../../cxgeom/src/CxGeoSO2ReferenceAsset.cpp)
+target_include_directories(geometric_set_adapter_test PRIVATE ../../cxgeom/include)
+target_link_libraries(geometric_set_adapter_test PRIVATE cxgeom_geometric_set_matching)
+add_test(NAME GSM1_adapter COMMAND "${CMAKE_COMMAND}"
+  "-DPROBE=$<TARGET_FILE:geometric_set_adapter_test>"
+  "-DSCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/../../contracts/geometric_set_match.schema.json"
+  "-DOUTPUT_BASE=${CMAKE_CURRENT_BINARY_DIR}/adapter-runs"
+  -P "${CMAKE_CURRENT_SOURCE_DIR}/run_adapter_test.cmake")

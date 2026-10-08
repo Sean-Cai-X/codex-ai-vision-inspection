@@ -354,6 +354,8 @@ struct CxFastMatchTransformSearchEvidence
 
 struct CxScriptExecutionCapture
 {
+    bool geometric_set_only = false;
+    std::vector<std::string> geometric_set_receipts;
     bool script_compiled = false;
     bool runtime_completed = false;
 

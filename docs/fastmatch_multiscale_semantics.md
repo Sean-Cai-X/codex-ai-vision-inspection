@@ -1062,3 +1062,98 @@ CMake and GN passed, ASan/UBSan CTest 2/2 passed. Existing Harmonic CTest 4/4,
 open-boundary headless replay 28 cases and Evidence replay 6 cases passed.
 The exact synthetic maximum residual was below 1e-8 pixel; this is numerical
 recovery on generated geometry, not measured-image accuracy.
+
+## GSM1 application adapter / structured cxscript handoff (2026-10-08)
+
+`cximage/FindSetMatch.{h,cpp}` now connects the bounded native matcher to the
+actual application parser as `FindSetMatch`. This supersedes the previous
+"JSON transport adapter pending" statement, **not** the remaining GUI,
+image-element extraction, partial matching or calibrated solvability work.
+
+### Supported local workflow
+
+1. Supply an explicit request conforming to
+   `contracts/geometric_set_match.schema.json#/$defs/request`: independently
+   identified point/segment/arc elements, source references, reference/target
+   ROIs and a complete parameter snapshot. The adapter does not infer elements
+   from an image or silently turn a boundary into a rectangle.
+2. Load, optionally adjust effective numeric parameters, run and inspect candidate
+   correspondences and poses. Example cxscript (use fresh local output paths):
+
+```text
+FindSetMatch m_set;
+m_set.load("/external/local-data/request.json");
+m_set.parameter(0.25,"max_residual_px");
+m_set.run();
+m_set.expectstatus("COMPLETED");
+m_set.expectcount(1);
+m_set.save("/external/local-data/result_receipt.json");
+```
+
+The count assertion is only appropriate for an intentionally unique test;
+multiple candidates are valid and must be retained, not reduced to one.
+
+3. Receipt `cxvision.geometric_set_match.receipt.v1` includes raw-input SHA256,
+   canonical effective-request SHA256, full effective request, typed result,
+   source references, reasons, per-element correspondence residuals and counters.
+   Schema: `contracts/geometric_set_match_receipt.schema.json`.
+   Hashing reuses the existing native SHA implementation; hashes are integrity
+   identifiers, **not signed attestations or provenance verification**.
+4. Parameter changes invalidate old results. Loading an invalid/missing request
+   clears prior request/result state; it cannot reuse another case's result.
+   `save` requires a new path and refuses existing destination/pending files.
+   Publishing uses a same-filesystem hard link; unsupported filesystems return
+   an explicit failure, never silently overwrite. A failed publish may leave
+   `.pending` for local diagnosis; use a fresh path after resolving it.
+
+### Strict input and parameter semantics
+
+- 4 MiB input cap, depth limit 32; duplicate/unknown keys, missing fields,
+  wrong types, nonfinite numbers, embedded NULs and invalid geometry are rejected.
+- Integer budgets are range-checked before conversion.
+- `parameter(value,"name")` accepts implemented numeric request parameters;
+  seed and candidate score-gap edits are rejected as reserved P2/P3 controls.
+  ROI is supplied in the request, not converted to a numeric placeholder.
+- Receipt captures all requested settings; core P1 remains full-set only.
+- Both `production_eligible` and `image_extraction_performed` are false.
+- Inputs/receipts can contain sensitive geometry and source references even
+  without images; they stay in local external storage, not in GitHub.
+- The application's existing headless runner requires an image argument, but
+  this adapter replay does **not** claim that supplied image was segmented.
+
+### Verification entry points
+
+`tests/geometric_set_matching/adapter_test.cpp` is a native fixture generator
+and adapter regression executable. It accepts the schema path and a fresh
+external output directory; outputs are not source assets.
+`run_adapter_replay.sh` exercises the real application with generated cxscript
+for success, budget exhaustion, stale-result refusal, unknown parameter refusal
+and overwrite refusal (including SHA verification of the preserved receipt).
+Native geometry and existing Harmonic regressions remain separate checks.
+
+GN shares the adapter/SO2 sources in one library to avoid duplicate object rules.
+CMake application sources and library linkage are registered; Linux standalone
+CMake tests and GN application are the verified builds, not a new Windows DLL.
+
+### Remaining handoff work
+
+This is the structured application/script boundary, not a finished user-facing
+Find tool. GUI Evidence catalog/Key Parameter Controls, image-to-element
+extraction with independent provenance, overlay rendering and desktop click
+acceptance remain pending. Existing Harmonic GUI behavior is not rerouted.
+P2/P3 matching and production approval also remain pending.
+
+The application runtime capture explicitly recognizes FindSetMatch. Pure
+structured-set runs export geometric_set_receipt_N.json and require those
+receipts, snapshot, summary and manual handoff instead of invented overlays.
+Mixed image-tool runs still require their original visual evidence. Headless
+exit success means execution/artifact completion, not successful matching or
+production approval; inspect result.execution_status, reasons and candidates.
+The replay compares auto-exported receipts byte-for-byte with script saves.
+
+Verified adapter outcome: 26 native assertions, CMake and ASan/UBSan CTest 3/3,
+GN application build and seven real headless cxscript cases passed. Additional
+cases check automatic receipt export and preservation of the mixed image-tool
+visual gate. Final application also passed 28 open-boundary and six Harmonic
+Evidence replay cases. GUI clicking and Windows builds were not performed.
+External evidence: ../cxscript_runs/geometric_set_adapter_20261008/.
