@@ -1135,7 +1135,7 @@ GN shares the adapter/SO2 sources in one library to avoid duplicate object rules
 CMake application sources and library linkage are registered; Linux standalone
 CMake tests and GN application are the verified builds, not a new Windows DLL.
 
-### Remaining handoff work
+### Remaining handoff work at the adapter milestone (updated below)
 
 This is the structured application/script boundary, not a finished user-facing
 Find tool. GUI Evidence catalog/Key Parameter Controls, image-to-element
@@ -1157,3 +1157,64 @@ cases check automatic receipt export and preservation of the mixed image-tool
 visual gate. Final application also passed 28 open-boundary and six Harmonic
 Evidence replay cases. GUI clicking and Windows builds were not performed.
 External evidence: ../cxscript_runs/geometric_set_adapter_20261008/.
+
+## FindSetMatch Evidence / Key Parameter Controls (2026-10-08)
+
+The structured adapter now has a development-only Evidence UI. This does not
+implement image-to-element extraction, partial/clutter matching, certified
+solvability, production approval or an inference overlay.
+
+### Operator flow
+
+1. Refresh Evidence; search the FindSetMatch / Development Full Set group. If
+   the current curated list hides a case, use Add Hidden Evidence Case.
+2. Choose one of:
+   - Set Match - Asymmetric Mixed / development: four mixed elements, expected
+     one retained pose (90 degrees, scale 1, translation 10/-5).
+   - Set Match - Symmetric Multiple Poses / development: square point set,
+     expected four retained poses, deliberately not auto-resolved.
+   - Set Match - Budget Stop / development: pair-check budget 1, expected
+     BUDGET_EXHAUSTED, never reported as unique success.
+3. Inspect the synthetic input diagram (reference gray, target black). This is
+   a geometry illustration, NOT segmentation of the displayed pixels. Discrete
+   points are never forcibly joined. The manifest's evidence_overlay references
+   this same explicitly labeled input diagram, not a rendered inference result.
+4. Key Parameter Controls exposes 12 active numeric settings with units and
+   bounds. Defaults and validation come from CxSetMatchEvidenceParameters.h,
+   shared with headless execution. The ROI and element/provenance contract
+   remains in request.json; seed/score-gap are reserved, not pretend controls.
+5. Run Set Match freezes input request.json, script/defaults and input parameters
+   under a fresh external geometric_set_manual/run_* directory. Parameter edits
+   invalidate the current displayed receipt. Replay run.cxsc together with its
+   sibling request.json; global_setmatch_request_path binds that sibling in both
+   GUI and headless execution.
+6. Inspect execution status, frozen parameter/ROI contract, effective SHA,
+   candidate poses, coverage/span and per-element ID/residual table. Multiple
+   poses remain separate candidates. COMPLETED is not APPROVED or unique.
+7. Retain local receipts for feedback; do not upload case/image/model assets.
+
+### Reproduction / checks
+
+The native geometric_set_adapter_test executable creates three portable local
+Evidence packages in its fresh output/evidence directory, in addition to the
+existing regression fixtures. Register that directory relative to the existing
+external CXVISION_RUN_ROOT in _shared/evidence_case_roots.json; preserve all
+existing roots. All case assets remain outside the repository.
+
+--setmatch-evidence-catalog-smoke checks catalog image/thumbnail decoding,
+shared defaults, actual ImGui draw data and ParserDebugBridge execution twice
+per case. The second run changes the pair budget and verifies the real receipt,
+fresh output directory and replay defaults. First-run expectations are 1/4/0
+candidates. This is native GUI-bridge testing, not desktop mouse acceptance.
+
+run_adapter_replay.sh now runs ten real application/cxscript scenarios, including
+all three Evidence scripts. Explicit and auto-exported receipts must match
+byte-for-byte. Native adapter/default tests: 33 assertions; core tests remain
+76 contract checks and 2901 full-set checks / 192 matrix runs.
+CMake and ASan/UBSan: 3/3 each. External evidence:
+../cxscript_runs/geometric_set_ui_20261008/.
+
+The existing ImGui appearance and interaction ownership are preserved, recorded
+in DESIGN.md and UX-CONTRACT.md. The skill's strict web-oriented audit reports
+no findings, but cannot certify native C++ rendering/accessibility. Desktop
+screenshots/click acceptance and Windows rebuild are still pending.

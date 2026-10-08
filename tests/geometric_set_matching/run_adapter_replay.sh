@@ -26,6 +26,18 @@ for name in success budget stale unknown overwrite auto mixed; do
  esac
  printf '%s PASS\n' "$name" >> "$OUT/cases.txt"
 done
+for name in setmatch_asymmetric_mixed setmatch_symmetric_square setmatch_budget_stop; do
+ "$APP" --cxscript-headless --image "$FIXTURES/evidence/$name/source_image.pgm" \
+  --script "$FIXTURES/evidence/$name/run.cxsc" --out "$OUT/$name" \
+  --case-name FindSetMatch --timeout-sec 30 --max-elapsed-ms 30000 \
+  --unified-log "$OUT/$name.jsonl" > "$OUT/$name.log" 2>&1
+ cmp "$OUT/$name/setmatch_receipt.json" "$OUT/$name/geometric_set_receipt_0.json"
+ case "$name" in
+  setmatch_budget_stop) grep -q '"execution_status": "BUDGET_EXHAUSTED"' "$OUT/$name/setmatch_receipt.json";;
+  *) grep -q '"execution_status": "COMPLETED"' "$OUT/$name/setmatch_receipt.json";;
+ esac
+ printf '%s PASS\n' "$name" >> "$OUT/cases.txt"
+done
 sha256sum "$APP" "$FIXTURES/request.json" "$FIXTURES/"*.cxsc "$FIXTURES/"*receipt.json > "$OUT/replay.sha256"
-printf '%s\n' '{"schema":"cxvision.geometric_set_adapter_replay.v1","status":"PASS","cases":7,"real_application":true,"image_extraction_performed":false,"production_eligible":false}' > "$OUT/receipt.json"
+printf '%s\n' '{"schema":"cxvision.geometric_set_adapter_replay.v1","status":"PASS","cases":10,"real_application":true,"image_extraction_performed":false,"production_eligible":false}' > "$OUT/receipt.json"
 echo HEADLESS_SET_MATCH_ADAPTER_PASS

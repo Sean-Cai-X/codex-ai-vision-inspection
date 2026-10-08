@@ -1,4 +1,5 @@
 #include "CxHarmonicEvidenceParameters.h"
+#include "CxSetMatchEvidenceParameters.h"
 #include "pch.h"
 #include "CxScriptHeadlessRunner.h"
 #include "imagemanager.h"
@@ -1353,6 +1354,10 @@ bool InjectCxScriptRuntimeStrings(
             (std::filesystem::path(options.output_dir) / "open_boundary_observation.json").string());
         runtime.DefineStringConstant("global_harmonic_asset_path",
             (std::filesystem::path(options.output_dir) / "harmonic_reference.so2").string());
+        runtime.DefineStringConstant("global_setmatch_request_path",
+            (std::filesystem::path(options.script_path).parent_path() / "request.json").string());
+        runtime.DefineStringConstant("global_setmatch_receipt_path",
+            (std::filesystem::path(options.output_dir) / "setmatch_receipt.json").string());
         runtime.DefineStringConstant("global_harmonic_receipt_path",
             (std::filesystem::path(options.output_dir) / "harmonic_audit_receipt.json").string());
     }
@@ -1425,6 +1430,15 @@ bool ExecuteCxScriptSequential(
     if (script_source.empty())
         return false;
 
+
+    if(cxsetmatchui::IsCase(script_source)) {
+        std::unordered_map<std::string,int> defaults;
+        if(!cxsetmatchui::Defaults(script_source,defaults,reason))return false;
+        for(const auto& p:defaults) {
+            global_values[p.first]=p.second;
+            runtime.m_parser.DefineVar(p.first,&global_values[p.first]);
+        }
+    }
     if (cxharmonicui::IsCase(script_source)) {
         std::unordered_map<std::string,int> defaults;
         if (!cxharmonicui::Defaults(script_source, defaults, reason) ||

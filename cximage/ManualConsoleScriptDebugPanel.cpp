@@ -2,6 +2,7 @@
 #include "../libtorchsegmentation/src/utils/json.hpp"
 #include <opencv2/imgcodecs.hpp>
 #include "CxHarmonicEvidenceParameters.h"
+#include "CxSetMatchEvidenceParameters.h"
 #include "pch.h"
 #include "ManualConsoleScriptDebugPanel.h"
 #include "ManualConsoleCxScriptDebug.h"
@@ -21,6 +22,45 @@
 
 namespace
 {
+
+bool PrepareSetMatchRun(ManualTestContext& context, ParserDebugBridge& bridge, std::string& reason) {
+  if(!cxsetmatchui::IsCase(context.editor_text))return true;
+  context.setmatch_receipt.clear();
+  if(!cxsetmatchui::Validate(context.runtime_int_vars,reason))return false;
+  try {
+    const auto root=ResolveCxVisionRunPath("cxscript_runs/geometric_set_manual");
+    std::filesystem::create_directories(root);
+    const auto stamp=std::chrono::system_clock::now().time_since_epoch().count();
+    std::filesystem::path dir;bool created=false;
+    for(int attempt=0;attempt<100&&!created;++attempt) {
+      dir=root/("run_"+std::to_string(stamp)+"_"+std::to_string(attempt));
+      created=std::filesystem::create_directory(dir);
+    }
+    if(!created){reason="Cannot reserve set-match output";return false;}
+    std::ofstream script(dir/"run.cxsc");script<<context.editor_text;
+    nlohmann::json values=nlohmann::json::object();
+    for(const auto& p:cxsetmatchui::parameters) {
+      const int v=context.runtime_int_vars.at(p.key);
+      script<<"\n// setmatch_default "<<p.key<<" "<<v;
+      values[p.key]=v;
+    }
+    script<<"\n";script.close();
+    std::ofstream snapshot(dir/"input_parameters.json");
+    snapshot<<nlohmann::json{{"schema","cxvision.setmatch_ui_input.v1"},
+      {"case_id",context.active_case_id},{"production_eligible",false},{"parameters",values}}.dump(2);
+    snapshot.close();
+    if(!script||!snapshot){reason="Cannot write set-match snapshot";return false;}
+    const auto request=std::filesystem::path(context.loaded_script_path).parent_path()/"request.json";
+    if(!std::filesystem::is_regular_file(request)){reason="Missing case request.json";return false;}
+    std::filesystem::copy_file(request,dir/"request.json",std::filesystem::copy_options::none);
+    bridge.SetGlobalString("global_setmatch_request_path",(dir/"request.json").string());
+    bridge.SetGlobalString("global_setmatch_receipt_path",(dir/"setmatch_receipt.json").string());
+    context.setmatch_output_path=dir.string();
+    RecordManualOperationTraceEvent(context,"setmatch_run","prepared",dir.string());
+    return true;
+  } catch(const std::exception& e){reason=e.what();return false;}
+}
+
 bool PrepareHarmonicAuditRun(ManualTestContext& context, ParserDebugBridge& bridge,
                              std::string& reason) {
   if(!cxharmonicui::IsCase(context.editor_text)) return true;
@@ -636,6 +676,49 @@ bool MigrateLegacyFindSegmentationPromptCallsForRun(
   return true;
 }
 } // namespace
+
+
+bool RunSetMatchGuiBridgeSmoke(ManualTestContext& context,std::string& reason) {
+ try {
+  CxParserRuntimeOwner owner;
+  if(!owner.Initialize(reason))return false;
+  ParserDebugBridge bridge;bridge.Bind(&owner);
+  if(!bridge.StageGlobalMatInput(cv::imread(context.image_file_path))) {
+    reason="Cannot bind diagram";return false;
+  }
+  std::string previous;
+  for(int run=0;run<2;++run) {
+    if(run)context.runtime_int_vars["global_setmatch_pair_checks"]=1;
+    for(const auto& v:context.runtime_int_vars)
+      if(v.first!="global_setmatch_receipt_path"&&v.first!="global_setmatch_request_path")bridge.SetGlobalInt(v.first,v.second);
+    if(!PrepareSetMatchRun(context,bridge,reason))return false;
+    if(context.setmatch_output_path==previous){reason="Output reused";return false;}
+    previous=context.setmatch_output_path;
+    if(!bridge.RunScript(context.editor_text)){reason=bridge.LastError();return false;}
+    std::ifstream input(std::filesystem::path(previous)/"setmatch_receipt.json");
+    const auto receipt=nlohmann::json::parse(input);
+    if(receipt.at("request").at("parameters").at("max_pair_checks")!=context.runtime_int_vars.at("global_setmatch_pair_checks")||
+       receipt.at("production_eligible")!=false) {reason="Snapshot/receipt mismatch";return false;}
+    if(!run) {
+      const auto count=receipt.at("result").at("candidates").size();
+      const int expected=context.active_case_id=="setmatch_symmetric_square"?4:
+                         context.active_case_id=="setmatch_budget_stop"?0:1;
+      if(count!=std::size_t(expected)){reason="Unexpected fixture candidate count";return false;}
+    }
+    if(run&&receipt.at("result").at("execution_status")!="BUDGET_EXHAUSTED") {
+      reason="Budget edit not executed";return false;
+    }
+    context.setmatch_receipt=receipt.dump();
+    std::string replay;std::unordered_map<std::string,int> values;
+    if(!ReadTextFile((std::filesystem::path(previous)/"run.cxsc").string(),replay)||
+       !cxsetmatchui::Defaults(replay,values,reason)||
+       values.at("global_setmatch_pair_checks")!=context.runtime_int_vars.at("global_setmatch_pair_checks")) {
+      reason="Frozen replay defaults mismatch";return false;
+    }
+  }
+  return true;
+ }catch(const std::exception& e){reason=e.what();return false;}
+}
 
 bool RunHarmonicAuditGuiBridgeSmoke(ManualTestContext& context, std::string& reason) {
  try {
@@ -1473,6 +1556,8 @@ void ViewController::DrawScriptDebugCompilerBlock(ManualTestContext& context)
       }
       context.debug_action = "Run";
       SetCxCrashBreadcrumb("drawManualStateTestConsole:DebugCompiler:Run:set_globals");
+      context.runtime_int_vars.erase("global_setmatch_receipt_path");
+      context.runtime_int_vars.erase("global_setmatch_request_path");
       context.runtime_int_vars.erase("global_harmonic_receipt_path");
       context.runtime_int_vars.erase("global_open_boundary_receipt_path");
       context.runtime_int_vars.erase("global_harmonic_asset_path");
@@ -1606,7 +1691,7 @@ void ViewController::DrawScriptDebugCompilerBlock(ManualTestContext& context)
       // context.  Keep this in the existing serial Parser-owner chain: the UI
       // action only requests a run, and this compiler block performs it.
       std::string torchRequestReason;
-      const bool harmonicRequestReady = PrepareHarmonicAuditRun(
+      const bool harmonicRequestReady = PrepareSetMatchRun(context,m_parserDebugBridge,torchRequestReason) && PrepareHarmonicAuditRun(
           context,m_parserDebugBridge,torchRequestReason);
       const bool torchRequestReady = harmonicRequestReady && PrepareTorchUiRequestContext(
           context.editor_text,
@@ -1646,6 +1731,19 @@ void ViewController::DrawScriptDebugCompilerBlock(ManualTestContext& context)
       // and debug snapshot.  Keep the operator-facing reason compact so that
       // it does not hide Torch status and artifact panels after a run.
 
+
+      if(cxsetmatchui::IsCase(context.editor_text)) {
+        context.setmatch_receipt.clear();
+        if(ran)try {
+          const auto path=std::filesystem::path(context.setmatch_output_path)/"setmatch_receipt.json";
+          if(std::filesystem::file_size(path)>16*1024*1024)throw std::runtime_error("Receipt exceeds UI byte limit");
+          std::ifstream input(path);
+          const auto receipt=nlohmann::json::parse(input);
+          if(receipt.at("schema")!="cxvision.geometric_set_match.receipt.v1" ||
+             receipt.at("production_eligible")!=false)throw std::runtime_error("Invalid development receipt");
+          context.setmatch_receipt=receipt.dump();
+        }catch(const std::exception& e){context.debug_reason=std::string("Set-match receipt unavailable: ")+e.what();}
+      }
       if (cxharmonicui::IsCase(context.editor_text)) {
         context.harmonic_audit_result_summary = ran ? "Receipt unavailable" : context.debug_reason;
         if (ran) try {

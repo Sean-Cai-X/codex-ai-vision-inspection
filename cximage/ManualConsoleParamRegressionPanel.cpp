@@ -1,4 +1,6 @@
+#include "../libtorchsegmentation/src/utils/json.hpp"
 #include "CxHarmonicEvidenceParameters.h"
+#include "CxSetMatchEvidenceParameters.h"
 #include "CxParameterProfileRuntime.h"
 #include "CxScriptCasePackageWriter.h"
 #include "CxUnifiedLog.h"
@@ -8858,6 +8860,105 @@ static bool KeyParamContextLooksFastMatchLocal(
   return false;
 }
 
+
+static void DrawSetMatchControls(ManualTestContext& context) {
+  ImGui::TextUnformatted("FindSetMatch / DEVELOPMENT FULL SET");
+  ImGui::TextWrapped("Structured points, segments and arcs; no image extraction. Equal full sets only. Multiple poses are retained, not resolved. Production eligible: false.");
+  ImGui::TextWrapped("Search ROI, element geometry and source IDs belong to the request asset. Seed and score-gap are reserved; partial/clutter matching is not implemented.");
+  bool edited=false;
+  if(ImGui::BeginTable("setmatch_parameters",2,ImGuiTableFlags_SizingStretchProp)) {
+    ImGui::TableSetupColumn("Parameter",ImGuiTableColumnFlags_WidthStretch,0.66f);
+    ImGui::TableSetupColumn("Value",ImGuiTableColumnFlags_WidthStretch,0.34f);
+    for(const auto& p:cxsetmatchui::parameters) {
+      ImGui::TableNextRow();ImGui::TableNextColumn();ImGui::TextWrapped("%s",p.label);
+      if(ImGui::IsItemHovered())ImGui::SetTooltip("%s | %d..%d",p.field,p.minimum,p.maximum);
+      ImGui::TableNextColumn();ImGui::PushID(p.key);ImGui::SetNextItemWidth(-1);
+      int v=RuntimeIntOr(context,p.key,p.value);
+      if(ImGui::InputInt("##value",&v)) {
+        InjectManualGaugeInt(context,p.key,std::clamp(v,p.minimum,p.maximum));edited=true;
+      }
+      ImGui::PopID();
+    }
+    ImGui::EndTable();
+  }
+  if(ImGui::Button("Reset Set Match Case Defaults")) {
+    std::unordered_map<std::string,int> values;std::string reason;
+    if(cxsetmatchui::Defaults(context.editor_text,values,reason)) {
+      for(const auto& v:values)InjectManualGaugeInt(context,v.first.c_str(),v.second);
+      edited=true;
+    } else context.debug_reason=reason;
+  }
+  if(edited) {
+    ++context.key_parameter_edit_revision;context.current_gauge.dirty=true;
+    context.setmatch_receipt.clear();
+    context.debug_reason="Parameters changed; previous result invalidated. Run again.";
+    RecordManualOperationTraceEvent(context,"setmatch_parameter_edit","staged",context.debug_reason);
+  }
+  std::string reason;const bool valid=cxsetmatchui::Validate(context.runtime_int_vars,reason);
+  if(!valid)ImGui::TextWrapped("Cannot run: %s",reason.c_str());
+  ImGui::BeginDisabled(!valid);
+  if(ImGui::Button("Run Set Match")) {
+    context.setmatch_receipt.clear();
+    context.debug_action="Key Parameter Controls Run Script";
+    context.pending_execution_gauge=context.current_gauge;
+    context.pending_execution_globals=context.runtime_int_vars;
+    context.has_pending_execution_snapshot=true;
+    context.debug_status="MANUAL_RUN_REQUESTED";
+    context.debug_reason="Set match: execute frozen parameter snapshot";
+    context.run_state="running";
+  }
+  ImGui::EndDisabled();
+  ImGui::TextWrapped("Status: %s | %s",context.debug_status.c_str(),context.debug_reason.c_str());
+  if(!context.setmatch_output_path.empty())
+    ImGui::TextWrapped("Last run (may be historical): %s",context.setmatch_output_path.c_str());
+  if(context.setmatch_receipt.empty()) {
+    ImGui::TextWrapped("No current receipt. Select a case and run; parameter edits require a new run.");
+    return;
+  }
+  try {
+    const auto receipt=nlohmann::json::parse(context.setmatch_receipt);
+    if(ImGui::TreeNode("Request contract / frozen parameters")) {
+      ImGui::TextWrapped("%s",receipt.at("request").at("parameters").dump(2).c_str());
+      ImGui::TextWrapped("Request ID: %s",receipt.at("request").at("request_id").get<std::string>().c_str());
+      ImGui::TextWrapped("Effective request SHA256: %s",receipt.at("effective_request_sha256").get<std::string>().c_str());
+      ImGui::TreePop();
+    }
+    const auto& result=receipt.at("result");
+    const auto& candidates=result.at("candidates");
+    ImGui::TextWrapped("Execution: %s | candidates: %d | elapsed: %.3f ms",
+        result.at("execution_status").get<std::string>().c_str(),int(candidates.size()),
+        result.at("elapsed_ms").get<double>());
+    ImGui::TextWrapped("Solvability: not certified. Completed does not mean unique or approved.");
+    for(const auto& r:result.at("reasons"))ImGui::TextWrapped("%s",r.get<std::string>().c_str());
+    for(std::size_t i=0;i<candidates.size();++i) {
+      ImGui::PushID(int(i));
+      if(ImGui::TreeNode("candidate","Candidate %d",int(i+1))) {
+        const auto& c=candidates.at(i);const auto& p=c.at("pose");
+        if(!p.is_null())ImGui::TextWrapped("x %.6f  y %.6f  angle %.6f deg  scale %.6f",
+            p.at("translation").at("x").get<double>(),p.at("translation").at("y").get<double>(),
+            p.at("angle_deg").get<double>(),p.at("scale").get<double>());
+        ImGui::TextWrapped("Coverage %.6f | span %.6f | max residual %.6f px",
+            c.at("weighted_coverage").get<double>(),c.at("spatial_span_ratio").get<double>(),
+            c.at("residual_px").get<double>());
+        if(ImGui::BeginTable("correspondences",3,ImGuiTableFlags_Borders|ImGuiTableFlags_ScrollY,ImVec2(0,200))) {
+          ImGui::TableSetupColumn("Reference ID");ImGui::TableSetupColumn("Target ID");
+          ImGui::TableSetupColumn("Residual (px)");ImGui::TableHeadersRow();
+          const auto& rows=c.at("correspondences");ImGuiListClipper clipper;clipper.Begin(int(rows.size()));
+          while(clipper.Step())for(int row=clipper.DisplayStart;row<clipper.DisplayEnd;++row) {
+            const auto& m=rows.at(row);ImGui::TableNextRow();ImGui::TableNextColumn();
+            ImGui::TextUnformatted(m.at("reference_id").get<std::string>().c_str());ImGui::TableNextColumn();
+            ImGui::TextUnformatted(m.at("target_id").get<std::string>().c_str());ImGui::TableNextColumn();
+            ImGui::Text("%.6f",m.at("residual_px").get<double>());
+          }
+          ImGui::EndTable();
+        }
+        ImGui::TreePop();
+      }
+      ImGui::PopID();
+    }
+  } catch(const std::exception& e) {ImGui::TextWrapped("Invalid receipt: %s",e.what());}
+}
+
 static void DrawHarmonicAuditControls(ManualTestContext& context) {
   ImGui::TextUnformatted("CxFastMatchHarmonicAudit / AUDIT ONLY");
   const bool open = context.editor_text.find(".fromobjectarc(")!=std::string::npos;
@@ -8921,6 +9022,9 @@ static void DrawHarmonicAuditControls(ManualTestContext& context) {
 
 void DrawKeyParameterControlPanel(
     ManualTestContext &context, const ParserDebugBridge *parserDebugBridge) {
+  if (cxsetmatchui::IsCase(context.editor_text)) {
+    DrawSetMatchControls(context);return;
+  }
   if (cxharmonicui::IsCase(context.editor_text)) {
     DrawHarmonicAuditControls(context);
     return;

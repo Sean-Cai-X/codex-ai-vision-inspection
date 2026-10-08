@@ -1481,6 +1481,8 @@ struct ManualTestContext {
   std::string param_file_path;
   std::string bound_state_node_id;
   std::string bound_state_script_path;
+  std::string setmatch_output_path;
+  std::string setmatch_receipt;
   std::string harmonic_audit_output_path;
   std::string harmonic_audit_result_summary;
   std::string editor_text;

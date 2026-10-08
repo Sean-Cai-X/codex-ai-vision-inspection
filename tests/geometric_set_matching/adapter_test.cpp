@@ -1,3 +1,4 @@
+#include "../../cximage/CxSetMatchEvidenceParameters.h"
 #include "../../cximage/FindSetMatch.h"
 #include "../../cxgeom/include/CxGeoSO2ReferenceAsset.h"
 #include "../../libtorchsegmentation/src/utils/json.hpp"
@@ -38,6 +39,62 @@ J fixture(const char* schema) {
 void write(const std::filesystem::path& p,const std::string& s) {
     std::ofstream f(p);f<<s;f.close();if(!f)throw std::runtime_error("fixture write failed");
 }
+
+void evidence(const std::filesystem::path& out,const J& request,const std::string& id,const std::string& title,int pairBudget=1000000) {
+    const auto dir=out/id;std::filesystem::create_directory(dir);
+    write(dir/"request.json",request.dump(2));
+    std::string script="// setmatch_evidence_binding: 1\n// setmatch_default global_setmatch_elapsed 3000\n";
+    script+="// setmatch_default global_setmatch_pair_checks "+std::to_string(pairBudget)+"\n";
+    script+="FindSetMatch m_set;\nm_set.load(global_setmatch_request_path);\n";
+    script+=cxsetmatchui::ParameterScript("m_set");
+    script+="m_set.run();\nm_set.save(global_setmatch_receipt_path);\n";
+    write(dir/"run.cxsc",script);
+    // Diagram only: reference gray, target black; never connects unordered points.
+    constexpr int size=400;std::vector<int> pixels(size*size,255);
+    auto dot=[&](double x,double y,int color) {
+        int u=int(std::lround((x+30)*5)),v=int(std::lround((y+30)*5));
+        for(int a=-2;a<=2;++a)for(int b=-2;b<=2;++b)
+          if(u+a>=0&&u+a<size&&v+b>=0&&v+b<size)pixels[(v+b)*size+u+a]=color;
+    };
+    for(const char* side:{"reference","target"})for(const auto& e:request.at(side).at("elements")) {
+        const auto& g=e.at("geometry");const auto type=g.at("type").get<std::string>();
+        const int color=std::string(side)=="reference"?140:0;
+        if(type=="POINT")dot(g.at("point").at("x"),g.at("point").at("y"),color);
+        else if(type=="LINE_SEGMENT")for(int i=0;i<=200;++i) {
+            const double t=i/200.;
+            dot(g.at("start").at("x").get<double>()*(1-t)+g.at("end").at("x").get<double>()*t,
+                g.at("start").at("y").get<double>()*(1-t)+g.at("end").at("y").get<double>()*t,color);
+        } else if(type=="ARC_SEGMENT")for(int i=0;i<=200;++i) {
+            const double a=(g.at("start_deg").get<double>()+g.at("sweep_deg").get<double>()*i/200.)*.017453292519943295;
+            dot(g.at("center").at("x").get<double>()+g.at("radius").get<double>()*std::cos(a),
+                g.at("center").at("y").get<double>()+g.at("radius").get<double>()*std::sin(a),color);
+        }
+    }
+    std::ostringstream image;image<<"P2\n400 400\n255\n";for(int p:pixels)image<<p<<" ";
+    write(dir/"source_image.pgm",image.str());
+    write(dir/"typed_label.json",J{{"schema","cxvision.geometric_set_fixture_label.v1"},
+        {"status","proposed"},{"human_accepted",false},{"training_eligible",false},
+        {"source_ref","synthetic:geometric_set"},{"request_ref","request.json"}}.dump(2));
+    FindSetMatch preview;preview.requestjson(request.dump().c_str());
+    preview.parameter(pairBudget,"max_pair_checks");preview.run();
+    write(dir/"fixture_receipt.json",preview.receipt());
+    write(dir/"result_summary.json",J{{"schema","cxvision.geometric_set_fixture_summary.v1"},
+      {"status",cxgeom::gsm::Name(preview.result().execution_status)},
+      {"candidate_count",preview.result().candidates.size()},
+      {"image_extraction_performed",false},{"production_eligible",false},
+      {"overlay_semantics","input_geometry_diagram_not_inference"}}.dump(2));
+    write(dir/"case_manifest.json",J{{"schema","cxvision.evidence_case.v1"},
+        {"run_id","geometric_set_ui_v1"},{"internal_case_id",id},{"review_item",title},
+        {"tool","FindSetMatch"},{"display_group","FindSetMatch / Development Full Set"},
+        {"display_category","To Verify"},{"case_role","development_fixture"},
+        {"geometry_type","geometric_set"},{"binding_status","REFERENCE_ONLY"},
+        {"parameter_summary","Structured geometry only; diagram is not image extraction; production=false"},
+        {"source_image","source_image.pgm"},{"typed_label","typed_label.json"},{"script_snapshot","run.cxsc"},
+        {"geometry_facts_ref","fixture_receipt.json"},{"result_summary","result_summary.json"},
+        {"evidence_overlay","source_image.pgm"},
+        {"required_assets",J::array({"source_image.pgm","typed_label.json","request.json","run.cxsc","fixture_receipt.json","result_summary.json"})}}.dump(2));
+}
+
 int main(int argc,char** argv) try {
     if(argc!=3)throw std::runtime_error("schema and fresh external output required");
     const std::filesystem::path out(argv[2]);
@@ -95,5 +152,29 @@ int main(int argc,char** argv) try {
     write(out/"overwrite.cxsc",load+"m_set.run();\nm_set.save(\""+(out/"script_receipt.json").string()+"\");\n");
     write(out/"auto.cxsc",load+"m_set.run();\nm_set.expectcount(1);\n");
     write(out/"mixed.cxsc","FindObject m_other;\n"+load+"m_set.run();\n");
+
+    std::unordered_map<std::string,int> values;std::string reason;
+    need(cxsetmatchui::Defaults("// setmatch_evidence_binding: 1",values,reason),"UI defaults valid");
+    need(values.size()==12,"all twelve active numeric controls");
+    values["global_setmatch_scale_min"]=1300;
+    need(!cxsetmatchui::Validate(values,reason),"inverted scale rejected");
+    need(!cxsetmatchui::Defaults("// setmatch_default unknown 1",values,reason),"unknown UI default rejected");
+    need(!cxsetmatchui::Defaults("// setmatch_default global_setmatch_elapsed 0",values,reason),"zero time rejected");
+    need(!cxsetmatchui::Defaults("// setmatch_default global_setmatch_elapsed 1 trailing",values,reason),"trailing UI default rejected");
+    need(cxsetmatchui::Defaults("// setmatch_default global_setmatch_elapsed 3000",values,reason),"case override accepted");
+    const auto cases=out/"evidence";std::filesystem::create_directory(cases);
+    evidence(cases,request,"setmatch_asymmetric_mixed","Set Match - Asymmetric Mixed / development");
+    auto square=request;square["request_id"]="GSM1_SQUARE";
+    for(const char* side:{"reference","target"}) {
+      square[side]["elements"]=J::array();int i=0;
+      for(const auto xy: {std::pair<double,double>{0,0},{10,0},{10,10},{0,10}}) {
+        std::string id=std::string(side)+std::to_string(i++);
+        square[side]["elements"].push_back({{"stable_id",id},{"source_ref","synthetic:"+id},{"quality",1},
+          {"geometry",{{"type","POINT"},{"point",point(xy.first,xy.second)}}}});
+      }
+    }
+    evidence(cases,square,"setmatch_symmetric_square","Set Match - Symmetric Multiple Poses / development");
+    evidence(cases,request,"setmatch_budget_stop","Set Match - Budget Stop / development",1);
+
     std::cout<<J{{"status","PASS"},{"checks",checks},{"production_eligible",false}}.dump()<<"\n";return 0;
 } catch(const std::exception& e){std::cerr<<"SETMATCH_ADAPTER_FAIL "<<e.what()<<"\n";return 1;}
