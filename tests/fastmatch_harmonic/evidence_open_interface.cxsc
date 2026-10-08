@@ -29,5 +29,7 @@ m_audit.anchorrect(global_harmonic_anchor_x,global_harmonic_anchor_y,global_harm
 m_audit.fromobjectarc(m_object);
 m_audit.expectsubcurve(m_object);
 m_audit.saveopen(global_open_boundary_receipt_path);
+m_audit.parameter(global_harmonic_debug_mode,"debug_mode");
+m_audit.parameter(global_harmonic_save_features,"save_intermediate_features");
 m_audit.run();
 m_audit.save(global_harmonic_receipt_path);

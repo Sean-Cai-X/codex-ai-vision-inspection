@@ -24,5 +24,10 @@ int main() {
  values.erase("global_harmonic_receipt_path");
  values["unrelated_tool_parameter"]=42;require(Validate(values,why));
  values["global_harmonic_sample_count"]=1025;require(!Validate(values,why));
+ require(Defaults("",values,why));
+ values["global_harmonic_save_features"]=1;require(!Validate(values,why));
+ values["global_harmonic_debug_mode"]=1;require(Validate(values,why));
+ require(!Defaults("// harmonic_default global_harmonic_debug_mode 1",values,why));
+ require(SupportsFeatureDebug("a.parameter(global_harmonic_debug_mode,\"debug_mode\");a.parameter(global_harmonic_save_features,\"save_intermediate_features\");"));
  std::cout<<"HARMONIC_UI_PARAMETER_GUARDS_PASS\n";
 }

@@ -28,10 +28,16 @@ inline const Parameter parameters[] = {
  {"global_harmonic_roi_x","Source ROI x (px)",0,0,100000},
  {"global_harmonic_roi_y","Source ROI y (px)",0,0,100000},
  {"global_harmonic_roi_w","Source ROI width (px)",320,1,100000},
- {"global_harmonic_roi_h","Source ROI height (px)",240,1,100000}
+ {"global_harmonic_roi_h","Source ROI height (px)",240,1,100000},
+ {"global_harmonic_debug_mode","Debug mode (0/1)",0,0,1},
+ {"global_harmonic_save_features","Save intermediate features (0/1)",0,0,1}
 };
 inline bool IsCase(const std::string& text) {
  return text.find("// harmonic_evidence_binding: 1")!=std::string::npos;
+}
+inline bool SupportsFeatureDebug(const std::string& text) {
+ return text.find(".parameter(global_harmonic_debug_mode,")!=std::string::npos &&
+        text.find(".parameter(global_harmonic_save_features,")!=std::string::npos;
 }
 inline bool Defaults(const std::string& text, std::unordered_map<std::string,int>& out,
                      std::string& reason) {
@@ -50,6 +56,7 @@ inline bool Defaults(const std::string& text, std::unordered_map<std::string,int
   }
   if(!found){reason="Unknown harmonic default: "+key;return false;}
  }
+ if((out.at("global_harmonic_debug_mode") || out.at("global_harmonic_save_features")) && !SupportsFeatureDebug(text)) {reason="Script lacks harmonic feature debug binding";return false;}
  reason.clear();return true;
 }
 inline bool Validate(const std::unordered_map<std::string,int>& values,std::string& reason) {
@@ -66,6 +73,9 @@ inline bool Validate(const std::unordered_map<std::string,int>& values,std::stri
  }
  if(values.at("global_harmonic_max_order")>=values.at("global_harmonic_sample_count")/2) {
   reason="Maximum harmonic order must be < resample points / 2";return false;
+ }
+ if(values.at("global_harmonic_save_features") && !values.at("global_harmonic_debug_mode")) {
+  reason="Save intermediate features requires debug mode";return false;
  }
  reason.clear();return true;
 }

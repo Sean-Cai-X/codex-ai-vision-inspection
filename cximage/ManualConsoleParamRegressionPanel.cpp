@@ -8986,6 +8986,10 @@ static void DrawHarmonicAuditControls(ManualTestContext& context) {
   group("2. Boundary anchor",10,15,false,true);
   group("3. Shape encoding",0,6,false,!open);
   group("4. Pose audit / ambiguity",6,10,false,!open);
+  if(cxharmonicui::SupportsFeatureDebug(context.editor_text))
+    group("5. Debug capture",21,23,true,true);
+  else ImGui::TextWrapped("Legacy script: feature debug capture unavailable. Use the updated Evidence script.");
+
   if(ImGui::CollapsingHeader("Contract and unsupported extensions")) {
     ImGui::TextWrapped("Topology is source evidence, not a bypass switch. No AUTO_DETECT. A declaration cannot override conflicting measured topology.");
     ImGui::TextWrapped("Anchor selects boundary samples, not a target box. Ambiguous components/arcs are rejected.");
@@ -8993,7 +8997,7 @@ static void DrawHarmonicAuditControls(ManualTestContext& context) {
     ImGui::TextWrapped("NOT IMPLEMENTED: prior_shape_type; completion_mode (OFF only); max_completion_ratio; synthetic_segment_penalty; automatic completion_fallback.");
     ImGui::TextWrapped("NOT IMPLEMENTED: harmonic_order_coarse/fine; coarse/fine angle step/range/threshold; coarse/fine enable; phase_correlation_mode; scale range/step/solve switch.");
     ImGui::TextWrapped("FIXED: start_order=1; no HANN/HAMMING window; centroid alignment cannot be disabled. No alternate centroid method or offset realignment.");
-    ImGui::TextWrapped("Debug spectra/phase curves/step dumps/tag overlays/log-level switches are not yet implemented. Receipt inspection below shows actual native fields only.");
+    ImGui::TextWrapped("Coefficient spectra are available with debug capture. Rotation-response curves, step dumps, tag overlays and log-level switches are not implemented.");
     ImGui::TextWrapped("quality_use_observed_only is a non-bypassable future quality contract. Completion and calibrated solvability are unavailable; no production defaults claimed.");
   }
   ImGui::BeginDisabled(context.has_pending_execution_snapshot);
@@ -9033,6 +9037,37 @@ static void DrawHarmonicAuditControls(ManualTestContext& context) {
         ImGui::TextWrapped("Angle %.6f deg | scale %.6f | correlation %.6f | residual %.8g",
           pose.at("angle_deg").get<double>(),pose.at("scale").get<double>(),
           pose.at("correlation").get<double>(),pose.at("residual").get<double>());
+      if(result.contains("debug")) {
+        const auto& debug=result.at("debug");
+        ImGui::TextWrapped("Feature capture: %s | %s",debug.at("status").get<std::string>().c_str(),debug.at("reason").get<std::string>().c_str());
+        ImGui::TextWrapped("Coefficient phase in radians, NOT an angle-search response. Near-zero amplitude phase is undefined.");
+        for(const auto& feature:debug.at("features")) {
+          ImGui::PushID(feature.at("side").get<int>());
+          if(ImGui::TreeNode(feature.at("side")==0?"Reference spectrum":"Observed spectrum")) {
+            ImGui::TextWrapped("Center (%.6f, %.6f) | scale %.6f | perimeter %.6f",
+              feature.at("centroid").at(0).get<double>(),feature.at("centroid").at(1).get<double>(),
+              feature.at("scale").get<double>(),feature.at("perimeter").get<double>());
+            if(ImGui::BeginTable("coefficients",5,ImGuiTableFlags_ScrollY|ImGuiTableFlags_Borders,ImVec2(0,200))) {
+              for(const char* title:{"Order","Real","Imag","Amplitude","Phase (rad)"})ImGui::TableSetupColumn(title);
+              ImGui::TableSetupScrollFreeze(0,1);ImGui::TableHeadersRow();
+              const auto& coefficients=feature.at("coefficients");
+              ImGuiListClipper clip;clip.Begin(static_cast<int>(coefficients.size()));
+              while(clip.Step())for(int i=clip.DisplayStart;i<clip.DisplayEnd;++i) {
+                const auto& c=coefficients.at(i);
+                ImGui::TableNextRow();ImGui::TableNextColumn();ImGui::Text("%d",c.at("frequency").get<int>());
+                for(const char* key:{"real","imag","amplitude","phase_rad"}) {
+                  ImGui::TableNextColumn();
+                  if(c.at(key).is_null())ImGui::TextUnformatted("undefined");
+                  else ImGui::Text("%.6g",c.at(key).get<double>());
+                }
+              }
+              ImGui::EndTable();
+            }
+            ImGui::TreePop();
+          }
+          ImGui::PopID();
+        }
+      }
       if(ImGui::TreeNode("Executed parameters / input provenance")) {
         const auto details=nlohmann::json{{"parameters",result.at("parameters")},{"inputs",result.at("inputs")}}.dump(2);
         ImGui::BeginChild("harmonic_debug_details",ImVec2(0,220),true,ImGuiWindowFlags_HorizontalScrollbar);

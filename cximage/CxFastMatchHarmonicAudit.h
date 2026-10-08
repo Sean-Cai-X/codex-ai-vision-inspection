@@ -58,6 +58,8 @@ private:
     int measured_count_[2] = {-1,-1};
     int measured_holes_[2] = {-1,-1};
     int measured_index_[2] = {-1,-1};
+    bool debug_mode_ = false;
+    bool save_intermediate_features_ = false;
     bool ran_ = false;
     int assertions_ = 0;
     std::vector<std::string> history_;

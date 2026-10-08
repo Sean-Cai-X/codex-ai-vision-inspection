@@ -141,17 +141,24 @@ void CxFastMatchHarmonicAudit::parameter(double v,const char* key) {
     else if(k=="symmetry_relative_amplitude")config_.symmetry_relative_amplitude=v;
     else if(k=="peak_relative_tolerance")config_.peak_relative_tolerance=v;
     else if(k=="maximum_hypotheses")config_.maximum_hypotheses=integer();
+    else if(k=="debug_mode" || k=="save_intermediate_features") {
+        if(v!=0 && v!=1)throw std::invalid_argument("HARMONIC_INVALID_BOOLEAN");
+        if(k=="debug_mode")debug_mode_=v!=0;else save_intermediate_features_=v!=0;
+    }
     else throw std::invalid_argument("HARMONIC_UNKNOWN_PARAMETER");
     invalidate();
 }
 void CxFastMatchHarmonicAudit::run() {
     result_={};
+    std::optional<cxgeom::so2::Descriptor> feature_a,feature_b;
+    if(save_intermediate_features_ && !debug_mode_)throw std::invalid_argument("HARMONIC_FEATURES_REQUIRE_DEBUG");
     try {
         if(open_runs_[0]||open_runs_[1])throw std::invalid_argument("OPEN_CONTOUR_LEGACY_FALLBACK");
         const auto a=loaded_[0]?*loaded_[0]:cxgeom::so2::Build(contours_[0],config_,method_);
         auto expected=a;expected.config=config_;expected.method=method_;cxgeom::so2::Distance(a,expected);
         const auto b=loaded_[1]?*loaded_[1]:cxgeom::so2::Build(contours_[1],config_,method_);
         result_=cxgeom::so2::Match(a,b);
+        if(debug_mode_ && save_intermediate_features_) {feature_a=a;feature_b=b;}
     } catch(const std::invalid_argument& e) {
         result_.status=e.what();result_.fallback_reason="LEGACY_UNCHANGED";
     }
@@ -195,7 +202,32 @@ void CxFastMatchHarmonicAudit::run() {
         s<<"{\"angle_deg\":"<<p.angle_deg<<",\"scale\":"<<p.scale
          <<",\"correlation\":"<<p.correlation<<",\"residual\":"<<p.residual<<"}";
     }
-    s<<"]}";history_.push_back(s.str());
+    s<<"],\"debug\":{\"enabled\":"<<(debug_mode_?"true":"false")
+     <<",\"save_intermediate_features\":"<<(save_intermediate_features_?"true":"false")
+     <<",\"status\":\""<<(!debug_mode_?"DISABLED":!save_intermediate_features_?"NOT_REQUESTED":feature_a?"AVAILABLE":"UNAVAILABLE")
+     <<"\",\"reason\":\""<<(debug_mode_ && save_intermediate_features_ && !feature_a?JsonEscape(result_.status):"")
+     <<"\",\"features\":[";
+    if(feature_a && feature_b) {
+        int side=0;
+        for(const auto* d:{&*feature_a,&*feature_b}) {
+            if(side)s<<",";
+            s<<"{\"side\":"<<side++<<",\"method\":"<<static_cast<int>(d->method)
+             <<",\"centroid\":["<<d->centroid.real()<<","<<d->centroid.imag()<<"]"
+             <<",\"scale\":"<<d->scale<<",\"perimeter\":"<<d->perimeter
+             <<",\"normalized_scale\":"<<(d->config.normalize_scale?"true":"false")
+             <<",\"phase_units\":\"radians\",\"phase_semantics\":\"coefficient_phase_not_rotation_response\",\"coefficients\":[";
+            for(size_t k=0;k<d->coefficients.size();++k) {
+                if(k)s<<",";
+                const auto z=d->coefficients[k];const double amplitude=std::abs(z);
+                s<<"{\"frequency\":"<<d->frequencies[k]<<",\"real\":"<<z.real()
+                 <<",\"imag\":"<<z.imag()<<",\"amplitude\":"<<amplitude<<",\"phase_rad\":";
+                if(amplitude>1e-12)s<<std::arg(z);else s<<"null";
+                s<<"}";
+            }
+            s<<"]}";
+        }
+    }
+    s<<"]}}";history_.push_back(s.str());
 }
 void CxFastMatchHarmonicAudit::expectstatus(const char* expected) {
     if(!ran_ || !expected || result_.status!=expected)throw std::runtime_error("HARMONIC_STATUS_ASSERTION_FAILED:"+result_.status);

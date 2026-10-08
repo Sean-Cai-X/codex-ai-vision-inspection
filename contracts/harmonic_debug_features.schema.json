@@ -1,0 +1,165 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "enabled",
+    "save_intermediate_features",
+    "status",
+    "reason",
+    "features"
+  ],
+  "properties": {
+    "enabled": {
+      "type": "boolean"
+    },
+    "save_intermediate_features": {
+      "type": "boolean"
+    },
+    "status": {
+      "enum": [
+        "DISABLED",
+        "NOT_REQUESTED",
+        "AVAILABLE",
+        "UNAVAILABLE"
+      ]
+    },
+    "reason": {
+      "type": "string"
+    },
+    "features": {
+      "type": "array",
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "side",
+          "method",
+          "centroid",
+          "scale",
+          "perimeter",
+          "normalized_scale",
+          "phase_units",
+          "phase_semantics",
+          "coefficients"
+        ],
+        "properties": {
+          "side": {
+            "enum": [
+              0,
+              1
+            ]
+          },
+          "method": {
+            "enum": [
+              0,
+              1
+            ]
+          },
+          "centroid": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": {
+              "type": "number"
+            }
+          },
+          "scale": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "perimeter": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "normalized_scale": {
+            "type": "boolean"
+          },
+          "phase_units": {
+            "const": "radians"
+          },
+          "phase_semantics": {
+            "const": "coefficient_phase_not_rotation_response"
+          },
+          "coefficients": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 1022,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "frequency",
+                "real",
+                "imag",
+                "amplitude",
+                "phase_rad"
+              ],
+              "properties": {
+                "frequency": {
+                  "type": "integer",
+                  "minimum": -511,
+                  "maximum": 511,
+                  "not": {
+                    "const": 0
+                  }
+                },
+                "real": {
+                  "type": "number"
+                },
+                "imag": {
+                  "type": "number"
+                },
+                "amplitude": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "phase_rad": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": -3.141592653589793,
+                  "maximum": 3.141592653589793
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Harmonic audit runs[].debug extension v1",
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "AVAILABLE"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "enabled": {
+            "const": true
+          },
+          "save_intermediate_features": {
+            "const": true
+          },
+          "features": {
+            "minItems": 2
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "features": {
+            "maxItems": 0
+          }
+        }
+      }
+    }
+  ]
+}

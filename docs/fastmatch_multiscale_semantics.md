@@ -1318,3 +1318,43 @@ regressions. Real Linux desktop clicks verified select, grouped controls, top Ru
 two symmetry hypotheses, threshold=300 blocking, stale receipt invalidation and
 reset/rerun. Windows and full accessibility certification were not performed.
 Private logs and screenshots: ../cxscript_runs/harmonic_parameters_20261008/.
+
+
+## Native feature capture and spectrum inspection (2026-10-08)
+
+Intermediate-feature capture is now implemented: debug_mode and
+save_intermediate_features (0/1, default OFF) are exposed in Debug capture.
+Saving requires debug mode. Explicit cxscript bindings are:
+m_audit.parameter(global_harmonic_debug_mode,"debug_mode");
+m_audit.parameter(global_harmonic_save_features,"save_intermediate_features");
+before m_audit.run(). Legacy scripts remain valid with capture OFF; missing
+bindings cannot silently enable capture.
+
+Each native receipt run adds debug flags/status/reason and optional snapshots
+of the two descriptors actually passed to Match: centroid, scale, perimeter,
+signed frequency, real/imaginary coefficients, amplitude and phase (radians).
+No second display-only computation or change to the core matcher is introduced.
+Phase is null for amplitude <= 1e-12. Coefficient phase is NOT an angle-search
+response. No completion, coarse/fine search or centroid overlay is claimed.
+Schema: contracts/harmonic_debug_features.schema.json covers runs[].debug.
+
+States: DISABLED / NOT_REQUESTED / AVAILABLE / UNAVAILABLE. Open or invalid
+inputs produce no spectrum; subsequent runs never retain stale coefficients.
+These are private shape assets, not an automatically exportable feedback pack.
+
+Operator: Harmonic Closed Reference -> F7 -> Debug capture -> both values 1 ->
+Run Harmonic Audit -> Reference spectrum / Observed spectrum. Tables are
+bounded and scrollable. Edits invalidate results; Reset defaults turns capture
+off for shipped cases. Open Arc / Open Interface returns UNAVAILABLE with
+OPEN_CONTOUR_LEGACY_FALLBACK instead of inventing a spectrum.
+
+Verification: CTest 4/4; seven actual cxscript feature scenarios
+(off/DFT/EFD/open/stale/toggle/invalid); native C++ receipt checker verifies
+coefficient arithmetic, order/count, no stale state and unchanged non-debug
+results. Three pending GUI-entry cases pass. Legacy 56-run/160-assertion audit
+and six Evidence replays pass. Real X11 clicks verified capture and table display.
+Static UI audit passes; Windows/accessibility certification remain unperformed.
+
+Three external Evidence scripts were updated with backups and before/after SHA
+records, without changing source images. Private screenshot_index.html, logs
+and migration receipt: ../cxscript_runs/harmonic_features_20261008/.

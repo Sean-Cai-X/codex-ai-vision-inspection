@@ -47,3 +47,6 @@ add_test(NAME open_boundary_guards COMMAND so2_open_boundary_guards)
 add_executable(harmonic_ui_parameter_guards native_ui_parameter_test.cpp)
 target_compile_features(harmonic_ui_parameter_guards PRIVATE cxx_std_17)
 add_test(NAME harmonic_ui_parameter_guards COMMAND harmonic_ui_parameter_guards)
+
+add_executable(harmonic_feature_receipt_check native_feature_receipt_test.cpp)
+target_compile_features(harmonic_feature_receipt_check PRIVATE cxx_std_17)

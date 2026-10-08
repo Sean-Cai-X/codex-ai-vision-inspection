@@ -66,6 +66,8 @@ bool PrepareHarmonicAuditRun(ManualTestContext& context, ParserDebugBridge& brid
   if(!cxharmonicui::IsCase(context.editor_text)) return true;
   context.harmonic_audit_result_summary.clear();
   context.harmonic_audit_receipt.clear();
+  if((context.runtime_int_vars["global_harmonic_debug_mode"] || context.runtime_int_vars["global_harmonic_save_features"]) &&
+     !cxharmonicui::SupportsFeatureDebug(context.editor_text)){reason="Script lacks harmonic feature debug binding";return false;}
   if(!cxharmonicui::Validate(context.runtime_int_vars,reason)) return false;
   try {
     const auto root=ResolveCxVisionRunPath("cxscript_runs/harmonic_audit_manual");
@@ -719,6 +721,8 @@ bool MigrateLegacyFindSegmentationPromptCallsForRun(
 bool RequestHarmonicAuditRun(ManualTestContext& context,std::string& reason) {
   if(!cxharmonicui::IsCase(context.editor_text)){reason="No Harmonic Evidence selected";return false;}
   if(context.has_pending_execution_snapshot){reason="A run is already pending";return false;}
+  if((context.runtime_int_vars["global_harmonic_debug_mode"] || context.runtime_int_vars["global_harmonic_save_features"]) &&
+     !cxharmonicui::SupportsFeatureDebug(context.editor_text)){reason="Script lacks harmonic feature debug binding";return false;}
   if(!cxharmonicui::Validate(context.runtime_int_vars,reason))return false;
   context.harmonic_audit_receipt.clear();
   context.harmonic_audit_result_summary.clear();
@@ -867,6 +871,10 @@ bool ViewController::RunHarmonicPendingEntrySmoke(ManualTestContext& source,std:
   auto& c=m_manualTest;
   for(int i=0;i<2;++i) {
     c.runtime_int_vars["global_harmonic_sample_count"]=i?128:256;
+    if(cxharmonicui::SupportsFeatureDebug(c.editor_text)) {
+      c.runtime_int_vars["global_harmonic_debug_mode"]=i;
+      c.runtime_int_vars["global_harmonic_save_features"]=i;
+    }
     if(!RequestHarmonicAuditRun(c,reason))return false;
     std::string duplicate;
     if(RequestHarmonicAuditRun(c,duplicate)){reason="Duplicate harmonic run accepted";return false;}
@@ -876,6 +884,14 @@ bool ViewController::RunHarmonicPendingEntrySmoke(ManualTestContext& source,std:
     const auto r=nlohmann::json::parse(c.harmonic_audit_receipt);
     if(r.at("runs").back().at("parameters").at("sample_count")!=(i?128:256)) {
       reason="Harmonic snapshot not frozen";return false;
+    }
+    if(i && cxharmonicui::SupportsFeatureDebug(c.editor_text)) {
+      const auto& debug=r.at("runs").back().at("debug");
+      const bool open=c.editor_text.find(".fromobjectarc(")!=std::string::npos;
+      if(debug.at("status")!=(open?"UNAVAILABLE":"AVAILABLE") ||
+         debug.at("features").size()!=(open?0:2)) {
+        reason="Pending feature capture mismatch";return false;
+      }
     }
     if(ConsumePendingManualScriptRun(c,"harmonic_duplicate")){reason="Duplicate consume";return false;}
   }

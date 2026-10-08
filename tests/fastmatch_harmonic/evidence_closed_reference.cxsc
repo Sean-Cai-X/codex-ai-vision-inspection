@@ -37,5 +37,7 @@ m_audit.select(1);
 m_audit.anchorrect(global_harmonic_anchor_x,global_harmonic_anchor_y,global_harmonic_anchor_w,global_harmonic_anchor_h);
 m_audit.fromobject(m_object);
 m_audit.topology(1,1,1,0,1);
+m_audit.parameter(global_harmonic_debug_mode,"debug_mode");
+m_audit.parameter(global_harmonic_save_features,"save_intermediate_features");
 m_audit.run();
 m_audit.save(global_harmonic_receipt_path);
