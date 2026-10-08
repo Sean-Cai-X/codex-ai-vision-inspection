@@ -35,3 +35,29 @@ if (enable_libtorch_smoke) {
     libs = [ "torch", "torch_cpu", "c10" ]
   }
 }
+
+# Pure P0 geometry contracts: no GUI/OpenCV/Torch dependencies.
+config("geometric_set_platform") {
+  cflags_cc = [ "-std=c++17" ]
+  if (is_linux) {
+    cflags = [ "--sysroot=" + codex_vision_sysroot ]
+    ldflags = [ "--sysroot=" + codex_vision_sysroot ]
+    if (codex_vision_cxx_runtime_dir != "") {
+      lib_dirs = [ codex_vision_cxx_runtime_dir ]
+      libs = [ ":libstdc++.so.6" ]
+      ldflags += [ "-Wl,-rpath," + codex_vision_cxx_runtime_dir ]
+    }
+  }
+}
+static_library("cxgeom_geometric_set_matching") {
+  sources = [
+    "cxgeom/geometric_set_matching/validation.cpp",
+    "cxgeom/geometric_set_matching/topology.cpp",
+  ]
+  configs = [ ":geometric_set_platform" ]
+}
+executable("geometric_set_contract_test") {
+  sources = [ "tests/geometric_set_matching/contract_test.cpp" ]
+  deps = [ ":cxgeom_geometric_set_matching" ]
+  configs = [ ":geometric_set_platform" ]
+}

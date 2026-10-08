@@ -1,0 +1,590 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Geometry set matching P0 boundary v1",
+  "$comment": "P0 provides typed preflight only; Match returns NOT_IMPLEMENTED for valid requests. No solver, training, image bytes or production activation. JSON Schema does not establish geometry/provenance truth; C++ validates finite coordinates, IDs unique within each side, nonzero segments, full arc bounds, ROI containment, budgets and ordered parameter bounds.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/request"
+    },
+    {
+      "$ref": "#/$defs/result"
+    }
+  ],
+  "$defs": {
+    "point": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "type": "number",
+          "minimum": -1000000000,
+          "maximum": 1000000000
+        },
+        "y": {
+          "type": "number",
+          "minimum": -1000000000,
+          "maximum": 1000000000
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ]
+    },
+    "rect": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "type": "number",
+          "minimum": -1000000000,
+          "maximum": 1000000000
+        },
+        "y": {
+          "type": "number",
+          "minimum": -1000000000,
+          "maximum": 1000000000
+        },
+        "width": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "height": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height"
+      ]
+    },
+    "geometry": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "POINT"
+            },
+            "point": {
+              "$ref": "#/$defs/point"
+            }
+          },
+          "required": [
+            "type",
+            "point"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "LINE_SEGMENT"
+            },
+            "start": {
+              "$ref": "#/$defs/point"
+            },
+            "end": {
+              "$ref": "#/$defs/point"
+            }
+          },
+          "required": [
+            "type",
+            "start",
+            "end"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "ARC_SEGMENT"
+            },
+            "center": {
+              "$ref": "#/$defs/point"
+            },
+            "radius": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 1000000000
+            },
+            "start_deg": {
+              "type": "number",
+              "minimum": -180,
+              "maximum": 180
+            },
+            "sweep_deg": {
+              "type": "number",
+              "minimum": -360,
+              "maximum": 360,
+              "not": {
+                "const": 0
+              }
+            }
+          },
+          "required": [
+            "type",
+            "center",
+            "radius",
+            "start_deg",
+            "sweep_deg"
+          ]
+        }
+      ]
+    },
+    "element": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "stable_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+        },
+        "source_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+        },
+        "quality": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "geometry": {
+          "$ref": "#/$defs/geometry"
+        }
+      },
+      "required": [
+        "stable_id",
+        "source_ref",
+        "quality",
+        "geometry"
+      ]
+    },
+    "set": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "set_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+        },
+        "source_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+        },
+        "roi": {
+          "$ref": "#/$defs/rect"
+        },
+        "elements": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8192,
+          "items": {
+            "$ref": "#/$defs/element"
+          }
+        }
+      },
+      "required": [
+        "set_id",
+        "source_ref",
+        "roi",
+        "elements"
+      ]
+    },
+    "parameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "search_roi": {
+          "$ref": "#/$defs/rect"
+        },
+        "angle_min_deg": {
+          "type": "number",
+          "minimum": -180,
+          "maximum": 180,
+          "default": -180
+        },
+        "angle_max_deg": {
+          "type": "number",
+          "minimum": -180,
+          "maximum": 180,
+          "default": 180
+        },
+        "scale_min": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1000000,
+          "default": 0.8
+        },
+        "scale_max": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1000000,
+          "default": 1.2
+        },
+        "max_residual_px": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 1
+        },
+        "min_weighted_coverage": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "default": 0.5
+        },
+        "min_spatial_span_ratio": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.25
+        },
+        "min_candidate_score_gap": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.05
+        },
+        "min_matched_elements": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8192,
+          "default": 3
+        },
+        "max_elements_per_set": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8192,
+          "default": 4096
+        },
+        "max_hypotheses": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4096,
+          "default": 256
+        },
+        "max_pair_checks": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100000000,
+          "default": 1000000
+        },
+        "max_elapsed_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60000,
+          "default": 100
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295,
+          "default": 0
+        }
+      },
+      "required": [
+        "search_roi",
+        "angle_min_deg",
+        "angle_max_deg",
+        "scale_min",
+        "scale_max",
+        "max_residual_px",
+        "min_weighted_coverage",
+        "min_spatial_span_ratio",
+        "min_candidate_score_gap",
+        "min_matched_elements",
+        "max_elements_per_set",
+        "max_hypotheses",
+        "max_pair_checks",
+        "max_elapsed_ms",
+        "seed"
+      ]
+    },
+    "similarity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "translation": {
+          "$ref": "#/$defs/point"
+        },
+        "angle_deg": {
+          "type": "number",
+          "minimum": -180,
+          "maximum": 180
+        },
+        "scale": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": [
+        "translation",
+        "angle_deg",
+        "scale"
+      ]
+    },
+    "correspondence": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "reference_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+        },
+        "target_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+        },
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "residual_px": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "reference_id",
+        "target_id",
+        "score",
+        "residual_px"
+      ]
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "pose": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/similarity"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "correspondences": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/correspondence"
+          }
+        },
+        "unmatched_reference_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+          },
+          "uniqueItems": true
+        },
+        "unmatched_target_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+          },
+          "uniqueItems": true
+        },
+        "weighted_coverage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "spatial_span_ratio": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "residual_px": {
+          "type": "number",
+          "minimum": 0
+        },
+        "translation_observable": {
+          "type": "boolean"
+        },
+        "rotation_observable": {
+          "type": "boolean"
+        },
+        "scale_observable": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "pose",
+        "correspondences",
+        "unmatched_reference_ids",
+        "unmatched_target_ids",
+        "weighted_coverage",
+        "spatial_span_ratio",
+        "residual_px",
+        "translation_observable",
+        "rotation_observable",
+        "scale_observable"
+      ]
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema": {
+          "const": "cxvision.geometric_set_match.request.v1"
+        },
+        "request_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+        },
+        "reference": {
+          "$ref": "#/$defs/set"
+        },
+        "target": {
+          "$ref": "#/$defs/set"
+        },
+        "parameters": {
+          "$ref": "#/$defs/parameters"
+        }
+      },
+      "required": [
+        "schema",
+        "request_id",
+        "reference",
+        "target",
+        "parameters"
+      ]
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema": {
+          "const": "cxvision.geometric_set_match.result.v1"
+        },
+        "request_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+        },
+        "execution_status": {
+          "enum": [
+            "NOT_RUN",
+            "INVALID_INPUT",
+            "BUDGET_EXHAUSTED",
+            "NOT_IMPLEMENTED",
+            "COMPLETED"
+          ]
+        },
+        "solvability": {
+          "enum": [
+            null,
+            "FULLY_SOLVABLE",
+            "PARTIALLY_SOLVABLE",
+            "AMBIGUOUS",
+            "INSUFFICIENT"
+          ]
+        },
+        "candidates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/candidate"
+          },
+          "maxItems": 4096
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+          }
+        },
+        "pair_checks": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "elapsed_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "search_complete": {
+          "type": "boolean"
+        },
+        "production_eligible": {
+          "const": false
+        }
+      },
+      "required": [
+        "schema",
+        "request_id",
+        "execution_status",
+        "solvability",
+        "candidates",
+        "reasons",
+        "evidence_refs",
+        "pair_checks",
+        "elapsed_ms",
+        "search_complete",
+        "production_eligible"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "execution_status": {
+                "not": {
+                  "const": "COMPLETED"
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "solvability": {
+                "type": "null"
+              },
+              "candidates": {
+                "maxItems": 0
+              },
+              "search_complete": {
+                "const": false
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

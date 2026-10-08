@@ -7,6 +7,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 include(CTest)
+add_subdirectory(cxgeom)
+
 
 set(GLFW_ROOT "D:/glfw-3.3.10" CACHE PATH "Path to the GLFW source tree")
 set(GLAD_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../analysis_workspace/imGuIZMO.quat/libs/glad" CACHE PATH "Path to glad sources")
@@ -519,4 +521,10 @@ add_subdirectory(contracts)
 # export business images.
 if(BUILD_TESTING)
   add_subdirectory(tests/offline_business_service)
+endif()
+
+if(BUILD_TESTING)
+  add_executable(geometric_set_contract_test tests/geometric_set_matching/contract_test.cpp)
+  target_link_libraries(geometric_set_contract_test PRIVATE cxgeom_geometric_set_matching)
+  add_test(NAME GSM0_contract_topology COMMAND geometric_set_contract_test "${CMAKE_CURRENT_SOURCE_DIR}/contracts/geometric_set_match.schema.json")
 endif()

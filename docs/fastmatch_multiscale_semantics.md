@@ -846,3 +846,115 @@ decodes thumbnails/images and renders the actual ImGui parameter component
 without a display. It also exercises the GUI ParserDebugBridge with defaults
 and edited sample count, verifies receipts and replayed defaults.
 This is not desktop click/screenshot acceptance; that remains human review.
+
+## GSM0 / next1.md foundation (2026-10-08)
+
+Scope: the first code deliverable for the external next1.md roadmap is P0,
+not completion of the P1-P4 matching roadmap. Existing Harmonic numerical
+and application behavior is preserved. No new GUI tool, matching service,
+segmentation refinement or production activation is exposed in this phase.
+
+Corrections required before implementing that roadmap:
+
+- The existing implementations are CxGeoSO2Harmonic and CxGeoOpenBoundary,
+  not an existing cxgeom/harmonic tree. Open-boundary extraction does not
+  implement harmonic continuation or an open-curve matcher.
+- A polygon's coordinate sequence cannot prove that it originated from a
+  continuous physical boundary. A sorted point set can have exactly the
+  same coordinates as a legitimate polygon. Explicit representation,
+  connectivity/order evidence and source provenance must therefore survive
+  ingestion. "Monotonic point order" must not mean monotonic image x/y.
+- A short endpoint distance cannot prove closure. The observed closing edge
+  and completeness must be explicitly established; do not fill gaps.
+- A 2D translation/rotation/uniform-scale model is Similarity2d, not an
+  unrestricted affine matrix. Collinearity alone is not an automatic
+  failure for every similarity-estimation problem; observability must be
+  evaluated for the particular correspondences and requested parameters.
+- "10 elements", "50% missing" and "no false match" are controlled test
+  conditions, not universal guarantees. Symmetry, spatial support and
+  near-duplicate structures require separate ambiguity tests.
+- Runtime/resource failure is not geometric INSUFFICIENT. Budget exhaustion
+  must remain separate from the four geometric solvability conclusions.
+
+Implemented source layout:
+
+- cxgeom/geometric_set_matching/types.h: independent point, line and signed
+  arc elements, per-element stable_id/source_ref/quality, set-local ROI,
+  request identity, explicit search and transform bounds, bounded policy,
+  correspondence/candidate/result value types.
+- validation.cpp: nonmutating request validation. IDs are unique within each
+  side, not artificially unique across both sides. Checks include finite
+  bounded coordinates, quality, nonzero segments/arcs, entire arc support
+  inside ROI (not just endpoints), parameter ranges, target search ROI and
+  element budget. Duplicate coordinates with distinct IDs are not magically
+  resolved: correspondence/observability remain future solver work.
+- topology.h/.cpp: ContourTopologyValidator for explicit branch routing.
+  Unordered points cannot enter contour branches; multiple parts cannot be
+  silently concatenated. Ordered chains require order evidence. Checks
+  reject self-intersection/touching nonadjacent edges, adjacent backtracking,
+  duplicate neighbors, unsupported holes and configured edge gaps.
+  Open chains remain open; closed chains require caller confirmation,
+  observed closure and completeness. Pair-check and point caps fail closed.
+- contracts/geometric_set_match.schema.json: versioned JSON Schema with
+  request and result envelopes, primitive geometry and parameter units.
+  Geometry-semantic checks are the C++ typed validator's responsibility;
+  P0 does not add a JSON request deserializer or a generic JSON Schema
+  validation service.
+- CMake and GN pure-library / native-test targets. No GUI, OpenCV or Torch
+  dependency in the core; the test uses the existing vendored JSON reader
+  to check schema syntax and selected contract/default consistency.
+
+P0 status semantics:
+
+1. Validate(request) accepted means structurally valid typed input ONLY.
+2. Match(valid_request) returns NOT_IMPLEMENTED and
+   GSM_P0_MATCHER_NOT_IMPLEMENTED, with absent solvability, empty candidates,
+   search_complete=false and production_eligible=false.
+3. Invalid input and element-budget exhaustion return distinct execution
+   statuses. No identity-transform placeholder or fabricated match score.
+4. TopologyReport retains source and order evidence references and always
+   leaves physical_boundary_verified=false. It detects contradictions,
+   not the truth of arbitrary caller assertions.
+5. The new topology gate is an explicit API for the future typed intake.
+   It is NOT silently retrofitted into legacy HarmonicAudit.topology().
+   Existing callers still carry their existing topology-proof obligation.
+
+Default thresholds are provisional parameters, not a calibrated solvability
+domain. Search ROI has no implicit whole-image default; the caller must
+supply it. Coordinates and residuals use input-image pixels; angles use
+degrees; scale is positive and uniform. Angle bounds currently describe
+one nonwrapping interval in [-180,180]. Element ROIs use inclusive bounds
+for geometric support, independently of the existing pixel-anchor half-open
+convention.
+
+Native verification:
+
+```sh
+cmake -S tests/geometric_set_matching -B /external/gsm-build
+cmake --build /external/gsm-build
+ctest --test-dir /external/gsm-build --output-on-failure
+# In the configured Linux GN build environment:
+gn gen out/linux
+ninja -C out/linux geometric_set_contract_test
+out/linux/geometric_set_contract_test contracts/geometric_set_match.schema.json
+```
+
+GSM0 tests include order permutation, ID/source preservation, malformed
+geometry/ROI/parameters, curve-routing and closure guards, budget status and
+the explicit NOT_IMPLEMENTED contract. Use GSM_SANITIZERS=ON for native
+address/undefined-behavior checks. Generated receipts and binaries belong
+under ../cxscript_runs/geometric_set_p0_20261008/, never in Git.
+
+Next bounded stage: P1 full-set point/line correspondence and similarity
+estimation with original-element IDs retained. Add non-symmetric controlled
+fixtures, arbitrary input permutations and explicit symmetric negatives;
+do not publish uniqueness based on one arbitrarily selected hypothesis.
+Only after that core has native evidence should FindSetMatch, cxscript,
+GUI controls and refined model/FastMatch integration be connected. P2
+partial matching, P3 calibrated solvability and P4 business end-to-end
+acceptance remain pending.
+
+2026-10-08 verification: GSM0 76 native assertions passed in both CMake and
+GN builds; address/undefined sanitizer CTest passed. Existing Harmonic CTest
+4/4, open-boundary headless 28 cases and Evidence-script replay 6 cases
+passed. Logs and test receipts are in the external run directory above.
