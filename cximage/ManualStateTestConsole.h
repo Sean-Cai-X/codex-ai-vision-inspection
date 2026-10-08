@@ -1485,6 +1485,7 @@ struct ManualTestContext {
   std::string setmatch_receipt;
   std::string harmonic_audit_output_path;
   std::string harmonic_audit_result_summary;
+  std::string harmonic_audit_receipt;
   std::string editor_text;
   std::string analyzed_text;
   std::string editor_source = "manual";

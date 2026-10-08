@@ -172,7 +172,8 @@ public:
 
     bool InitEvidenceSelfTestEnvironment(std::string& reason);
 
-  bool RunSetMatchPendingEntrySmoke(ManualTestContext& source,std::string& reason);
+  bool RunHarmonicPendingEntrySmoke(ManualTestContext& source,std::string& reason);
+    bool RunSetMatchPendingEntrySmoke(ManualTestContext& source,std::string& reason);
 
     bool WriteEvidenceChainCatalogSemanticSelfTest(
         const std::string& outDir,

@@ -1,4 +1,5 @@
 #include "CxSetMatchEvidenceParameters.h"
+#include "CxHarmonicEvidenceParameters.h"
 #include "ManualConsoleScriptDebugPanel.h"
 #include "CircleShape.h"
 #include "CxCrashLogHandler.h"
@@ -6640,6 +6641,15 @@ void ViewController::drawScriptAcceptancePanels() {
       m_manualTest.debug_reason=reason;
     ImGui::EndDisabled();
     if(!valid)ImGui::TextWrapped("Cannot run: %s",reason.c_str());
+  } else if(cxharmonicui::IsCase(m_manualTest.editor_text)) {
+    ImGui::TextWrapped("Evidence Harmonic Audit: %s",m_manualTest.active_case_id.c_str());
+    std::string reason;
+    const bool valid=cxharmonicui::Validate(m_manualTest.runtime_int_vars,reason);
+    ImGui::BeginDisabled(!valid || m_manualTest.has_pending_execution_snapshot);
+    if(ImGui::Button("Run Harmonic Audit") && !RequestHarmonicAuditRun(m_manualTest,reason))
+      m_manualTest.debug_reason=reason;
+    ImGui::EndDisabled();
+    if(!valid)ImGui::TextWrapped("Cannot run: %s",reason.c_str());
   } else {
   if (m_selectedScript >= 0 &&
       m_selectedScript < static_cast<int>(m_scriptCatalog.size()))
@@ -6686,6 +6696,12 @@ void ViewController::drawScriptAcceptancePanels() {
   }
   ImGui::SameLine();
   if (ImGui::Button("Clear Result")) {
+    if(cxharmonicui::IsCase(m_manualTest.editor_text)) {
+      m_manualTest.harmonic_audit_receipt.clear();
+      m_manualTest.harmonic_audit_result_summary.clear();
+      m_manualTest.debug_status="RESULT_CLEARED";
+      m_manualTest.debug_reason="Harmonic result cleared; run again.";
+    }
     if(setMatchEvidence) {
       m_manualTest.setmatch_receipt.clear();
       m_manualTest.debug_status="RESULT_CLEARED";

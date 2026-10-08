@@ -1260,3 +1260,61 @@ These assets are not committed. This closes the Linux Set Match operator-flow
 check, not Windows rebuild, certified solvability, partial/clutter matching,
 image extraction or production approval. Existing overlapping floating panels
 and missing Chinese glyphs remain separate desktop usability issues.
+
+
+## Harmonic key-parameter and debug interface alignment (2026-10-08)
+
+The external Harmonic_key_parameter.md is a target design, not a statement of
+implemented solver capability. This increment exposes the existing 21 bounded
+parameters in four groups: source ROI, boundary anchor, shape encoding, pose
+audit. Debug / actual receipt is the fifth group. Existing ImGui primitives,
+English engineering labels and runtime styling remain the canonical owners.
+
+Operator procedure:
+1. Evidence: search harmonic; expand CxFastMatchHarmonicAudit / harmonic_audit_v1.
+2. Select Closed Reference, Open Interface or Open Arc; press F7.
+3. Inspect source threshold/area/ROI, then expand anchor, encoding and pose groups.
+   Hover a label for script key, bounds and generic default. Reset restores the
+   selected case's overrides, not an unrelated global preset.
+4. Run Harmonic Audit from either the top Run Control or parameter panel.
+   Both use the same validator and frozen, exactly-once pending execution path.
+5. Inspect status, all retained poses, symmetry order, correlation and residual.
+   Expand Executed parameters / input provenance to compare actual receipt values.
+   Copy audit receipt JSON is a local clipboard action, not network feedback.
+6. Parameter changes clear the current receipt; invalid values remain editable
+   and block both Run buttons. Unknown global_harmonic_* controls are rejected.
+   Output paths are explicitly historical until another successful run.
+7. Each execution archives run.cxsc, input_parameters.json and native receipts
+   under the external harmonic_audit_manual/run_* directory. Open observations
+   also retain open_boundary_observation.json and never fabricate a closed pose.
+
+Capability mapping to the requested design:
+- ACTIVE: DFT/EFD, one max_order, sample_count, minimum source points/perimeter,
+  normalize_scale, pose residual threshold, symmetry/peak thresholds, hypothesis
+  budget, source ROI/threshold/area and boundary anchor.
+- FIXED: centroid removal, first nonzero order, no window taper. Topology remains
+  an evidence declaration checked against measured source facts where available;
+  no UI option may disable guards or override contradictory measured topology.
+- NOT IMPLEMENTED: AUTO_DETECT, prior-driven completion, separate coarse/fine
+  orders and angle searches, scale grid, phase-only solver, alternate centroids,
+  completion fallback, synthetic penalties and certified solvability.
+- DEBUG NOW: actual executed parameter/input/pose receipt inspection.
+  Spectra, phase-response curves, normalization-coordinate dumps, separate
+  coarse/fine step results, tag overlays and selectable tracing are not yet
+  implemented; the UI explicitly lists these limitations rather than exposing
+  switches that do nothing. Correlation is not calibrated confidence.
+
+Open-subcurve cases disable closed-descriptor/pose controls and explain why.
+Closed Reference is a controlled self-comparison, not independent matching or
+production acceptance. Existing FindObject overlays are source geometry, not
+a Harmonic pose overlay. No production-mode defaults or quality certification
+are introduced. Missing Chinese glyphs and legacy floating-panel layout remain
+outside this targeted change.
+
+Verification: GN application build; CMake CTest 4/4; six actual cxscript Evidence
+replays; three Harmonic pending-entry GUI regressions (frozen values, duplicate
+request/consume, invalid order, actual receipt); three sibling Set Match catalog
+regressions. Real Linux desktop clicks verified select, grouped controls, top Run,
+two symmetry hypotheses, threshold=300 blocking, stale receipt invalidation and
+reset/rerun. Windows and full accessibility certification were not performed.
+Private logs and screenshots: ../cxscript_runs/harmonic_parameters_20261008/.

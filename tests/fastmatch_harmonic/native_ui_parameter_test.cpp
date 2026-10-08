@@ -17,5 +17,12 @@ int main() {
      "// harmonic_default global_harmonic_method 2",
      "// harmonic_default global_harmonic_method x",
      "// harmonic_default global_harmonic_method 0 extra"}) require(!Defaults(text,values,why));
+ require(Defaults("",values,why));
+ values["global_harmonic_coarse_angle_step"]=5;require(!Validate(values,why));
+ values.erase("global_harmonic_coarse_angle_step");
+ values["global_harmonic_receipt_path"]=0;require(!Validate(values,why));
+ values.erase("global_harmonic_receipt_path");
+ values["unrelated_tool_parameter"]=42;require(Validate(values,why));
+ values["global_harmonic_sample_count"]=1025;require(!Validate(values,why));
  std::cout<<"HARMONIC_UI_PARAMETER_GUARDS_PASS\n";
 }

@@ -53,6 +53,11 @@ inline bool Defaults(const std::string& text, std::unordered_map<std::string,int
  reason.clear();return true;
 }
 inline bool Validate(const std::unordered_map<std::string,int>& values,std::string& reason) {
+ for(const auto& entry:values) {
+  if(entry.first.rfind("global_harmonic_",0)!=0)continue;
+  bool known=false;for(const auto& p:parameters)if(entry.first==p.key){known=true;break;}
+  if(!known){reason="Unsupported harmonic parameter: "+entry.first;return false;}
+ }
  for(const auto& p:parameters) {
   auto i=values.find(p.key);
   if(i==values.end()||i->second<p.minimum||i->second>p.maximum) {

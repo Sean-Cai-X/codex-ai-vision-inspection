@@ -27,3 +27,6 @@ UI follows existing English engineering labels with units. Handoff prose may be 
 
 ## Verification boundary
 Native ImGui/bridge smoke is not desktop click acceptance. The frontend audit script is web-source oriented and cannot certify C++ rendering, accessibility or visual quality. Actual screen capture / Windows verification remain separate acceptance steps.
+
+## Harmonic audit variant (2026-10-08)
+Scope also includes Harmonic Key Parameter Controls. Reuse the same ImGui field/table/disclosure and inline status owners. CxHarmonicEvidenceParameters.h owns bounds/defaults; RequestHarmonicAuditRun owns pending transitions. Group controls by source, anchor, encoding and pose, with a separate actual-receipt debug disclosure. No runtime token or palette changes.

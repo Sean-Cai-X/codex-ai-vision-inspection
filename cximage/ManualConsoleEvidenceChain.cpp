@@ -6746,6 +6746,7 @@ bool ViewController::ApplyEvidenceSelectionSnapshotToManualContext(
   staged.setmatch_receipt.clear();
   staged.harmonic_audit_output_path.clear();
   staged.harmonic_audit_result_summary.clear();
+  staged.harmonic_audit_receipt.clear();
 
   staged.runtime_objects.clear();
 

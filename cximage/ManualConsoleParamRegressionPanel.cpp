@@ -8954,64 +8954,93 @@ static void DrawSetMatchControls(ManualTestContext& context) {
 }
 
 static void DrawHarmonicAuditControls(ManualTestContext& context) {
-  ImGui::TextUnformatted("CxFastMatchHarmonicAudit / AUDIT ONLY");
-  const bool open = context.editor_text.find(".fromobjectarc(")!=std::string::npos;
-  ImGui::TextWrapped("%s", open
-      ? "Open subcurve: retained endpoints and parent order; no forced closure; no SO2 pose."
-      : "Closed fixture self-comparison: descriptor diagnostics, NOT production matching.");
-  ImGui::TextWrapped("Anchor selects boundary points, not a target box. Half-open pixel rectangle; ambiguous components/arcs are rejected.");
+  ImGui::TextUnformatted("Harmonic / AUDIT ONLY - not production pose");
+  const bool open=context.editor_text.find(".fromobjectarc(")!=std::string::npos;
+  ImGui::TextWrapped("%s",open
+    ? "Open observation: preserve endpoints/order. No closed descriptor or SO2 pose."
+    : "Closed contour audit. Self-comparison fixtures are not independent matching validation.");
   bool edited=false;
-  if(ImGui::BeginTable("harmonic_parameter_controls",2,ImGuiTableFlags_SizingStretchProp)) {
-    ImGui::TableSetupColumn("Parameter",ImGuiTableColumnFlags_WidthStretch,0.64f);
-    ImGui::TableSetupColumn("Value",ImGuiTableColumnFlags_WidthStretch,0.36f);
-    for(const auto& p:cxharmonicui::parameters) {
-      ImGui::TableNextRow();ImGui::TableNextColumn();ImGui::TextWrapped("%s",p.label);
-      if(ImGui::IsItemHovered())ImGui::SetTooltip("%s | range %d..%d",p.key,p.minimum,p.maximum);
-      ImGui::TableNextColumn();ImGui::PushID(p.key);
-      int value=RuntimeIntOr(context,p.key,p.value);
-      ImGui::SetNextItemWidth(-1);
-      if(ImGui::InputInt("##value",&value)) {
-        InjectManualGaugeInt(context,p.key,std::clamp(value,p.minimum,p.maximum));
-        edited=true;
+  auto group=[&](const char* title,int begin,int end,bool expanded,bool enabled) {
+    if(!ImGui::CollapsingHeader(title,expanded?ImGuiTreeNodeFlags_DefaultOpen:0))return;
+    if(!enabled)ImGui::TextWrapped("Inactive for this open observation; no harmonic solver is executed.");
+    ImGui::BeginDisabled(!enabled || context.has_pending_execution_snapshot);
+    if(ImGui::BeginTable(title,2,ImGuiTableFlags_SizingStretchProp)) {
+      ImGui::TableSetupColumn("Parameter",ImGuiTableColumnFlags_WidthStretch,0.64f);
+      ImGui::TableSetupColumn("Value",ImGuiTableColumnFlags_WidthStretch,0.36f);
+      for(int i=begin;i<end;++i) {
+        const auto& p=cxharmonicui::parameters[i];
+        ImGui::TableNextRow();ImGui::TableNextColumn();ImGui::TextWrapped("%s",p.label);
+        if(ImGui::IsItemHovered())ImGui::SetTooltip("%s | range %d..%d | default %d",p.key,p.minimum,p.maximum,p.value);
+        ImGui::TableNextColumn();ImGui::PushID(p.key);
+        int value=RuntimeIntOr(context,p.key,p.value);ImGui::SetNextItemWidth(-1);
+        if(ImGui::InputInt("##value",&value)) {
+          InjectManualGaugeInt(context,p.key,value);edited=true;
+        }
+        ImGui::PopID();
       }
-      ImGui::PopID();
+      ImGui::EndTable();
     }
-    ImGui::EndTable();
+    ImGui::EndDisabled();
+  };
+  group("1. Input / source ROI",15,21,true,true);
+  group("2. Boundary anchor",10,15,false,true);
+  group("3. Shape encoding",0,6,false,!open);
+  group("4. Pose audit / ambiguity",6,10,false,!open);
+  if(ImGui::CollapsingHeader("Contract and unsupported extensions")) {
+    ImGui::TextWrapped("Topology is source evidence, not a bypass switch. No AUTO_DETECT. A declaration cannot override conflicting measured topology.");
+    ImGui::TextWrapped("Anchor selects boundary samples, not a target box. Ambiguous components/arcs are rejected.");
+    ImGui::TextWrapped("Implemented: one harmonic order, DFT/EFD, centroid removal, optional scale normalization, cyclic-shift pose hypotheses. Scores are not probabilities.");
+    ImGui::TextWrapped("NOT IMPLEMENTED: prior_shape_type; completion_mode (OFF only); max_completion_ratio; synthetic_segment_penalty; automatic completion_fallback.");
+    ImGui::TextWrapped("NOT IMPLEMENTED: harmonic_order_coarse/fine; coarse/fine angle step/range/threshold; coarse/fine enable; phase_correlation_mode; scale range/step/solve switch.");
+    ImGui::TextWrapped("FIXED: start_order=1; no HANN/HAMMING window; centroid alignment cannot be disabled. No alternate centroid method or offset realignment.");
+    ImGui::TextWrapped("Debug spectra/phase curves/step dumps/tag overlays/log-level switches are not yet implemented. Receipt inspection below shows actual native fields only.");
+    ImGui::TextWrapped("quality_use_observed_only is a non-bypassable future quality contract. Completion and calibrated solvability are unavailable; no production defaults claimed.");
   }
+  ImGui::BeginDisabled(context.has_pending_execution_snapshot);
   if(ImGui::Button("Reset Harmonic Case Defaults")) {
     std::unordered_map<std::string,int> defaults;std::string reason;
     if(cxharmonicui::Defaults(context.editor_text,defaults,reason)) {
-      for(const auto& value:defaults) InjectManualGaugeInt(context,value.first.c_str(),value.second);
+      for(const auto& value:defaults)InjectManualGaugeInt(context,value.first.c_str(),value.second);
       edited=true;
-    } else context.debug_reason=reason;
-  }
-  if(edited) {
-    ++context.key_parameter_edit_revision;
-    context.current_gauge.dirty=true;
-    context.last_key_parameter_edit_summary="Harmonic Audit parameter edit";
-    RecordManualOperationTraceEvent(context,"harmonic_parameter_edit","staged",
-                                   context.last_key_parameter_edit_summary);
-  }
-  std::string reason;
-  const bool valid=cxharmonicui::Validate(context.runtime_int_vars,reason);
-  if(!valid) ImGui::TextWrapped("Cannot run: %s",reason.c_str());
-  ImGui::BeginDisabled(!valid);
-  if(ImGui::Button("Run Harmonic Audit")) {
-    context.debug_action="Key Parameter Controls Run Script";
-    context.pending_execution_gauge=context.current_gauge;
-    context.pending_execution_globals=context.runtime_int_vars;
-    context.has_pending_execution_snapshot=true;
-    context.debug_status="MANUAL_RUN_REQUESTED";
-    context.debug_reason="Harmonic Audit: execute frozen parameter snapshot";
-    context.run_state="running";
+    }else context.debug_reason=reason;
   }
   ImGui::EndDisabled();
+  if(edited) {
+    ++context.key_parameter_edit_revision;context.current_gauge.dirty=true;
+    context.harmonic_audit_receipt.clear();context.harmonic_audit_result_summary.clear();
+    context.debug_status="PARAMETERS_CHANGED";context.run_state="idle";
+    context.debug_reason="Parameters changed; previous result invalidated. Run again.";
+    RecordManualOperationTraceEvent(context,"harmonic_parameter_edit","staged",context.debug_reason);
+  }
+  std::string reason;const bool valid=cxharmonicui::Validate(context.runtime_int_vars,reason);
+  if(!valid)ImGui::TextWrapped("Cannot run: %s",reason.c_str());
+  ImGui::BeginDisabled(!valid || context.has_pending_execution_snapshot);
+  if(ImGui::Button("Run Harmonic Audit") && !RequestHarmonicAuditRun(context,reason))context.debug_reason=reason;
+  ImGui::EndDisabled();
   ImGui::TextWrapped("Status: %s | %s",context.debug_status.c_str(),context.debug_reason.c_str());
-  ImGui::TextWrapped("Each run writes script, input parameters and receipts under cxscript_runs/harmonic_audit_manual.");
-  if(!context.harmonic_audit_result_summary.empty())
-    ImGui::TextWrapped("Audit result: %s",context.harmonic_audit_result_summary.c_str());
   if(!context.harmonic_audit_output_path.empty())
-    ImGui::TextWrapped("Last output: %s",context.harmonic_audit_output_path.c_str());
+    ImGui::TextWrapped("Last output (may be historical): %s",context.harmonic_audit_output_path.c_str());
+  ImGui::TextWrapped("Audit result: %s",context.harmonic_audit_result_summary.empty()?"No current receipt; select a case and run.":context.harmonic_audit_result_summary.c_str());
+  if(!context.harmonic_audit_receipt.empty() && ImGui::CollapsingHeader("5. Debug / actual receipt",ImGuiTreeNodeFlags_DefaultOpen)) {
+    try {
+      const auto receipt=nlohmann::json::parse(context.harmonic_audit_receipt);
+      const auto& result=receipt.at("runs").back();
+      ImGui::TextWrapped("Status: %s | symmetry order: %d | invariant distance: %.8g",
+        result.at("status").get<std::string>().c_str(),result.at("symmetry_order").get<int>(),
+        result.at("invariant_distance").get<double>());
+      ImGui::TextWrapped("No confidence probability / certified solvability / completion-assisted pose is supplied.");
+      for(const auto& pose:result.at("poses"))
+        ImGui::TextWrapped("Angle %.6f deg | scale %.6f | correlation %.6f | residual %.8g",
+          pose.at("angle_deg").get<double>(),pose.at("scale").get<double>(),
+          pose.at("correlation").get<double>(),pose.at("residual").get<double>());
+      if(ImGui::TreeNode("Executed parameters / input provenance")) {
+        const auto details=nlohmann::json{{"parameters",result.at("parameters")},{"inputs",result.at("inputs")}}.dump(2);
+        ImGui::BeginChild("harmonic_debug_details",ImVec2(0,220),true,ImGuiWindowFlags_HorizontalScrollbar);
+        ImGui::TextUnformatted(details.c_str());ImGui::EndChild();ImGui::TreePop();
+      }
+      if(ImGui::Button("Copy audit receipt JSON"))ImGui::SetClipboardText(context.harmonic_audit_receipt.c_str());
+    }catch(const std::exception& e){ImGui::TextWrapped("Invalid receipt: %s",e.what());}
+  }
 }
 
 void DrawKeyParameterControlPanel(

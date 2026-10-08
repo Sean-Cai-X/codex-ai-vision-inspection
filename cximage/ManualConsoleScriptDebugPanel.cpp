@@ -65,6 +65,7 @@ bool PrepareHarmonicAuditRun(ManualTestContext& context, ParserDebugBridge& brid
                              std::string& reason) {
   if(!cxharmonicui::IsCase(context.editor_text)) return true;
   context.harmonic_audit_result_summary.clear();
+  context.harmonic_audit_receipt.clear();
   if(!cxharmonicui::Validate(context.runtime_int_vars,reason)) return false;
   try {
     const auto root=ResolveCxVisionRunPath("cxscript_runs/harmonic_audit_manual");
@@ -102,6 +103,26 @@ bool PrepareHarmonicAuditRun(ManualTestContext& context, ParserDebugBridge& brid
   } catch(const std::exception& e){reason=e.what();return false;}
 }
 
+
+void CollectHarmonicAuditReceipt(ManualTestContext& context,bool ran) {
+  if(!cxharmonicui::IsCase(context.editor_text))return;
+  context.harmonic_audit_receipt.clear();
+  context.harmonic_audit_result_summary=ran?"Receipt unavailable":context.debug_reason;
+  if(!ran)return;
+  try {
+    const auto path=std::filesystem::path(context.harmonic_audit_output_path)/"harmonic_audit_receipt.json";
+    if(std::filesystem::file_size(path)>16*1024*1024)throw std::runtime_error("Receipt exceeds UI byte limit");
+    std::ifstream input(path);const auto receipt=nlohmann::json::parse(input);
+    if(receipt.at("schema")!="cxvision.harmonic_audit_receipt.v1" ||
+       receipt.at("production_eligible")!=false || receipt.at("measurement_evidence")!=false ||
+       !receipt.at("runs").is_array() || receipt.at("runs").empty())
+      throw std::runtime_error("Invalid audit-only receipt");
+    const auto& result=receipt.at("runs").back();
+    context.harmonic_audit_result_summary=result.at("status").get<std::string>()+
+      " | poses="+std::to_string(result.at("poses").size())+" | production=false";
+    context.harmonic_audit_receipt=receipt.dump();
+  }catch(const std::exception& e){context.harmonic_audit_result_summary=e.what();}
+}
 
 void CollectSetMatchReceipt(ManualTestContext& context,bool ran) {
       if(cxsetmatchui::IsCase(context.editor_text)) {
@@ -695,6 +716,22 @@ bool MigrateLegacyFindSegmentationPromptCallsForRun(
 
 
 
+bool RequestHarmonicAuditRun(ManualTestContext& context,std::string& reason) {
+  if(!cxharmonicui::IsCase(context.editor_text)){reason="No Harmonic Evidence selected";return false;}
+  if(context.has_pending_execution_snapshot){reason="A run is already pending";return false;}
+  if(!cxharmonicui::Validate(context.runtime_int_vars,reason))return false;
+  context.harmonic_audit_receipt.clear();
+  context.harmonic_audit_result_summary.clear();
+  context.debug_action="Key Parameter Controls Run Script";
+  context.pending_execution_gauge=context.current_gauge;
+  context.pending_execution_globals=context.runtime_int_vars;
+  context.has_pending_execution_snapshot=true;
+  context.debug_status="MANUAL_RUN_REQUESTED";
+  context.debug_reason="Harmonic Audit: execute frozen parameter snapshot";
+  context.run_state="running";
+  return true;
+}
+
 bool RequestSetMatchRun(ManualTestContext& context,std::string& reason) {
   if(!cxsetmatchui::IsCase(context.editor_text)) {reason="No Set Match Evidence selected";return false;}
   if(context.has_pending_execution_snapshot) {reason="A run is already pending";return false;}
@@ -821,8 +858,38 @@ bool RunSetMatchGuiBridgeSmoke(ManualTestContext& context,std::string& reason) {
  }catch(const std::exception& e){reason=e.what();return false;}
 }
 
+bool ViewController::RunHarmonicPendingEntrySmoke(ManualTestContext& source,std::string& reason) {
+ try {
+  m_parserOwner.ConfigureStreams(&m_os,&m_createcodeos);m_parserDebugBridge.Bind(&m_parserOwner);
+  if(!m_parserOwner.Initialize(reason))return false;
+  m_manualTest=source;m_imageViewImage=cv::imread(source.image_file_path);
+  if(m_imageViewImage.empty()){reason="Missing harmonic image";return false;}
+  auto& c=m_manualTest;
+  for(int i=0;i<2;++i) {
+    c.runtime_int_vars["global_harmonic_sample_count"]=i?128:256;
+    if(!RequestHarmonicAuditRun(c,reason))return false;
+    std::string duplicate;
+    if(RequestHarmonicAuditRun(c,duplicate)){reason="Duplicate harmonic run accepted";return false;}
+    c.runtime_int_vars["global_harmonic_sample_count"]=512;
+    if(!ConsumePendingManualScriptRun(c,"harmonic_pending_smoke") ||
+       c.harmonic_audit_receipt.empty()){reason="Missing pending harmonic receipt: "+c.debug_reason;return false;}
+    const auto r=nlohmann::json::parse(c.harmonic_audit_receipt);
+    if(r.at("runs").back().at("parameters").at("sample_count")!=(i?128:256)) {
+      reason="Harmonic snapshot not frozen";return false;
+    }
+    if(ConsumePendingManualScriptRun(c,"harmonic_duplicate")){reason="Duplicate consume";return false;}
+  }
+  c.runtime_int_vars["global_harmonic_max_order"]=128;
+  if(RequestHarmonicAuditRun(c,reason)){reason="Invalid harmonic order accepted";return false;}
+  std::cout<<"HARMONIC_PENDING_ENTRY_PASS "<<c.active_case_id<<" frozen/duplicate/invalid/receipt\n";
+  return true;
+ }catch(const std::exception& e){reason=e.what();return false;}
+}
+
 bool RunHarmonicAuditGuiBridgeSmoke(ManualTestContext& context, std::string& reason) {
  try {
+  auto controller=std::make_unique<ViewController>();
+  if(!controller->RunHarmonicPendingEntrySmoke(context,reason))return false;
   CxParserRuntimeOwner owner;
   if(!owner.Initialize(reason))return false;
   ParserDebugBridge bridge;bridge.Bind(&owner);
@@ -1274,6 +1341,7 @@ bool ViewController::ConsumePendingManualScriptRun(ManualTestContext& context,
   }
 
   CollectSetMatchReceipt(context,ran);
+  CollectHarmonicAuditReceipt(context,ran);
 
   std::string snapshotPath;
   std::string snapshotReason;
@@ -1847,18 +1915,7 @@ void ViewController::DrawScriptDebugCompilerBlock(ManualTestContext& context)
 
 
       CollectSetMatchReceipt(context,ran);
-      if (cxharmonicui::IsCase(context.editor_text)) {
-        context.harmonic_audit_result_summary = ran ? "Receipt unavailable" : context.debug_reason;
-        if (ran) try {
-          std::ifstream input(std::filesystem::path(context.harmonic_audit_output_path) / "harmonic_audit_receipt.json");
-          const auto receipt=nlohmann::json::parse(input);
-          if (receipt.at("schema")=="cxvision.harmonic_audit_receipt.v1" &&
-              receipt.at("runs").is_array() && !receipt.at("runs").empty()) {
-            const auto& result=receipt.at("runs").back();
-            context.harmonic_audit_result_summary=result.at("status").get<std::string>() + " | poses=" + std::to_string(result.at("poses").size()) + " | production=false";
-          }
-        } catch(const std::exception& e) { context.harmonic_audit_result_summary=e.what(); }
-      }
+      CollectHarmonicAuditReceipt(context,ran);
       if (ran)
       {
         CXLOG_INFO(

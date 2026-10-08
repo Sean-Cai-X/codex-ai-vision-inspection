@@ -13,6 +13,8 @@ int CountSelectedParamCandidates(const ManualTestContext& context);
 
 bool PrepareCurrentFastMatchScriptRun(ManualTestContext& context);
 
+bool RequestHarmonicAuditRun(ManualTestContext& context,std::string& reason);
+
 bool RequestSetMatchRun(ManualTestContext& context,std::string& reason);
 
 #endif
