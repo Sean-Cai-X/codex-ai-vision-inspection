@@ -1,3 +1,3 @@
-add_library(cxgeom_geometric_set_matching STATIC validation.cpp topology.cpp)
+add_library(cxgeom_geometric_set_matching STATIC validation.cpp topology.cpp pose_estimation.cpp matching.cpp)
 target_include_directories(cxgeom_geometric_set_matching PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_compile_features(cxgeom_geometric_set_matching PUBLIC cxx_std_17)

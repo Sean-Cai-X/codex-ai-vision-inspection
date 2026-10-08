@@ -53,11 +53,19 @@ static_library("cxgeom_geometric_set_matching") {
   sources = [
     "cxgeom/geometric_set_matching/validation.cpp",
     "cxgeom/geometric_set_matching/topology.cpp",
+    "cxgeom/geometric_set_matching/pose_estimation.cpp",
+    "cxgeom/geometric_set_matching/matching.cpp",
   ]
   configs = [ ":geometric_set_platform" ]
 }
 executable("geometric_set_contract_test") {
   sources = [ "tests/geometric_set_matching/contract_test.cpp" ]
+  deps = [ ":cxgeom_geometric_set_matching" ]
+  configs = [ ":geometric_set_platform" ]
+}
+
+executable("geometric_set_matching_test") {
+  sources = [ "tests/geometric_set_matching/matching_test.cpp" ]
   deps = [ ":cxgeom_geometric_set_matching" ]
   configs = [ ":geometric_set_platform" ]
 }

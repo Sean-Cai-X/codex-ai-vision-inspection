@@ -958,3 +958,107 @@ acceptance remain pending.
 GN builds; address/undefined sanitizer CTest passed. Existing Harmonic CTest
 4/4, open-boundary headless 28 cases and Evidence-script replay 6 cases
 passed. Logs and test receipts are in the external run directory above.
+
+## GSM1 / next1.md full-set algorithm core (2026-10-08)
+
+This section supersedes GSM0's "Match returns NOT_IMPLEMENTED for every valid
+input" statement. P0 preflight/topology contracts remain, but Match now executes
+a **bounded P1 full-set development matcher**. This is not completion of the
+whole P1 application integration or of the next1.md roadmap.
+
+### Implemented
+
+- Pure native C++17 positive-scale 2D similarity least squares in
+  `cxgeom/geometric_set_matching/pose_estimation.{h,cpp}`.
+  No reflection, anisotropic scale or affine shear.
+- `matching.cpp`: stable-ID-sorted working indices (caller arrays untouched),
+  farthest reference representative pair, type-compatible target pair enumeration,
+  reciprocal unique-nearest full-geometry correspondence, one bounded
+  least-squares refinement and reciprocal reprojection check.
+- Point representative = point; line = midpoint; arc = center. Line residual
+  compares both endpoint assignments; arc residual checks center/radius,
+  radius-scaled sweep difference and five support samples in both traversal
+  directions. Full circles ignore start/traversal. Set elements are never
+  connected into an invented contour.
+- Explicit angle/scale bounds, entire target support inside search ROI, positive
+  element quality, minimum element count, hypothesis/work/time caps.
+- Results retain reference/target IDs, set provenance references, per-element
+  scores/residuals, candidate poses, elapsed time and work count. Source details
+  remain in the input elements addressed by those IDs.
+- Multiple valid correspondences are retained, not replaced by the lowest
+  residual candidate as a purported unique result. Budget exhaustion clears
+  candidates and never reports completed search.
+- CMake and GN compile the same native core and native regression executable.
+
+### Exact capability and parameter semantics
+
+This is complete-set matching with equal element counts, no missing elements and
+no clutter-removal stage. Different counts, zero-quality inputs, insufficient
+anchor count, coincident representatives or out-of-search support return explicit
+NOT_IMPLEMENTED reasons; these are P1 capability exclusions, **not proofs that the
+underlying geometry is unsolvable**. Concentric arcs and common-midpoint segment
+sets may carry orientation information but are not handled by this anchor
+generator yet.
+
+For noiseless nondegenerate full sets, enumeration covers the target assignments
+of the selected representative pair within its budget. For noisy sets this is
+not an exhaustive continuous optimizer or a calibrated robust estimator.
+Reciprocal distance ties are refused; duplicate elements cannot be assigned an
+arbitrary unique correspondence. No candidate means this search found no
+reciprocal full-set candidate, not a global impossibility certificate.
+
+- `search_complete`: finite P1 enumeration completed; not P3 global uniqueness.
+- `solvability` remains null; observability flags remain false until P3.
+- `production_eligible` remains false in code and schema.
+- Candidate `residual_px` is maximum support residual, not a probability or mean.
+- Quality influences correspondence score, not the unweighted pose fit.
+- Full-set coverage/span equal 1 because every reference element is matched.
+- Coverage/span thresholds are automatically satisfied for this full-set path.
+- `min_candidate_score_gap` and `seed` remain reserved: no candidate pruning or
+  randomized sampling is performed by P1.
+- Translation follows the existing schema coordinate bound of +/-1e9.
+- Existing Harmonic GUI/cxscript behavior is not rerouted by this new module.
+
+### Verification and external evidence
+
+Native test `tests/geometric_set_matching/matching_test.cpp` runs 192 exact
+controlled configurations: 10 elements, four types (points / segments / arcs /
+mixed), eight angles including both +/-180 endpoints, scales 0.8/1.0/1.2,
+and two independent array shuffles. Target IDs differ from reference IDs; matching
+does not use identical IDs as supervision.
+
+Tests require correct ID correspondences for every element and subpixel pose
+accuracy. Negative/control checks include hypothesis/work exhaustion, search and
+transform bounds, withheld partial matching, coincident representatives, four
+square symmetries, reflection/shear/anisotropic scale, duplicate ties, altered
+line orientation, altered arc extent, full circles, collinear asymmetric sets,
+input immutability and renamed target IDs.
+
+Both CMake and GN receipts record each configuration's pose, correspondences,
+residuals, evidence references and elapsed time. These are synthetic algorithm
+checks, **not image-based business accuracy, GUI acceptance or production timing**.
+No Python matcher/oracle is used; Python only mediates gateway editing/build
+orchestration. Existing Harmonic regression uses native CTest and headless
+cxscript scripts.
+
+Local-only outputs:
+`../cxscript_runs/geometric_set_p1_20261008/`.
+Generated fixtures, receipts, binaries and images stay outside the checkout and
+are not published to GitHub.
+
+### Next steps (not implemented by GSM1 core)
+
+1. P1 application/typed-result adapter and FindSetMatch integration, with evidence
+   snapshots and parameter controls; do not expose an unimplemented image
+   extractor or route a set into closed Harmonic.
+2. P2 robust partial matching, missing/clutter accounting and bounded estimation.
+3. P3 calibrated observability/solvability, ambiguity distinction and acceptance
+   domain matrices; do not turn these 192 fixtures into a universal guarantee.
+4. P4 user-visible Evidence cases and replay/GUI handoff after those adapters
+   operate on real structured inputs.
+
+Verified outcome: P1 2,901 native assertions / 192 matrix runs; P0 76 assertions.
+CMake and GN passed, ASan/UBSan CTest 2/2 passed. Existing Harmonic CTest 4/4,
+open-boundary headless replay 28 cases and Evidence replay 6 cases passed.
+The exact synthetic maximum residual was below 1e-8 pixel; this is numerical
+recovery on generated geometry, not measured-image accuracy.

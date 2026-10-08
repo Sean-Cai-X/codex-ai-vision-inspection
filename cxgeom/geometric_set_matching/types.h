@@ -80,7 +80,7 @@ struct Validation {
     std::vector<std::string> reasons;
 };
 Validation Validate(const Request& request);
-// P0 contract boundary ONLY. Valid input returns NotImplemented, never a match.
+// P1 bounded full-set matcher. No partial matching or calibrated solvability yet.
 Result Match(const Request& request);
 const char* Name(ExecutionStatus status);
 const char* Name(Solvability status);

@@ -85,15 +85,6 @@ Validation Validate(const Request& r) {
     v.execution_status=v.accepted?ExecutionStatus::NotRun:ExecutionStatus::InvalidInput;
     return v;
 }
-Result Match(const Request& r) {
-    Result out;out.request_id=r.request_id;
-    const auto v=Validate(r);
-    out.execution_status=v.accepted?ExecutionStatus::NotImplemented:v.execution_status;
-    out.reasons=v.reasons;
-    if(v.accepted) out.reasons.push_back("GSM_P0_MATCHER_NOT_IMPLEMENTED");
-    // No inferred correspondences, no fabricated pose, no solvability verdict.
-    return out;
-}
 const char* Name(ExecutionStatus s) {
     switch(s) {
     case ExecutionStatus::NotRun:return "NOT_RUN";

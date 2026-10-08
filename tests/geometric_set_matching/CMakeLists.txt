@@ -15,3 +15,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
 endif()
 add_test(NAME GSM0_contract_topology COMMAND geometric_set_contract_test
   "${CMAKE_CURRENT_SOURCE_DIR}/../../contracts/geometric_set_match.schema.json")
+
+add_executable(geometric_set_matching_test matching_test.cpp)
+target_link_libraries(geometric_set_matching_test PRIVATE cxgeom_geometric_set_matching)
+add_test(NAME GSM1_full_set COMMAND geometric_set_matching_test)

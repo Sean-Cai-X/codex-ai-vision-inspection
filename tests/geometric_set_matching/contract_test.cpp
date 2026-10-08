@@ -45,10 +45,10 @@ void topologyReason(const TopologyInput& t,const char* reason,const TopologyPoli
 int main(int argc,char** argv) try {
     auto r=fixture();need(Validate(r).accepted,"valid mixed contract");
     auto result=Match(r);
-    need(result.execution_status==ExecutionStatus::NotImplemented&&!result.solvability&&
-         result.candidates.empty()&&!result.search_complete&&!result.production_eligible,
-         "P0 must not impersonate solver");
-    need(result.request_id==r.request_id&&result.reasons.at(0)=="GSM_P0_MATCHER_NOT_IMPLEMENTED",
+    need(result.execution_status==ExecutionStatus::Completed&&!result.solvability&&
+         result.candidates.size()==1&&result.search_complete&&!result.production_eligible,
+         "P1 candidate is not a calibrated solvability or production claim");
+    need(result.request_id==r.request_id&&result.reasons.at(0)=="P1_FULL_SET_CANDIDATE",
          "request identity and explicit capability status");
     std::reverse(r.reference.elements.begin(),r.reference.elements.end());
     need(Validate(r).accepted,"input ordering irrelevant");
@@ -131,6 +131,6 @@ int main(int argc,char** argv) try {
              "execution statuses separate");
     }
     std::cout<<"{\"schema\":\"cxvision.gsm0.test_receipt.v1\",\"status\":\"PASS\",\"checks\":"
-             <<checks<<",\"matching_implemented\":false,\"production_eligible\":false}\n";
+             <<checks<<",\"matching_implemented\":true,\"production_eligible\":false}\n";
     return 0;
 } catch(const std::exception& e) {std::cerr<<"GSM0_FAIL: "<<e.what()<<"\n";return 1;}

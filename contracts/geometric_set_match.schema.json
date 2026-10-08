@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Geometry set matching P0 boundary v1",
-  "$comment": "P0 provides typed preflight only; Match returns NOT_IMPLEMENTED for valid requests. No solver, training, image bytes or production activation. JSON Schema does not establish geometry/provenance truth; C++ validates finite coordinates, IDs unique within each side, nonzero segments, full arc bounds, ROI containment, budgets and ordered parameter bounds.",
+  "title": "Geometry set matching P1 development boundary v1",
+  "$comment": "P1 bounded full-set reciprocal correspondence and similarity candidates; no partial matching, calibrated solvability, image extraction or production activation. search_complete means finite anchor enumeration completed, not a global continuous optimization proof. observability flags remain false until P3. residual_px is maximum geometric support residual. JSON transport adapter pending.",
   "oneOf": [
     {
       "$ref": "#/$defs/request"
