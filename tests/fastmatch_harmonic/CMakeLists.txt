@@ -122,3 +122,7 @@ set(CXVISION_TEST_CJK_FONT "" CACHE FILEPATH "Local-only CJK font for native gly
 if(CXVISION_TEST_CJK_FONT)
   add_test(NAME ui_font_cjk_glyphs COMMAND ui_font_guards ${CXVISION_TEST_CJK_FONT})
 endif()
+add_executable(harmonic_independent_matrix native_independent_matrix_test.cpp)
+target_link_libraries(harmonic_independent_matrix PRIVATE cx_so2)
+add_test(NAME independent_contour_matrix COMMAND harmonic_independent_matrix
+  ${CMAKE_CURRENT_BINARY_DIR}/independent_contour_matrix.csv)
