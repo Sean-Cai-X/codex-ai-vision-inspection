@@ -12646,6 +12646,7 @@ static void DrawModelLineageTopologyLocal(ManualTestContext &context) {
                       node.node_kind.c_str(), node.gate_status.c_str());
 }
 void ViewController::drawTorchTrainingImageSetWindow() {
+  PollYoloTrainingProcessLocal(m_manualTest);
   const ImGuiViewport *viewport = ImGui::GetMainViewport();
   const ImVec2 workPos = viewport->WorkPos;
   const ImVec2 workSize = viewport->WorkSize;
@@ -12658,7 +12659,7 @@ void ViewController::drawTorchTrainingImageSetWindow() {
              std::min(760.0f, std::max(420.0f, workSize.y - 32.0f))),
       ImGuiCond_Appearing);
   if (!ImGui::Begin("Torch Training Image Set", nullptr,
-                    ImGuiWindowFlags_NoCollapse)) {
+                    ImGuiWindowFlags_None)) {
     ImGui::End();
     return;
   }
@@ -12666,7 +12667,7 @@ void ViewController::drawTorchTrainingImageSetWindow() {
   ApplyAiGuiFocusHere(
       AiGuiDestination::TorchTrainingImageSet,
       "Torch Training Image Set > dataset actions and image rails");
-  PollYoloTrainingProcessLocal(m_manualTest);
+  // Polling remains active when collapsed.
   if (!m_manualTest.torch_training_latest_scan_attempted) {
     m_manualTest.torch_training_latest_scan_attempted = true;
     std::string loadReason;
@@ -14701,6 +14702,7 @@ void ViewController::DrawScriptEvidenceThumbnailRailByGroup() {
         "The catalog is metadata-only. Cases enter the active list only after an explicit Add action; no image is loaded here.");
     InputTextString("Find hidden case", m_manualTest.hidden_evidence_case_filter);
     std::string filter = TrimLine(m_manualTest.hidden_evidence_case_filter);
+    ImGui::TextWrapped("This searches the hidden catalog only. Already loaded asset cases are in the current-case search below.");
     std::transform(filter.begin(), filter.end(), filter.begin(),
                    [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
     int shown = 0;
@@ -14839,10 +14841,12 @@ void ViewController::DrawScriptEvidenceThumbnailRailByGroup() {
     return value;
   };
 
+  ImGui::TextWrapped("Search current cases (including To Verify). Matching folders open on search edits; click a case to activate it.");
   ImGui::SetNextItemWidth(-1.0f);
-  InputTextString("Filter cases", m_manualTest.script_evidence_case_filter);
+  const bool filterChanged = InputTextString("Filter cases", m_manualTest.script_evidence_case_filter);
   const std::string caseFilter =
       toLower(TrimLine(m_manualTest.script_evidence_case_filter));
+  const bool revealFilteredCases = filterChanged && !caseFilter.empty();
   ImGui::TextDisabled(
       "Case folders start collapsed. Expanding a folder only reveals its "
       "asset-backed cases; click one case row to load its script, parameters "
@@ -15277,6 +15281,8 @@ void ViewController::DrawScriptEvidenceThumbnailRailByGroup() {
     }
   }
 
+  // Searching must not overwrite the operator's unfiltered folder state.
+  ImGui::PushID(caseFilter.empty() ? "case_tree_browse" : "case_tree_search");
   ImGui::BeginChild("script_evidence_by_group", ImVec2(-1, listHeight), true);
 
   auto drawEvidenceRow = [&](const ScriptEvidenceRowRef &ref) {
@@ -15299,6 +15305,7 @@ void ViewController::DrawScriptEvidenceThumbnailRailByGroup() {
 
   for (std::size_t ci = 0; ci < categories.size(); ++ci) {
     EvidenceMajorCategory &major = categories[ci];
+    if (!caseFilter.empty() && major.label == "Recent Cases") continue;
 
     int majorCount = 0;
     for (const auto &tool : major.tools)
@@ -15311,6 +15318,7 @@ void ViewController::DrawScriptEvidenceThumbnailRailByGroup() {
     // never replaces the active project or Image View; a concrete evidence
     // row performs that activation.
     const ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_None;
+    if (revealFilteredCases) ImGui::SetNextItemOpen(true, ImGuiCond_Always);
 
     if (ImGui::CollapsingHeader(header.c_str(), flags)) {
       if (major.tools.empty()) {
@@ -15326,6 +15334,7 @@ void ViewController::DrawScriptEvidenceThumbnailRailByGroup() {
         const std::string toolHeader =
             tool.label + " (" + std::to_string(tool.rows.size()) + ")";
         const ImGuiTreeNodeFlags toolFlags = ImGuiTreeNodeFlags_OpenOnArrow;
+        if (revealFilteredCases) ImGui::SetNextItemOpen(true, ImGuiCond_Always);
         if (ImGui::TreeNodeEx(toolHeader.c_str(), toolFlags)) {
           for (std::size_t hi = 0; hi < tool.head_folders.size(); ++hi) {
             EvidenceCategory::HeadFolder &head = tool.head_folders[hi];
@@ -15338,6 +15347,7 @@ void ViewController::DrawScriptEvidenceThumbnailRailByGroup() {
                 head.label + " (" + std::to_string(headCount) + ")";
             const ImGuiTreeNodeFlags headFlags =
                 ImGuiTreeNodeFlags_OpenOnArrow;
+            if (revealFilteredCases) ImGui::SetNextItemOpen(true, ImGuiCond_Always);
             if (ImGui::TreeNodeEx(headHeader.c_str(), headFlags)) {
               for (const ScriptEvidenceRowRef &ref : head.direct_rows)
                 drawEvidenceRow(ref);
@@ -15350,6 +15360,7 @@ void ViewController::DrawScriptEvidenceThumbnailRailByGroup() {
                     ")";
                 const ImGuiTreeNodeFlags folderFlags =
                     ImGuiTreeNodeFlags_OpenOnArrow;
+                if (revealFilteredCases) ImGui::SetNextItemOpen(true, ImGuiCond_Always);
                 if (ImGui::TreeNodeEx(folderHeader.c_str(), folderFlags)) {
                   for (const ScriptEvidenceRowRef &ref : folder.rows)
                     drawEvidenceRow(ref);
@@ -15372,6 +15383,7 @@ void ViewController::DrawScriptEvidenceThumbnailRailByGroup() {
                 ")";
             const ImGuiTreeNodeFlags unfolderedFlags =
                 ImGuiTreeNodeFlags_OpenOnArrow;
+            if (revealFilteredCases) ImGui::SetNextItemOpen(true, ImGuiCond_Always);
             if (ImGui::TreeNodeEx(unfolderedHeader.c_str(), unfolderedFlags)) {
               for (const ScriptEvidenceRowRef &ref : tool.direct_rows)
                 drawEvidenceRow(ref);
@@ -15389,6 +15401,7 @@ void ViewController::DrawScriptEvidenceThumbnailRailByGroup() {
   }
 
   ImGui::EndChild();
+  ImGui::PopID();
   DrawFastMatchNormalTraceEvidenceLocal(
       m_manualTest.current_evidence_selection);
 }

@@ -2269,7 +2269,7 @@ void ViewController::drawMetrologyAnalyticsSmokeWindow() {
   ImGui::SetNextWindowPos(ImVec2(840, 1060), ImGuiCond_FirstUseEver);
   ImGui::SetNextWindowSize(ImVec2(760, 520), ImGuiCond_FirstUseEver);
   if (!ImGui::Begin("Analytics Smoke / Metrology Bridge", nullptr,
-                    ImGuiWindowFlags_NoCollapse)) {
+                    ImGuiWindowFlags_None)) {
     ImGui::End();
     return;
   }
@@ -2287,7 +2287,7 @@ void ViewController::drawTorchRuntimeEvidenceWindow() {
   ImGui::SetNextWindowPos(ImVec2(1380, 8), ImGuiCond_FirstUseEver);
   ImGui::SetNextWindowSize(ImVec2(620, 720), ImGuiCond_FirstUseEver);
   if (!ImGui::Begin("Torch Runtime / Evidence", nullptr,
-                    ImGuiWindowFlags_NoCollapse)) {
+                    ImGuiWindowFlags_None)) {
     ImGui::End();
     return;
   }
@@ -2401,7 +2401,7 @@ void ViewController::drawParameterTuningAndConclusionWindow() {
   ImGui::SetNextWindowPos(ImVec2(840, 540), ImGuiCond_FirstUseEver);
   ImGui::SetNextWindowSize(ImVec2(760, 430), ImGuiCond_FirstUseEver);
   if (!ImGui::Begin("Parameter Tuning Map / Result Conclusion", nullptr,
-                    ImGuiWindowFlags_NoCollapse)) {
+                    ImGuiWindowFlags_None)) {
     ImGui::End();
     return;
   }

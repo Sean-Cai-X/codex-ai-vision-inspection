@@ -113,3 +113,20 @@ if(SO2_HEADLESS_APP AND SO2_HEADLESS_IMAGE)
     ${CMAKE_CURRENT_BINARY_DIR}/staged_receipt_case/harmonic_audit_receipt.json)
   set_tests_properties(staged_ui_receipt PROPERTIES FIXTURES_REQUIRED staged_receipt)
 endif()
+add_executable(ui_font_guards native_ui_font_test.cpp
+  ../../imgui/imgui.cpp ../../imgui/imgui_draw.cpp
+  ../../imgui/imgui_tables.cpp ../../imgui/imgui_widgets.cpp)
+target_compile_features(ui_font_guards PRIVATE cxx_std_17)
+add_test(NAME ui_font_missing_fallback COMMAND ui_font_guards)
+set(CXVISION_TEST_CJK_FONT "" CACHE FILEPATH "Local-only CJK font for native glyph test")
+if(CXVISION_TEST_CJK_FONT)
+  add_test(NAME ui_font_cjk_glyphs COMMAND ui_font_guards ${CXVISION_TEST_CJK_FONT})
+endif()
+add_executable(harmonic_independent_matrix native_independent_matrix_test.cpp)
+target_link_libraries(harmonic_independent_matrix PRIVATE cx_so2)
+add_test(NAME independent_contour_matrix COMMAND harmonic_independent_matrix
+  ${CMAKE_CURRENT_BINARY_DIR}/independent_contour_matrix.csv)
+add_executable(harmonic_circle_completion native_circle_completion_test.cpp)
+target_link_libraries(harmonic_circle_completion PRIVATE cx_so2)
+add_test(NAME circle_completion COMMAND harmonic_circle_completion
+  ${CMAKE_CURRENT_BINARY_DIR}/circle_completion.csv)

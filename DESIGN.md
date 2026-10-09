@@ -46,3 +46,29 @@ Actual receipt display separates requested and executed configurations, budget u
 Coarse/fine curves show recorded cyclic-shift correlations, not probabilities or physical angle-grid responses.
 Response tables scroll within 160 units. Partial traces explicitly mean incomplete search, never accepted production poses.
 Native guards, real CxScript and catalog/ImGui draw smoke are required; desktop click/screenshot acceptance remains separate.
+
+## Evidence current-case search (2026-10-09)
+Search edits reveal matching folder paths without activating cases or replacing Image View.
+Filtered trees use a separate ImGui ID scope so clearing search restores browse fold state.
+Hide Recent Cases during search to avoid unmatched and duplicate results; restore it when empty.
+Hidden-catalog lookup and current-case search have distinct explanatory text.
+Desktop verification: harmonic search reveals cases; clearing search restores collapsed browsing.
+Native regression: 17/17 CTest plus three Harmonic catalog/bridge cases.
+Remaining gaps: panel overlap, Chinese glyphs, independent-pair accuracy acceptance.
+
+## Harmonic workspace focus (2026-10-09)
+Focus Geometry Workspace explicitly collapses four auxiliary panels; no automatic case change.
+Torch training/runtime, analytics smoke and parameter conclusion windows allow title-bar expansion.
+Training process polling precedes Begin so collapsing the training image window cannot skip polling.
+Desktop: collapse, restore training panel, refocus, and native Harmonic execution verified.
+No live training job was started for this layout check. Chinese font coverage remains unresolved.
+
+## Offline CJK font fallback (2026-10-09)
+Both GUI initialization paths use CxUiFont.h; default Latin font and 13px sizing are retained.
+CXVISION_UI_FONT selects a trusted local CJK TTF/TTC (not downloaded or committed).
+Without an override, try standard local Droid/Noto/WenQuanYi paths on Linux and system fonts on Windows.
+Explicit missing override keeps Latin fallback and logs UI_FONT_CJK_MISSING with configuration guidance.
+Startup logs font path and CJK probe status; native tests inspect glyphs, not file existence alone.
+Linux desktop verified Chinese Evidence labels and unchanged case search/focus behavior.
+Windows candidate build and visual validation remain unperformed in this increment.
+Set CXVISION_TEST_CJK_FONT at CMake configure time to include the local CJK glyph test.

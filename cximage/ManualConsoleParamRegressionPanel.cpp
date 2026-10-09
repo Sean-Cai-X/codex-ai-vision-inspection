@@ -8956,6 +8956,15 @@ static void DrawSetMatchControls(ManualTestContext& context) {
 }
 
 static void DrawHarmonicAuditControls(ManualTestContext& context) {
+  if (ImGui::Button("Focus Geometry Workspace")) {
+    for (const char* name : {"Torch Training Image Set", "Torch Runtime / Evidence",
+                             "Analytics Smoke / Metrology Bridge",
+                             "Parameter Tuning Map / Result Conclusion"})
+      ImGui::SetWindowCollapsed(name, true, ImGuiCond_Always);
+    ImGui::SetWindowFocus();
+  }
+  if (ImGui::IsItemHovered())
+    ImGui::SetTooltip("Collapse auxiliary panels only; expand title bars to restore. Training continues.");
   ImGui::TextUnformatted("Harmonic / AUDIT ONLY - not production pose");
   const bool open=context.editor_text.find(".fromobjectarc(")!=std::string::npos;
   ImGui::TextWrapped("%s",open

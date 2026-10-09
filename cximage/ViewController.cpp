@@ -1,3 +1,4 @@
+#include "CxUiFont.h"
 #include "CxSetMatchEvidenceParameters.h"
 #include "CxHarmonicEvidenceParameters.h"
 #include "ManualConsoleScriptDebugPanel.h"
@@ -1848,6 +1849,8 @@ void ViewController::initImGui() {
   ImGui::CreateContext();
   ImGuiIO &io = ImGui::GetIO();
   (void)io;
+  const auto fontStatus = cxuifont::Load(io, std::getenv("CXVISION_UI_FONT"));
+  CXLOG_INFO("GuiMain", "ui_font", "initialized", fontStatus);
   ImGui::StyleColorsDark();
 
   ImGui_ImplGlfw_InitForOpenGL(myOcctWindow->getGlfwWindow(), true);
@@ -7060,6 +7063,8 @@ void ViewController::initWindow(int theWidth, int theHeight,
   m_imguiContextInitialized = true;
   ImGuiIO &io = ImGui::GetIO();
   (void)io;
+  const auto fontStatus = cxuifont::Load(io, std::getenv("CXVISION_UI_FONT"));
+  CXLOG_INFO("GuiMain", "ui_font", "initialized", fontStatus);
   io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
   io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
 
