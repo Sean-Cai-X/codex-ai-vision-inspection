@@ -85,3 +85,23 @@ endif()
 add_executable(so2_staged_guards native_staged_test.cpp)
 target_link_libraries(so2_staged_guards PRIVATE cx_so2)
 add_test(NAME staged_guards COMMAND so2_staged_guards)
+add_executable(harmonic_staged_contract_guards native_staged_contract_test.cpp)
+target_link_libraries(harmonic_staged_contract_guards PRIVATE cx_so2)
+add_test(NAME staged_contract_guards COMMAND harmonic_staged_contract_guards)
+add_executable(harmonic_staged_receipt_check native_staged_receipt_test.cpp)
+target_compile_features(harmonic_staged_receipt_check PRIVATE cxx_std_17)
+if(SO2_HEADLESS_APP AND SO2_HEADLESS_IMAGE)
+  add_test(NAME staged_script_generate COMMAND harmonic_staged_receipt_check
+    generate ${CMAKE_CURRENT_BINARY_DIR}/staged_receipt_case.cxsc)
+  set_tests_properties(staged_script_generate PROPERTIES FIXTURES_SETUP staged_script)
+  add_test(NAME staged_headless COMMAND ${SO2_HEADLESS_APP} --cxscript-headless
+    --image ${SO2_HEADLESS_IMAGE} --script ${CMAKE_CURRENT_BINARY_DIR}/staged_receipt_case.cxsc
+    --out ${CMAKE_CURRENT_BINARY_DIR}/staged_receipt_case
+    --unified-log ${CMAKE_CURRENT_BINARY_DIR}/staged_receipt_case.jsonl)
+  set_tests_properties(staged_headless PROPERTIES FIXTURES_REQUIRED staged_script
+    FIXTURES_SETUP staged_receipt PASS_REGULAR_EXPRESSION "cxscript_headless_ok=true" TIMEOUT 60
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../..)
+  add_test(NAME staged_receipt_check COMMAND harmonic_staged_receipt_check check
+    ${CMAKE_CURRENT_BINARY_DIR}/staged_receipt_case/harmonic_audit_receipt.json)
+  set_tests_properties(staged_receipt_check PROPERTIES FIXTURES_REQUIRED staged_receipt)
+endif()

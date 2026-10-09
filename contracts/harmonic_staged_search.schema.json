@@ -1,0 +1,241 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Harmonic audit runs[].staged_search v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "enabled",
+    "semantics",
+    "requested",
+    "executed",
+    "status",
+    "reason",
+    "search_complete",
+    "continuous_global_optimum_certified",
+    "evaluations",
+    "coarse_peaks",
+    "fine_peaks",
+    "coarse_response",
+    "fine_response"
+  ],
+  "properties": {
+    "schema": {
+      "const": "cxvision.harmonic_staged_search.v1"
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "semantics": {
+      "const": "cyclic_shift_grid_with_analytic_rotation_not_angle_scan"
+    },
+    "requested": {
+      "$ref": "#/$defs/config"
+    },
+    "executed": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/config"
+        }
+      ]
+    },
+    "status": {
+      "enum": [
+        "DISABLED",
+        "NOT_RUN",
+        "COMPLETED",
+        "INCOMPLETE",
+        "BUDGET_EXHAUSTED"
+      ]
+    },
+    "reason": {
+      "type": "string"
+    },
+    "search_complete": {
+      "type": "boolean"
+    },
+    "continuous_global_optimum_certified": {
+      "const": false
+    },
+    "evaluations": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 262144
+    },
+    "coarse_peaks": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2048
+    },
+    "fine_peaks": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2048
+    },
+    "coarse_response": {
+      "$ref": "#/$defs/response"
+    },
+    "fine_response": {
+      "$ref": "#/$defs/response"
+    }
+  },
+  "$defs": {
+    "integer": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 262144
+    },
+    "config": {
+      "description": "Requested values may be rejected at run. Executed null means no accepted execution configuration.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "coarse_order",
+        "fine_order",
+        "coarse_samples",
+        "fine_samples",
+        "refinement_iterations",
+        "maximum_evaluations",
+        "capture_response"
+      ],
+      "properties": {
+        "coarse_order": {
+          "$ref": "#/$defs/integer"
+        },
+        "fine_order": {
+          "$ref": "#/$defs/integer"
+        },
+        "coarse_samples": {
+          "$ref": "#/$defs/integer"
+        },
+        "fine_samples": {
+          "$ref": "#/$defs/integer"
+        },
+        "refinement_iterations": {
+          "$ref": "#/$defs/integer"
+        },
+        "maximum_evaluations": {
+          "$ref": "#/$defs/integer"
+        },
+        "capture_response": {
+          "type": "boolean"
+        }
+      }
+    },
+    "response": {
+      "type": "array",
+      "maxItems": 2048,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "shift_turns",
+          "angle_deg",
+          "correlation",
+          "residual"
+        ],
+        "properties": {
+          "shift_turns": {
+            "type": "number",
+            "minimum": 0,
+            "exclusiveMaximum": 1
+          },
+          "angle_deg": {
+            "type": "number",
+            "minimum": 0,
+            "exclusiveMaximum": 360
+          },
+          "correlation": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "residual": {
+            "type": "number",
+            "minimum": 0
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "enum": [
+              "DISABLED",
+              "NOT_RUN"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "executed": {
+            "type": "null"
+          },
+          "evaluations": {
+            "const": 0
+          },
+          "search_complete": {
+            "const": false
+          },
+          "coarse_response": {
+            "maxItems": 0
+          },
+          "fine_response": {
+            "maxItems": 0
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "COMPLETED"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "search_complete": {
+            "const": true
+          },
+          "enabled": {
+            "const": true
+          },
+          "executed": {
+            "$ref": "#/$defs/config"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "BUDGET_EXHAUSTED"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "search_complete": {
+            "const": false
+          },
+          "enabled": {
+            "const": true
+          },
+          "executed": {
+            "$ref": "#/$defs/config"
+          }
+        }
+      }
+    }
+  ]
+}

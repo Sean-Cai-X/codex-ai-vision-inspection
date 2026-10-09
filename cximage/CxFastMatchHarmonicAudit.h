@@ -1,5 +1,6 @@
 #pragma once
 #include "../cxgeom/include/CxGeoSO2Harmonic.h"
+#include "CxHarmonicStagedContract.h"
 #include <string>
 #include <optional>
 #include "../cxgeom/include/CxGeoOpenBoundary.h"
@@ -46,6 +47,7 @@ private:
     cxgeom::so2::Contour contours_[2];
     std::string sources_[2] = {"script_points", "script_points"};
     cxgeom::so2::Config config_;
+    cxharmonic::StagedSettings staged_;
     cxgeom::so2::Method method_ = cxgeom::so2::Method::Dft;
     cxgeom::so2::Result result_;
     int selected_ = 0;

@@ -127,6 +127,7 @@ void CxFastMatchHarmonicAudit::importobject(void* object,bool subcurve) {
 void CxFastMatchHarmonicAudit::parameter(double v,const char* key) {
     if(!key || !std::isfinite(v))throw std::invalid_argument("HARMONIC_INVALID_PARAMETER");
     const std::string k(key);
+    if(cxharmonic::SetStagedParameter(staged_,v,k)){invalidate();return;}
     auto integer=[&]() {
         if(std::floor(v)!=v || v<0 || v>4096)throw std::invalid_argument("HARMONIC_INVALID_INTEGER");
         return static_cast<int>(v);
@@ -151,13 +152,15 @@ void CxFastMatchHarmonicAudit::parameter(double v,const char* key) {
 void CxFastMatchHarmonicAudit::run() {
     result_={};
     std::optional<cxgeom::so2::Descriptor> feature_a,feature_b;
+    std::optional<cxgeom::so2::StagedResult> staged_result;
     if(save_intermediate_features_ && !debug_mode_)throw std::invalid_argument("HARMONIC_FEATURES_REQUIRE_DEBUG");
     try {
+        if(staged_.enabled && staged_.config.capture_response && !debug_mode_)throw std::invalid_argument("STAGED_RESPONSE_REQUIRES_DEBUG");
         if(open_runs_[0]||open_runs_[1])throw std::invalid_argument("OPEN_CONTOUR_LEGACY_FALLBACK");
         const auto a=loaded_[0]?*loaded_[0]:cxgeom::so2::Build(contours_[0],config_,method_);
         auto expected=a;expected.config=config_;expected.method=method_;cxgeom::so2::Distance(a,expected);
         const auto b=loaded_[1]?*loaded_[1]:cxgeom::so2::Build(contours_[1],config_,method_);
-        result_=cxgeom::so2::Match(a,b);
+        if(staged_.enabled){staged_result=cxgeom::so2::MatchStaged(a,b,staged_.config);result_=staged_result->match;}else result_=cxgeom::so2::Match(a,b);
         if(debug_mode_ && save_intermediate_features_) {feature_a=a;feature_b=b;}
     } catch(const std::invalid_argument& e) {
         result_.status=e.what();result_.fallback_reason="LEGACY_UNCHANGED";
@@ -207,8 +210,9 @@ void CxFastMatchHarmonicAudit::run() {
          <<R"(,"coordinate_units":"source_units")"
          <<",\"correlation\":"<<p.correlation<<",\"residual\":"<<p.residual<<"}";
     }
-    s<<"],\"debug\":{\"enabled\":"<<(debug_mode_?"true":"false")
-     <<",\"save_intermediate_features\":"<<(save_intermediate_features_?"true":"false")
+    s<<R"(],"staged_search":)"<<cxharmonic::StagedReceipt(staged_,staged_result,result_.status).dump();
+    s<<R"(,"debug":{"enabled":)"<<(debug_mode_?"true":"false")
+     <<R"(,"save_intermediate_features":)"<<(save_intermediate_features_?"true":"false")
      <<",\"status\":\""<<(!debug_mode_?"DISABLED":!save_intermediate_features_?"NOT_REQUESTED":feature_a?"AVAILABLE":"UNAVAILABLE")
      <<"\",\"reason\":\""<<(debug_mode_ && save_intermediate_features_ && !feature_a?JsonEscape(result_.status):"")
      <<"\",\"features\":[";
