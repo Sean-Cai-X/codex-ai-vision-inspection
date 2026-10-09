@@ -126,3 +126,7 @@ add_executable(harmonic_independent_matrix native_independent_matrix_test.cpp)
 target_link_libraries(harmonic_independent_matrix PRIVATE cx_so2)
 add_test(NAME independent_contour_matrix COMMAND harmonic_independent_matrix
   ${CMAKE_CURRENT_BINARY_DIR}/independent_contour_matrix.csv)
+add_executable(harmonic_circle_completion native_circle_completion_test.cpp)
+target_link_libraries(harmonic_circle_completion PRIVATE cx_so2)
+add_test(NAME circle_completion COMMAND harmonic_circle_completion
+  ${CMAKE_CURRENT_BINARY_DIR}/circle_completion.csv)
