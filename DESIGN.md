@@ -55,3 +55,10 @@ Hidden-catalog lookup and current-case search have distinct explanatory text.
 Desktop verification: harmonic search reveals cases; clearing search restores collapsed browsing.
 Native regression: 17/17 CTest plus three Harmonic catalog/bridge cases.
 Remaining gaps: panel overlap, Chinese glyphs, independent-pair accuracy acceptance.
+
+## Harmonic workspace focus (2026-10-09)
+Focus Geometry Workspace explicitly collapses four auxiliary panels; no automatic case change.
+Torch training/runtime, analytics smoke and parameter conclusion windows allow title-bar expansion.
+Training process polling precedes Begin so collapsing the training image window cannot skip polling.
+Desktop: collapse, restore training panel, refocus, and native Harmonic execution verified.
+No live training job was started for this layout check. Chinese font coverage remains unresolved.

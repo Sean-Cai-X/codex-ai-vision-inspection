@@ -12646,6 +12646,7 @@ static void DrawModelLineageTopologyLocal(ManualTestContext &context) {
                       node.node_kind.c_str(), node.gate_status.c_str());
 }
 void ViewController::drawTorchTrainingImageSetWindow() {
+  PollYoloTrainingProcessLocal(m_manualTest);
   const ImGuiViewport *viewport = ImGui::GetMainViewport();
   const ImVec2 workPos = viewport->WorkPos;
   const ImVec2 workSize = viewport->WorkSize;
@@ -12658,7 +12659,7 @@ void ViewController::drawTorchTrainingImageSetWindow() {
              std::min(760.0f, std::max(420.0f, workSize.y - 32.0f))),
       ImGuiCond_Appearing);
   if (!ImGui::Begin("Torch Training Image Set", nullptr,
-                    ImGuiWindowFlags_NoCollapse)) {
+                    ImGuiWindowFlags_None)) {
     ImGui::End();
     return;
   }
@@ -12666,7 +12667,7 @@ void ViewController::drawTorchTrainingImageSetWindow() {
   ApplyAiGuiFocusHere(
       AiGuiDestination::TorchTrainingImageSet,
       "Torch Training Image Set > dataset actions and image rails");
-  PollYoloTrainingProcessLocal(m_manualTest);
+  // Polling remains active when collapsed.
   if (!m_manualTest.torch_training_latest_scan_attempted) {
     m_manualTest.torch_training_latest_scan_attempted = true;
     std::string loadReason;
