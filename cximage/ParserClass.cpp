@@ -16,6 +16,7 @@
 #include "FastMatchDiagnostic.h"
 #include "CxFastMatchHarmonicAudit.h"
 #include "FindSetMatch.h"
+#include "CxSevenClassSupervisionBinding.h"
 #include "FindCircle.h"
 #include "FindEllipse.h"
 #include "FindLine.h"
@@ -912,6 +913,7 @@ void CxParserRuntime::ParserInitialClassFunction(int iusing) {
     m_parser.DefineClassFun("CircleRingGauge", pcircle_ring_gauge,
                             "status_code", &CircleRingGauge::status_code);
 
+    RegisterSevenClassSupervision(m_parser);
     FindSetMatch* set_match = nullptr;
     m_parser.DefineClass("FindSetMatch", set_match);
     m_parser.DefineClassFun("FindSetMatch", set_match, "load", &FindSetMatch::load);
