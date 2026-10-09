@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Harmonic audit pose: reference to observation",
+  "description": "Observed z = scale * R(angle_deg) * reference z + (translation_x,translation_y). Audit only.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "angle_deg",
+    "scale",
+    "translation_x",
+    "translation_y",
+    "cyclic_shift",
+    "mapping",
+    "coordinate_units",
+    "correlation",
+    "residual"
+  ],
+  "properties": {
+    "angle_deg": {
+      "type": "number",
+      "minimum": 0,
+      "exclusiveMaximum": 360
+    },
+    "scale": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "translation_x": {
+      "type": "number"
+    },
+    "translation_y": {
+      "type": "number"
+    },
+    "cyclic_shift": {
+      "type": "number",
+      "minimum": 0,
+      "exclusiveMaximum": 1
+    },
+    "mapping": {
+      "const": "reference_to_observation"
+    },
+    "coordinate_units": {
+      "const": "source_units"
+    },
+    "correlation": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "residual": {
+      "type": "number",
+      "minimum": 0
+    }
+  }
+}

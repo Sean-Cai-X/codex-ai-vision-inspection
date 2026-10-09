@@ -200,6 +200,11 @@ void CxFastMatchHarmonicAudit::run() {
     for(size_t i=0;i<result_.poses.size();++i) {
         if(i)s<<",";const auto& p=result_.poses[i];
         s<<"{\"angle_deg\":"<<p.angle_deg<<",\"scale\":"<<p.scale
+         <<R"(,"translation_x":)"<<p.translation_x
+         <<R"(,"translation_y":)"<<p.translation_y
+         <<R"(,"cyclic_shift":)"<<p.cyclic_shift
+         <<R"(,"mapping":"reference_to_observation")"
+         <<R"(,"coordinate_units":"source_units")"
          <<",\"correlation\":"<<p.correlation<<",\"residual\":"<<p.residual<<"}";
     }
     s<<"],\"debug\":{\"enabled\":"<<(debug_mode_?"true":"false")
