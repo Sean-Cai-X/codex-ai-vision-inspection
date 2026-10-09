@@ -1,4 +1,5 @@
 #include "../libtorchsegmentation/src/utils/json.hpp"
+#include "CxHarmonicPosePresentation.h"
 #include "CxHarmonicEvidenceParameters.h"
 #include "CxSetMatchEvidenceParameters.h"
 #include "CxParameterProfileRuntime.h"
@@ -9033,10 +9034,12 @@ static void DrawHarmonicAuditControls(ManualTestContext& context) {
         result.at("status").get<std::string>().c_str(),result.at("symmetry_order").get<int>(),
         result.at("invariant_distance").get<double>());
       ImGui::TextWrapped("No confidence probability / certified solvability / completion-assisted pose is supplied.");
-      for(const auto& pose:result.at("poses"))
-        ImGui::TextWrapped("Angle %.6f deg | scale %.6f | correlation %.6f | residual %.8g",
-          pose.at("angle_deg").get<double>(),pose.at("scale").get<double>(),
-          pose.at("correlation").get<double>(),pose.at("residual").get<double>());
+      const auto poseLines=cxharmonicui::PoseDisplayLines(result);
+      ImGui::TextWrapped("Mapping: Observed = scale * R(angle) * Reference + (X, Y).");
+      const bool scrollPoses=poseLines.size()>6;
+      if(scrollPoses) ImGui::BeginChild("harmonic_pose_candidates",ImVec2(0,180),true);
+      for(const auto& line:poseLines) ImGui::TextWrapped("%s",line.c_str());
+      if(scrollPoses) ImGui::EndChild();
       if(result.contains("debug")) {
         const auto& debug=result.at("debug");
         ImGui::TextWrapped("Feature capture: %s | %s",debug.at("status").get<std::string>().c_str(),debug.at("reason").get<std::string>().c_str());

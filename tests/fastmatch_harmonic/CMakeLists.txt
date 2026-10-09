@@ -73,3 +73,11 @@ if(SO2_HEADLESS_APP AND SO2_HEADLESS_IMAGE)
   set_tests_properties(pose_headless PROPERTIES
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../..)
 endif()
+add_executable(harmonic_pose_presentation_guards native_pose_presentation_test.cpp)
+target_compile_features(harmonic_pose_presentation_guards PRIVATE cxx_std_17)
+add_test(NAME pose_presentation_guards COMMAND harmonic_pose_presentation_guards)
+if(SO2_HEADLESS_APP AND SO2_HEADLESS_IMAGE)
+  add_test(NAME pose_presentation_receipt COMMAND harmonic_pose_presentation_guards
+    ${CMAKE_CURRENT_BINARY_DIR}/pose_receipt_case/harmonic_audit_receipt.json)
+  set_tests_properties(pose_presentation_receipt PROPERTIES FIXTURES_REQUIRED pose_receipt)
+endif()

@@ -30,3 +30,11 @@ Native ImGui/bridge smoke is not desktop click acceptance. The frontend audit sc
 
 ## Harmonic audit variant (2026-10-08)
 Scope also includes Harmonic Key Parameter Controls. Reuse the same ImGui field/table/disclosure and inline status owners. CxHarmonicEvidenceParameters.h owns bounds/defaults; RequestHarmonicAuditRun owns pending transitions. Group controls by source, anchor, encoding and pose, with a separate actual-receipt debug disclosure. No runtime token or palette changes.
+
+## Harmonic full-pose display (2026-10-09)
+Use the existing actual-receipt disclosure; do not add an independent theme.
+Show candidate index, angle, scale, correlation, residual, translation, units and cyclic shift.
+Keep ambiguous candidates; do not auto-select a pose or imply production approval.
+Legacy missing fields are unavailable, never zero-filled; partial/malformed mappings are errors.
+Render only the current receipt; parameter edits keep existing invalidation behavior.
+Long candidate lists scroll within a bounded region. Desktop visual acceptance remains separate.
