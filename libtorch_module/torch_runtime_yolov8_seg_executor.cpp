@@ -5,6 +5,7 @@
 #include "torch_segmentation_evidence.h"
 #include "torch_yolov8_seg.h"
 #include "torch_taskalignedassigner.h"
+#include "../cximage/CxSevenClassSupervision.h"
 
 #include <algorithm>
 #include <array>
@@ -3793,6 +3794,9 @@ struct BusinessMaterializedDataset
     std::string case_id;
     std::string dataset_revision_id;
     std::string annotation_receipt_digest;
+    std::string supervision_binding_status = "legacy_unverified";
+    std::string supervision_rules_sha256;
+    std::string supervision_dataset_sha256;
     std::vector<YoloV8SegDatasetSample> train_samples;
     std::vector<YoloV8SegDatasetSample> validation_samples;
 };
@@ -4729,7 +4733,9 @@ bool LoadBusinessMaterializedDataset(
         const std::set<std::string> allowed_metadata{
             "schema", "snapshot_id", "snapshot_digest", "case_id",
             "dataset_revision_id", "annotation_receipt_digest",
-            "background_pixel", "boundary_stroke_width_pixels"};
+            "background_pixel", "boundary_stroke_width_pixels",
+            "supervision_rules_version", "supervision_rules_sha256",
+            "supervision_dataset_sha256", "supervision_file_sha256"};
         if (allowed_metadata.find(key) == allowed_metadata.end() ||
             !metadata.emplace(key, value).second)
         {
@@ -4748,8 +4754,10 @@ bool LoadBusinessMaterializedDataset(
     const std::string* revision_id = value_for("dataset_revision_id");
     const std::string* receipt_digest = value_for("annotation_receipt_digest");
     const std::string* background_pixel = value_for("background_pixel");
-    if (schema == nullptr || *schema !=
-            "visionai.geometry-segmentation-materializer.v1" ||
+    const bool bound_supervision = schema != nullptr &&
+        *schema == "visionai.geometry-segmentation-materializer.v2";
+    if (schema == nullptr || (!bound_supervision && *schema !=
+            "visionai.geometry-segmentation-materializer.v1") ||
         snapshot_id == nullptr || !IsSafeBusinessIdentifier(*snapshot_id) ||
         snapshot_digest == nullptr || !IsBusinessSha256(*snapshot_digest) ||
         case_id == nullptr || *case_id != settings.case_id ||
@@ -4765,6 +4773,68 @@ bool LoadBusinessMaterializedDataset(
     dataset.case_id = *case_id;
     dataset.dataset_revision_id = *revision_id;
     dataset.annotation_receipt_digest = *receipt_digest;
+
+    nlohmann::json frozen_supervision;
+    nlohmann::json materialized_supervision = nlohmann::json::array();
+    if (bound_supervision)
+    {
+        const auto* rules_version = value_for("supervision_rules_version");
+        const auto* rules_sha = value_for("supervision_rules_sha256");
+        const auto* dataset_sha = value_for("supervision_dataset_sha256");
+        const auto* file_sha = value_for("supervision_file_sha256");
+        if (!rules_version || !rules_sha || !dataset_sha || !file_sha ||
+            !IsBusinessSha256(*rules_sha) || !IsBusinessSha256(*dataset_sha) ||
+            !IsBusinessSha256(*file_sha))
+        {
+            code = "BUSINESS_SUPERVISION_BINDING_REQUIRED";
+            return false;
+        }
+        std::filesystem::path supervision_path;
+        std::string supervision_bytes;
+        if (!ResolveBusinessMaterializedFile(root, "supervision.v1.json", supervision_path) ||
+            !ReadBusinessFile(supervision_path, supervision_bytes) ||
+            BusinessSha256Digest(supervision_bytes) != *file_sha)
+        {
+            code = "BUSINESS_SUPERVISION_FILE_DIGEST_MISMATCH";
+            return false;
+        }
+        try
+        {
+            frozen_supervision = cxvision::supervision::ParseJson(supervision_bytes);
+            if (frozen_supervision.at("rules_version") != *rules_version ||
+                frozen_supervision.at("rules_sha256") != cxvision::supervision::DecodeBusinessSha256(*rules_sha) ||
+                frozen_supervision.at("dataset_sha256") != cxvision::supervision::DecodeBusinessSha256(*dataset_sha))
+            {
+                code = "BUSINESS_SUPERVISION_BINDING_MISMATCH";
+                return false;
+            }
+            if (const auto* width = value_for("boundary_stroke_width_pixels"))
+            {
+                std::size_t consumed = 0;
+                const double parsed = std::stod(*width, &consumed);
+                if (consumed != width->size() || !std::isfinite(parsed) ||
+                    frozen_supervision.at("rules").at("open_width_px").get<double>() != parsed)
+                {
+                    code = "BUSINESS_SUPERVISION_WIDTH_MISMATCH";
+                    return false;
+                }
+            }
+        }
+        catch (const std::exception&)
+        {
+            code = "BUSINESS_SUPERVISION_FILE_INVALID";
+            return false;
+        }
+        dataset.supervision_rules_sha256 = *rules_sha;
+        dataset.supervision_dataset_sha256 = *dataset_sha;
+    }
+    else if (value_for("supervision_rules_version") || value_for("supervision_rules_sha256") ||
+        value_for("supervision_dataset_sha256") || value_for("supervision_file_sha256"))
+    {
+        // No silent downgrade: v1 cannot advertise v2 supervision validation.
+        code = "BUSINESS_SUPERVISION_SCHEMA_REQUIRED";
+        return false;
+    }
 
     for (const auto& pair : assets)
     {
@@ -4805,6 +4875,18 @@ bool LoadBusinessMaterializedDataset(
 
         YoloV8SegDatasetSample sample;
         sample.image_id = asset.image_id;
+        if (bound_supervision)
+        {
+            std::string pixels;
+            pixels.reserve(class_mask.total());
+            for (int y = 0; y < class_mask.rows; ++y)
+                pixels.append(reinterpret_cast<const char*>(class_mask.ptr<unsigned char>(y)),
+                    static_cast<std::size_t>(class_mask.cols));
+            materialized_supervision.push_back({{"asset_ref",asset.image_id},
+                {"split",asset.split},{"image_sha256",cxvision::supervision::DecodeBusinessSha256(image_digest)},
+                {"mask_pixels_sha256",cxvision::supervision::DecodeBusinessSha256(BusinessSha256Digest(pixels))},
+                {"width",class_mask.cols},{"height",class_mask.rows}});
+        }
         sample.image_ref = image_path.string();
         sample.split = asset.split;
         sample.target_mask_ref = mask_path.string();
@@ -4893,6 +4975,27 @@ bool LoadBusinessMaterializedDataset(
     {
         code = "BUSINESS_DATASET_SPLIT_INSUFFICIENT";
         return false;
+    }
+    if (bound_supervision)
+    {
+        try
+        {
+            cxvision::supervision::ValidateMaterializedDataset(frozen_supervision,
+                materialized_supervision, settings.dataset_revision_id,
+                settings.project_geometry_class);
+        }
+        catch (const std::invalid_argument& error)
+        {
+            // Shared validator errors are fixed codes, never asset paths.
+            code = error.what();
+            return false;
+        }
+        catch (const std::exception&)
+        {
+            code = "BUSINESS_SUPERVISION_VALIDATION_FAILED";
+            return false;
+        }
+        dataset.supervision_binding_status = "train_valid_verified_verify_metadata_only";
     }
     return true;
 }
@@ -5580,6 +5683,12 @@ TorchTaskResultCpp ExecuteTorchYoloV8SegBusinessTrialTask(
                 QuoteSegJson(settings.dataset_revision_id) +
             ",\"dataset_manifest_sha256\":" +
                 QuoteSegJson(dataset.manifest_sha256) +
+            ",\"supervision_binding_status\":" +
+                QuoteSegJson(dataset.supervision_binding_status) +
+            ",\"supervision_rules_sha256\":" +
+                QuoteSegJson(dataset.supervision_rules_sha256) +
+            ",\"supervision_dataset_sha256\":" +
+                QuoteSegJson(dataset.supervision_dataset_sha256) +
             ",\"parent_model_id\":" +
                 QuoteSegJson(settings.trial_model_id) +
             ",\"parent_model_sha256\":" +

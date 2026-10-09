@@ -292,6 +292,9 @@ if(LIBTORCH_MODULE_BUILD_RUNTIME_DLL)
             torch_runtime_segmentation_executor.cpp
             torch_runtime_edgesam_executor.cpp
             torch_runtime_yolov8_seg_executor.cpp
+            ../cximage/CxSevenClassSupervision.cpp
+            ../cxgeom/src/CxGeoSO2ReferenceAsset.cpp
+            ../cxgeom/src/CxGeoSO2Harmonic.cpp
             # Prototype lifecycle is compiled into torch_runtime_task_dispatcher.cpp
             torch_runtime_detection_executor.cpp
             torch_test_host.h
@@ -311,6 +314,8 @@ if(LIBTORCH_MODULE_BUILD_RUNTIME_DLL)
         target_include_directories(libtorch_module_runtime PUBLIC
             "${CMAKE_CURRENT_SOURCE_DIR}"
         )
+        target_include_directories(libtorch_module_runtime PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/../cxgeom/include")
 
         configure_libtorch_module_target(libtorch_module_runtime)
         target_link_libraries(libtorch_module_runtime PRIVATE ${OpenCV_LIBS})

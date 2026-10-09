@@ -1,6 +1,10 @@
 Seven Class Native Supervision Conversion - development trial
 ============================================================
 
+Follow-up: dataset freezing and the v2 runtime guard are described in
+README.dataset.txt. The conversion-only acceptance boundary below describes
+the first step; consult that follow-up for dataset-level behavior.
+
 Scope
 -----
 The production adapter source is cximage/CxSevenClassSupervision.cpp.

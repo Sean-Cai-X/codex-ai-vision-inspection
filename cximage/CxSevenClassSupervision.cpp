@@ -5,6 +5,7 @@
 #include <cmath>
 #include <filesystem>
 #include <fstream>
+#include <map>
 #include <set>
 #include <stdexcept>
 
@@ -42,17 +43,7 @@ J read_json(const char* path) {
     std::string bytes(static_cast<std::size_t>(size), '\0');
     file.seekg(0); file.read(bytes.data(), size);
     require(bool(file), "SUPERVISION_FILE_UNREADABLE");
-    try {
-        std::vector<std::set<std::string>> object_keys;
-        return J::parse(bytes,[&](int, J::parse_event_t event,J& parsed) {
-            if(event==J::parse_event_t::object_start) object_keys.emplace_back();
-            if(event==J::parse_event_t::key)
-                require(object_keys.back().insert(parsed.get<std::string>()).second,"SUPERVISION_DUPLICATE_JSON_KEY");
-            if(event==J::parse_event_t::object_end) object_keys.pop_back();
-            return true;
-        });
-    }
-    catch (const J::exception&) { throw std::invalid_argument("SUPERVISION_JSON_INVALID"); }
+    return cxvision::supervision::ParseJson(bytes);
 }
 void validate_rules(const J& r) {
     J expected = {
@@ -122,6 +113,26 @@ void raster_topology(const std::vector<unsigned char>& mask, int width, int heig
 }
 
 namespace cxvision::supervision {
+std::string DecodeBusinessSha256(const std::string& digest) {
+    require(digest.size()==71 && digest.compare(0,7,"sha256:")==0,"SUPERVISION_RUNTIME_SHA_INVALID");
+    auto hex=digest.substr(7);
+    for(char& c:hex) if(c>='A'&&c<='F') c=char(c-'A'+'a');
+    require(is_sha(hex),"SUPERVISION_RUNTIME_SHA_INVALID");
+    return hex;
+}
+J ParseJson(const std::string& bytes) {
+    require(!bytes.empty() && bytes.size()<=file_limit,"SUPERVISION_FILE_LIMIT");
+    try {
+        std::vector<std::set<std::string>> object_keys;
+        return J::parse(bytes,[&](int, J::parse_event_t event,J& parsed) {
+            if(event==J::parse_event_t::object_start) object_keys.emplace_back();
+            if(event==J::parse_event_t::key)
+                require(object_keys.back().insert(parsed.get<std::string>()).second,"SUPERVISION_DUPLICATE_JSON_KEY");
+            if(event==J::parse_event_t::object_end) object_keys.pop_back();
+            return true;
+        });
+    } catch(const J::exception&) { throw std::invalid_argument("SUPERVISION_JSON_INVALID"); }
+}
 Conversion Convert(const J& sample, const J& rules) {
     validate_rules(rules);
     require(sample.dump().size() <= file_limit, "SUPERVISION_INPUT_LIMIT");
@@ -241,7 +252,102 @@ Conversion Convert(const J& sample, const J& rules) {
 }
 }
 
-void CxSevenClassSupervision::invalidate() { result_={}; status_="NOT_RUN"; }
+namespace cxvision::supervision {
+J FreezeDataset(const J& project,const J& rules) {
+    validate_rules(rules);
+    keys(project,{"project_class","samples"});
+    require(project.dump().size()<=file_limit,"SUPERVISION_INPUT_LIMIT");
+    auto name=text(project.at("project_class"));
+    const auto& names=vision_ai::offline_business::v1::kGeometryContract;
+    require(std::find(names.begin(),names.end(),name)!=names.end(),"SUPERVISION_CLASS_INVALID");
+    const auto& samples=project.at("samples");
+    require(samples.is_array() && samples.size()>=4 && samples.size()<=128,"SUPERVISION_DATASET_SAMPLE_COUNT");
+    std::map<std::string,J> ordered;
+    std::map<std::string,std::string> groups,images;
+    std::map<std::string,int> counts;
+    std::size_t pixels=0, point_work=0;
+    for(const auto& sample:samples) {
+        require(sample.is_object() && sample.contains("asset_ref") && sample.contains("split") &&
+            sample.contains("source_group") && sample.contains("image_sha256") &&
+            sample.contains("width") && sample.contains("height") && sample.contains("annotations"),"SUPERVISION_FIELD_MISSING");
+        auto id=text(sample.at("asset_ref")), split=text(sample.at("split"));
+        require(id.size()<=256 && id.find_first_not_of(
+            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-")==std::string::npos,
+            "SUPERVISION_DATASET_ASSET_ID_INVALID");
+        require(ordered.emplace(id,sample).second,"SUPERVISION_DATASET_DUPLICATE_ASSET");
+        auto isolate=[&](auto& map,const std::string& value) {
+            auto inserted=map.emplace(value,split);
+            require(inserted.second || inserted.first->second==split,"SUPERVISION_DATASET_SPLIT_LEAKAGE");
+        };
+        isolate(groups,text(sample.at("source_group")));
+        isolate(images,text(sample.at("image_sha256")));
+        double area=number(sample.at("width"))*number(sample.at("height"));
+        require(area>=1 && area<=pixel_limit,"SUPERVISION_PIXEL_LIMIT");
+        pixels+=static_cast<std::size_t>(area);
+        require(pixels<=64*1024*1024,"SUPERVISION_DATASET_PIXEL_LIMIT");
+        require(sample.at("annotations").is_array(),"SUPERVISION_ANNOTATIONS_INVALID");
+        for(const auto& annotation:sample.at("annotations")) {
+            require(annotation.is_object() && annotation.contains("class_name") && annotation.contains("points"),"SUPERVISION_FIELD_MISSING");
+            require(text(annotation.at("class_name"))==name,"SUPERVISION_DATASET_CLASS_MIXED");
+            const auto n=annotation.at("points").size();
+            require(n<=2048,"SUPERVISION_POINT_COUNT");
+            point_work+=n*n+static_cast<std::size_t>(area)*(n+12);
+            require(point_work<=work_limit,"SUPERVISION_DATASET_WORK_LIMIT");
+        }
+        ++counts[split];
+    }
+    require(counts["train"]>=2 && counts["valid"]>=1 && counts["verify"]>=1,"SUPERVISION_DATASET_SPLIT_INSUFFICIENT");
+    J canonical={{"project_class",name},{"samples",J::array()}};
+    J records=J::array();
+    for(const auto& item:ordered) {
+        auto conversion=Convert(item.second,rules);
+        canonical["samples"].push_back(item.second);
+        records.push_back({{"asset_ref",item.first},{"split",item.second.at("split")},
+            {"source_sha256",conversion.receipt.at("source_sha256")},
+            {"mask_sha256",conversion.receipt.at("mask_sha256")},
+            {"sample_binding_sha256",conversion.receipt.at("sample_binding_sha256")}});
+    }
+    J frozen={{"schema","visionai.seven_class_dataset.v1"},{"admission","development_trial"},
+        {"rules",rules},{"rules_version",rules.at("version")},{"rules_sha256",Sha256Bytes(rules.dump())},
+        {"project",canonical},{"records",records},{"source_image_bytes_verified",false}};
+    auto sha=Sha256Bytes(frozen.dump());
+    frozen["dataset_sha256"]=sha;
+    frozen["dataset_revision_id"]="sv1-"+sha;
+    require(frozen.dump().size()<=file_limit,"SUPERVISION_FILE_LIMIT");
+    return frozen;
+}
+
+void ValidateMaterializedDataset(const J& frozen,const J& materialized,
+    const std::string& revision,const std::string& project_class) {
+    require(frozen.is_object() && frozen.contains("project") && frozen.contains("rules"),"SUPERVISION_DATASET_INVALID");
+    // Recompute conversions/digests: never trust caller-supplied binding hashes.
+    auto expected=FreezeDataset(frozen.at("project"),frozen.at("rules"));
+    require(expected==frozen,"SUPERVISION_DATASET_DIGEST_MISMATCH");
+    require(expected.at("dataset_revision_id")==revision &&
+        expected.at("project").at("project_class")==project_class,"SUPERVISION_DATASET_BINDING_MISMATCH");
+    require(materialized.is_array(),"SUPERVISION_MATERIALIZATION_INVALID");
+    std::map<std::string,J> sources,bindings;
+    for(const auto& s:expected.at("project").at("samples"))
+        if(s.at("split")!="verify") sources.emplace(text(s.at("asset_ref")),s);
+    for(const auto& b:expected.at("records")) bindings.emplace(text(b.at("asset_ref")),b);
+    require(materialized.size()==sources.size(),"SUPERVISION_MATERIALIZATION_COUNT_MISMATCH");
+    std::set<std::string> seen;
+    for(const auto& row:materialized) {
+        keys(row,{"asset_ref","split","image_sha256","mask_pixels_sha256","width","height"});
+        auto id=text(row.at("asset_ref"));
+        require(sources.count(id) && seen.insert(id).second,"SUPERVISION_MATERIALIZATION_ASSET_MISMATCH");
+        const auto& src=sources.at(id);
+        const std::string runtime_split=src.at("split")=="valid"?"val":"train";
+        require(row.at("split")==runtime_split,"SUPERVISION_MATERIALIZATION_SPLIT_MISMATCH");
+        require(row.at("image_sha256")==src.at("image_sha256") &&
+            row.at("mask_pixels_sha256")==bindings.at(id).at("mask_sha256") &&
+            row.at("width")==src.at("width") && row.at("height")==src.at("height"),
+            "SUPERVISION_MATERIALIZATION_CONTENT_MISMATCH");
+    }
+}
+}
+
+void CxSevenClassSupervision::invalidate() { result_={}; frozen_=nullptr; status_="NOT_RUN"; }
 void CxSevenClassSupervision::clear() { rules_=nullptr; sample_=nullptr; invalidate(); }
 void CxSevenClassSupervision::loadrules(const char* path) {
     invalidate(); rules_=nullptr;
@@ -253,6 +359,21 @@ void CxSevenClassSupervision::run() {
     try { result_=cxvision::supervision::Convert(sample_,rules_); status_=result_.receipt.at("status").get<std::string>(); }
     catch(const std::invalid_argument& e) { status_=e.what(); }
     catch(const J::exception&) { status_="SUPERVISION_JSON_INVALID"; }
+}
+void CxSevenClassSupervision::freeze() {
+    invalidate();
+    try { frozen_=cxvision::supervision::FreezeDataset(sample_,rules_); status_="DATASET_FROZEN"; }
+    catch(const std::invalid_argument& e) { status_=e.what(); }
+    catch(const J::exception&) { status_="SUPERVISION_JSON_INVALID"; }
+}
+void CxSevenClassSupervision::savefreeze(const char* path) {
+    require(status_=="DATASET_FROZEN","SUPERVISION_SUCCESS_REQUIRED");
+    require(path&&*path,"SUPERVISION_PATH_REQUIRED");
+    std::filesystem::path dir(path);
+    require(std::filesystem::create_directory(dir),"SUPERVISION_OUTPUT_EXISTS");
+    std::ofstream file(dir/"supervision.v1.json",std::ios::binary);
+    file<<frozen_.dump(); file.close();
+    require(bool(file),"SUPERVISION_EXPORT_FAILED");
 }
 void CxSevenClassSupervision::expectstatus(const char* expected) {
     require(expected && status_==expected,"SUPERVISION_STATUS_ASSERTION_FAILED");
