@@ -17,6 +17,7 @@ option(LIBTORCH_MODULE_BUILD_MOBILEVIT "Build MobileViTv2 train/infer validation
 option(LIBTORCH_MODULE_BUILD_SEGMENTATION "Build segmentation train/infer validation target" ON)
 option(LIBTORCH_MODULE_BUILD_DEMO "Build demo entry for staged validation runs" OFF)
 option(LIBTORCH_MODULE_BUILD_RUNTIME_DLL "Build runtime DLL for GUI integration" ON)
+option(LIBTORCH_MODULE_BUILD_DATASET_PROBE "Build R&D-only real dataset loader probe (no model)" OFF)
 option(LIBTORCH_MODULE_FULL_ENABLE_OPENCV_IMAGE "Enable OpenCV image-processing validation in full target" ON)
 option(LIBTORCH_MODULE_FULL_ENABLE_OPENCV_ANNOTATION "Enable OpenCV image+annotation validation in full target" ON)
 option(LIBTORCH_MODULE_FULL_ENABLE_DATASET_STAGE "Enable dataset-backed validation in full target" ON)
@@ -351,6 +352,22 @@ if(LIBTORCH_MODULE_BUILD_RUNTIME_DLL)
             COMMAND libtorch_module_business_c_api_smoke)
         configure_libtorch_module_test_environment(
             libtorch_module_business_c_api_smoke)
+        if(LIBTORCH_MODULE_BUILD_DATASET_PROBE)
+            set(_dataset_probe_sources ${LIBTORCH_MODULE_CORE_SOURCES})
+            list(REMOVE_ITEM _dataset_probe_sources torch_runtime_yolov8_seg_executor.cpp)
+            add_executable(libtorch_module_business_dataset_probe
+                ../tests/seven_class_supervision/runtime_dataset_probe.cpp
+                ${_dataset_probe_sources})
+            target_include_directories(libtorch_module_business_dataset_probe PRIVATE
+                "${CMAKE_CURRENT_SOURCE_DIR}/../cxgeom/include")
+            configure_libtorch_module_target(libtorch_module_business_dataset_probe)
+            configure_libtorch_module_full_definitions(libtorch_module_business_dataset_probe)
+            add_test(NAME libtorch_module_business_dataset_probe
+                COMMAND libtorch_module_business_dataset_probe
+                "${CMAKE_CURRENT_SOURCE_DIR}/../contracts/seven_class_supervision_rules.v1.json"
+                "${CMAKE_CURRENT_BINARY_DIR}/dataset-probe-evidence")
+            configure_libtorch_module_test_environment(libtorch_module_business_dataset_probe)
+        endif()
     else()
         message(STATUS "OpenCV not found. Skipping libtorch_module_runtime DLL target.")
     endif()

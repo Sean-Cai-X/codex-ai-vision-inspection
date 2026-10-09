@@ -32,3 +32,12 @@ add_test(NAME SevenClass_Dataset_Freeze_And_Runtime_Guards
   COMMAND seven_class_dataset_test
     "${CMAKE_CURRENT_SOURCE_DIR}/../../contracts/seven_class_supervision_rules.v1.json"
     "${CMAKE_CURRENT_BINARY_DIR}/dataset-evidence")
+
+add_executable(seven_class_materializer materializer_main.cpp
+  ../../cximage/CxSevenClassSupervision.cpp
+  ../../cxgeom/src/CxGeoSO2ReferenceAsset.cpp
+  ../../cxgeom/src/CxGeoSO2Harmonic.cpp)
+target_include_directories(seven_class_materializer PRIVATE ../../cxgeom/include)
+add_test(NAME SevenClass_Native_Synthetic_Materializer COMMAND seven_class_materializer
+  "${CMAKE_CURRENT_SOURCE_DIR}/../../contracts/seven_class_supervision_rules.v1.json"
+  "${CMAKE_CURRENT_BINARY_DIR}/materializer-evidence")

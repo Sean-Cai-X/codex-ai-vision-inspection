@@ -13,11 +13,11 @@
   "required_asset_record": {
     "asset_ref": "opaque broker reference",
     "image_sha256": "sha256 of original controlled image",
-    "class_id": "0..6",
-    "class_name": "one fixed geometry class",
+    "class_id": "0..6 declared project target; not a VERIFY ground-truth label",
+    "class_name": "one fixed project target geometry class",
     "split": "train|valid|verify",
-    "annotation_receipt_digest": "sha256",
-    "real_mask_manifest_digest": "sha256",
+    "annotation_receipt_digest": "sha256 required for Train/Valid; absent for unlabelled VERIFY",
+    "real_mask_manifest_digest": "sha256 required for Train/Valid; absent for unlabelled VERIFY",
     "source_path": "BROKER_INTERNAL_ONLY; never copied into request, receipt, log or ticket"
   },
   "broker_acceptance_rules": [
@@ -25,8 +25,9 @@
     "A project-scoped trial requires at least two Train records, one Valid record and one unmarked VERIFY asset for its declared target class. VERIFY never enters that same revision's Train or Valid split.",
     "The model ontology remains the fixed ordered seven-class contract even when one project supplies only one class. All seven classes are required only for a separate cross-project full-ontology evaluation, never as a per-project entry condition.",
     "No rectangle, unknown class, inferred class or reordered class is accepted.",
-    "Every record has a human-confirmed annotation receipt and a verified real-mask manifest.",
+    "Every Train/Valid record has a human-confirmed annotation receipt and a verified supervision-mask binding. Unlabelled VERIFY has no training annotation or mask.",
     "The broker verifies source_path remains under its registered normalized root, but never exports it.",
-    "Dataset digest is computed only after the immutable manifest is frozen."
+    "Dataset digest is computed only after the immutable manifest is frozen and includes the supported conversion rules version/digest and per-sample supervision bindings.",
+    "Same-source variants stay in one split. Synthetic development fixtures are not business data or independent model-accuracy evidence."
   ]
 }

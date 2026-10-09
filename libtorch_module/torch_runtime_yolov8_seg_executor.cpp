@@ -4682,7 +4682,7 @@ bool LoadBusinessMaterializedDataset(
                 code = "BUSINESS_DATASET_MANIFEST_INVALID";
                 return false;
             }
-            if (fields[1] == "holdout")
+            if (fields[1] == "holdout" || fields[1] == "verify")
             {
                 // VERIFY belongs to a separate unmarked asset binding.  A
                 // holdout image or mask here would be an accidental attempt
