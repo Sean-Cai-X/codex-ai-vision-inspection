@@ -1,0 +1,87 @@
+Dense classification supervision - native development trial, 2026-10-09
+
+Implemented
+Business loss version: center_dense_balanced_bce_v2.
+For every feature level, classification targets cover all anchors and all seven
+channels. Existing target-center assignment remains; other anchors are negative.
+Classification loss = mean BCE of positive anchors + mean BCE of background
+anchors, then mean across levels. Each group has weight 1; empty groups contribute
+zero. This prevents the dense background count from diluting the positive loss.
+Box, DFL and mask losses retain their previous center-anchor assignment/weights.
+This is deliberately NOT a claim of complete task-aligned assignment support.
+Same-class center duplicates are idempotent; conflicting classes at one center
+are rejected rather than silently overwriting targets. Current business datasets
+are single-project-class, so cross-class collisions are outside that input scope.
+Classification channel IDs remain arc=0,circle=1,ellipse=2,line=3,open_curve=4,
+polygon=5,closed_curve=6. Thresholds, NMS and class order were not altered.
+
+Traceability
+training_loss_version is recorded in candidate manifest, training trace and
+training receipt; the native runner asserts agreement. Old loss values must not
+be numerically compared as the same objective with the v2 values.
+Parent and old candidates remain unchanged. No runtime was copied into the
+business installation and no production model was activated.
+
+Historical semantics audit
+Registered parent's manifest declares the correct seven-class order. Its
+training_smoke.dataset_source points to the R&D package
+cxvisionai/cxscript_runs/torch_geometry_roi/run_20260915_112500_tal_geometry_target_package.
+That exact local path does not exist. The registered parent directory has only
+weights, manifest, attestation and lineage node, not original labelled samples.
+Historical training label semantics therefore remain UNVERIFIED. This is not
+evidence of a wrong class mapping and does not authorize remapping the parent.
+
+Native validation
+Release build PASS (existing LibTorch/MSVC C4267 warning still present).
+Runtime CTest 4/4 PASS: C ABI smoke, real materialized loader, comparison metrics,
+new production-helper classification tests. Tests check every class channel,
+positive descent direction, nonzero background gradients, one-step loss descent,
+empty-target finiteness/background gradient, distinct classes at separate anchors,
+idempotent duplicates and rejection of conflicting labels at the same anchor.
+Native supervision CTest 3/3 PASS. No Python executed.
+
+Real trials (under ../cxscript_runs/)
+1. dense_classification_trial/31782881359000
+   Same budget as prior run: 2 epochs, 2 optimizer updates, batch 1.
+   Final training loss 5.1006183624. VERIFY still has zero ellipse detections.
+   Candidate SHA256 a48fe059c8a013e0ac9e19e6edd1a708efcad6f591a10fb18217592f67fc79d9.
+   Comparison: dense_classification_comparison/31928360369900/comparison.json.
+2. dense_classification_overfit/31828055191600
+   20 epochs, 40 optimizer updates, batch 1; exactly two updates per epoch,
+   cycling the two Train samples. Valid sample only evaluates; VERIFY never trains.
+   Training loss 5.2903361320 -> .8037452996. Final validation_score .4417705605
+   means 1/(1+validation loss), NOT accuracy. Actual cosine LR 1e-4 -> 1e-6.
+   Candidate SHA256 a9a0164b4d8eaa4ded3809b25bc52e16113674e931682ce6a19a5ac15705cb3d.
+   Comparison: dense_classification_comparison/31860043697300/comparison.json.
+   Best ellipse mask IoU by sample: Train0 .0; Train1 .598639;
+   Valid2 .990050; VERIFY3 .988852.
+   VERIFY has 14 total instances: ellipse7, circle3, line2, polygon2.
+   This is NOT a successful overfit acceptance: Train0 still misses ellipse,
+   Train1's best all-class instance is arc, and spurious/duplicate outputs remain.
+Both trials bind the same registered parent and dataset revision
+sv1-8766d1be56f88f9361bb9f7ea3bcd5066b3815ca5cb11e931e084bc3df253c71.
+Runtime DLL SHA256 c52d1be1bd91d6cde888a62d16e6d65a1762ff6d55761e6f988a10dbb897f4cf.
+Both verify immutable parent/source inventories, strict tensor loading and real
+epoch callbacks. Both complete as review-required; quality acceptance stays false.
+There is no old-loss 40-update control yet: do not attribute all changes from the
+old two-update result solely to the loss repair. These same-generator samples
+also do not establish independent business accuracy or seven-class retention.
+
+Reproduction
+Build libtorch_module_registered_parent_trial and libtorch_module_business_dataset_probe
+in ../build_supervision_runtime (Release); retain process-local Torch/OpenCV PATH.
+Runner keeps its prior four arguments (binding, parent root, rules, output base).
+Optional final arguments are epochs iterations; defaults 2 2, diagnostic bounds
+1..200 with iterations >= epochs. For this overfit diagnostic append: 20 40.
+Total iterations are optimizer updates, divided across epochs; an epoch is NOT
+automatically a dataset pass. Only this 20/40, two-image, batch-1 setup happens
+to visit both Train samples once per epoch. All actual values enter the receipt.
+Run parent_candidate_compare on each newly created trial root as documented in
+VALIDATION_PARENT_COMPARISON_20261009.txt. Never overwrite an existing run.
+
+Next
+First quantify train-mode vs evaluation-mode predictions (including BatchNorm)
+and perform an equal-update old/new-loss control before attributing causality.
+Then integrate existing task-aligned assignment coherently across class/box/DFL/
+mask, with per-anchor evidence and competing-target tests. Do not paper over
+training-image misses with threshold changes or merely increase epochs blindly.

@@ -389,6 +389,9 @@ if(LIBTORCH_MODULE_BUILD_RUNTIME_DLL)
                 "${CMAKE_CURRENT_SOURCE_DIR}/../cxgeom/include")
             configure_libtorch_module_target(libtorch_module_business_dataset_probe)
             configure_libtorch_module_full_definitions(libtorch_module_business_dataset_probe)
+            add_test(NAME libtorch_module_business_classification_loss
+                COMMAND libtorch_module_business_dataset_probe --classification-loss-test)
+            configure_libtorch_module_test_environment(libtorch_module_business_classification_loss)
             add_test(NAME libtorch_module_business_dataset_probe
                 COMMAND libtorch_module_business_dataset_probe
                 "${CMAKE_CURRENT_SOURCE_DIR}/../contracts/seven_class_supervision_rules.v1.json"

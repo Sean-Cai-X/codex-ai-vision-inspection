@@ -5039,6 +5039,36 @@ torch::Tensor BusinessMaskTarget(
         .to(options.dtype()) / 255.0;
 }
 
+// Center assignment remains unchanged for box/mask/DFL. This version supervises
+// all classification anchors; it is NOT task-aligned assignment. Equal positive
+// and background group weights avoid diluting positives in the dense grid.
+constexpr const char* kBusinessLossVersion = "center_dense_balanced_bce_v2";
+
+torch::Tensor BusinessDenseClassificationLoss(
+    const torch::Tensor& logits, const torch::Tensor& targets)
+{
+    TORCH_CHECK(logits.dim() == 4 && logits.sizes() == targets.sizes(),
+        "BUSINESS_CLASS_TARGET_SHAPE_INVALID");
+    const auto positive = targets.sum(1) > 0;
+    const auto negative = positive.logical_not();
+    const auto per_anchor = torch::nn::functional::binary_cross_entropy_with_logits(
+        logits, targets,
+        torch::nn::functional::BinaryCrossEntropyWithLogitsFuncOptions()
+            .reduction(torch::kNone)).mean(1);
+    return (per_anchor * positive).sum() / positive.sum().clamp_min(1) +
+        (per_anchor * negative).sum() / negative.sum().clamp_min(1);
+}
+
+void SetBusinessCenterClassTarget(torch::Tensor& targets,
+    int64_t class_id, int64_t row, int64_t column)
+{
+    const auto occupied = targets.index({0, torch::indexing::Slice(), row, column});
+    TORCH_CHECK(occupied.sum().item<double>() == 0.0 ||
+        occupied.index({class_id}).item<double>() == 1.0,
+        "BUSINESS_CENTER_CLASS_COLLISION");
+    targets.index_put_({0, class_id, row, column}, 1.0);
+}
+
 BusinessLossTensors ComputeBusinessYoloV8SegLoss(
     YoloV8Segment& model,
     const YoloV8SegRawOutput& raw,
@@ -5058,6 +5088,9 @@ BusinessLossTensors ComputeBusinessYoloV8SegLoss(
     const torch::Tensor proto_flat =
         raw.prototypes.index({0}).view({manifest.mask_channels, -1});
     const std::size_t level_count = raw.class_logits.size();
+    std::vector<torch::Tensor> dense_class_targets;
+    for (const auto& logits : raw.class_logits)
+        dense_class_targets.push_back(torch::zeros_like(logits));
     for (std::size_t target_index = 0;
          target_index < sample.classes.size(); ++target_index)
     {
@@ -5095,13 +5128,8 @@ BusinessLossTensors ComputeBusinessYoloV8SegLoss(
             const int64_t row = std::clamp<int64_t>(
                 static_cast<int64_t>(std::floor(center_y * feature_height)),
                 0, feature_height - 1);
-            const torch::Tensor class_logits = raw.class_logits[level].index(
-                {0, torch::indexing::Slice(), row, column});
-            torch::Tensor class_target = torch::zeros_like(class_logits);
-            class_target.index_put_({class_id}, 1.0);
-            result.class_loss = result.class_loss +
-                torch::binary_cross_entropy_with_logits(
-                    class_logits, class_target);
+            SetBusinessCenterClassTarget(dense_class_targets[level],
+                class_id, row, column);
 
             const torch::Tensor coefficients =
                 raw.mask_coefficients[level].index(
@@ -5169,7 +5197,11 @@ BusinessLossTensors ComputeBusinessYoloV8SegLoss(
     }
     const double divisor = static_cast<double>(
         std::max<std::size_t>(1u, sample.classes.size() * level_count));
-    result.class_loss = result.class_loss / divisor;
+    for (std::size_t level = 0; level < level_count; ++level)
+        result.class_loss = result.class_loss + BusinessDenseClassificationLoss(
+            raw.class_logits[level], dense_class_targets[level]);
+    result.class_loss = result.class_loss /
+        static_cast<double>(std::max<std::size_t>(1u, level_count));
     result.mask_loss = result.mask_loss / divisor;
     result.box_loss = result.box_loss / divisor;
     result.dfl_loss = result.dfl_loss / divisor;
@@ -5266,6 +5298,7 @@ bool WriteBusinessCandidateManifest(
         << ",\"class_agnostic_nms\":"
         << (parent_manifest.class_agnostic_nms ? "true" : "false") << "},\n"
         << "  \"business_trial_scope\":\"isolated_business_validation\",\n"
+        << "  \"training_loss_version\":\"" << kBusinessLossVersion << "\",\n"
         << "  \"business_trial_state\":\"CANDIDATE_REVIEW_REQUIRED\",\n"
         << "  \"business_development_parent_model_id\":"
         << QuoteSegJson(development_parent_model_id) << ",\n"
@@ -5573,6 +5606,7 @@ TorchTaskResultCpp ExecuteTorchYoloV8SegBusinessTrialTask(
         trace_file
             << "{\n"
             << "  \"schema\":\"cxvision.yolov8seg.business_training_trace.v1\",\n"
+            << "  \"training_loss_version\":\"" << kBusinessLossVersion << "\",\n"
             << "  \"trial_scope\":\"isolated_business_validation\",\n"
             << "  \"curve_score_definition\":\"inverse_total_loss\",\n"
             << "  \"points\":[\n";
@@ -5673,6 +5707,7 @@ TorchTaskResultCpp ExecuteTorchYoloV8SegBusinessTrialTask(
             "development trial candidate requires VERIFY inference and human review";
         result.result_json =
             "{\"schema\":\"cxvision.yolov8seg.business_trial.v1\","
+            "\"training_loss_version\":\"center_dense_balanced_bce_v2\","
             "\"status\":\"completed_review_required\","
             "\"trial_scope\":\"isolated_business_validation\","
             "\"candidate_state\":\"CANDIDATE_REVIEW_REQUIRED\","

@@ -7,6 +7,31 @@
 int main(int argc,char** argv) {
     using namespace supervision_fixture;
     try {
+        if(argc==2&&std::string(argv[1])=="--classification-loss-test") {
+            for(int cls=0;cls<7;++cls) {
+                auto logits=torch::zeros({1,7,2,2},torch::TensorOptions().requires_grad(true));
+                auto target=torch::zeros_like(logits).detach();
+                SetBusinessCenterClassTarget(target,cls,0,0);
+                auto loss=BusinessDenseClassificationLoss(logits,target);loss.backward();
+                auto grad=logits.grad();
+                for(int c=0;c<7;++c) {
+                    check((grad.index({0,c,0,0}).item<double>()<0)==(c==cls),"CLASS_CHANNEL_GRADIENT_WRONG");
+                    check(grad.index({0,c,1,1}).item<double>()>0,"BACKGROUND_GRADIENT_MISSING");
+                }
+                auto updated=(logits.detach()-grad).set_requires_grad(false);
+                check(BusinessDenseClassificationLoss(updated,target).item<double>()<loss.item<double>(),"CLASS_LOSS_STEP_NOT_DESCENDING");
+            }
+            auto empty_logits=torch::zeros({1,7,2,2},torch::TensorOptions().requires_grad(true));
+            auto empty=BusinessDenseClassificationLoss(empty_logits,torch::zeros_like(empty_logits).detach());
+            empty.backward();check(torch::isfinite(empty).item<bool>()&&(empty_logits.grad()>0).all().item<bool>(),"EMPTY_TARGET_BACKGROUND_INVALID");
+            auto target=torch::zeros({1,7,2,2});SetBusinessCenterClassTarget(target,2,0,0);
+            SetBusinessCenterClassTarget(target,2,0,0); // same-class duplicate is idempotent
+            SetBusinessCenterClassTarget(target,3,1,1); // distinct objects retain class channels
+            check(target.sum().item<int>()==2,"MULTI_OBJECT_TARGET_INVALID");
+            bool collision=false;try {SetBusinessCenterClassTarget(target,4,0,0);}catch(const c10::Error&){collision=true;}
+            check(collision,"COMPETING_CLASS_SILENT_OVERWRITE");
+            std::cout<<"PASS seven class gradients, dense background, loss descent, empty targets, competing centers\n";return 0;
+        }
         if(argc!=3) throw std::runtime_error("rules and evidence base required");
         std::ifstream f(argv[1]);std::string bytes((std::istreambuf_iterator<char>(f)),{});
         auto rules=cxvision::supervision::ParseJson(bytes);

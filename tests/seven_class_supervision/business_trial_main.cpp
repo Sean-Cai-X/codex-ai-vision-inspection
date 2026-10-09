@@ -106,7 +106,13 @@ int main(int argc,char** argv) {
     using namespace supervision_fixture;
     fs::path run;
     try {
-        if(argc!=5) throw std::runtime_error("usage: business_trial binding.json parent_root rules.json output_base");
+        if(argc!=5&&argc!=7) throw std::runtime_error("usage: business_trial binding.json parent_root rules.json output_base [epochs iterations]");
+        auto count=[](const char* value) {
+            std::string s=value;check(!s.empty()&&s.find_first_not_of("0123456789")==std::string::npos,"TRIAL_COUNT_INVALID");
+            auto n=std::stoul(s);check(n>0&&n<=200,"TRIAL_COUNT_OUT_OF_BOUNDS");return static_cast<unsigned>(n);
+        };
+        const unsigned epochs=argc==7?count(argv[5]):2,iterations=argc==7?count(argv[6]):2;
+        check(iterations>=epochs,"TRIAL_ITERATIONS_BELOW_EPOCHS");
         auto binding=read_json(argv[1]);auto rules=read_json(argv[3]);
         auto parent=fs::absolute(argv[2]);
         auto parent_check=validate_parent(parent,binding);
@@ -121,7 +127,7 @@ int main(int argc,char** argv) {
         std::string manifest=(parent/binding.at("parent_manifest_reference").get<std::string>()).generic_string();
         std::string train_root=bundle.at("training_root"),staging=train_dir.generic_string();
         J extra={{"training_split_percent",67},{"frozen_training_split_percent",67},
-            {"epoch_count",2},{"iteration_count",2},{"batch_size",1},
+            {"epoch_count",epochs},{"iteration_count",iterations},{"batch_size",1},
             {"trial_model_id",binding.at("trial_model_id")},{"annotation_click_mode","contour"},
             {"frozen_annotation_click_mode","contour"},{"allowed_annotation_click_modes",{"contour"}},
             {"case_id",bundle.at("case_id")},{"dataset_revision_id",bundle.at("dataset_revision_id")},
@@ -147,11 +153,11 @@ int main(int argc,char** argv) {
         std::string serialized=extra.dump();
         TorchTaskRequest req{};req.device="cpu";req.dataset_root=train_root.c_str();req.manifest_path=manifest.c_str();
         req.output_dir=staging.c_str();req.extra_json=serialized.c_str();req.case_name="Seven Class Native ellipse Business Trial";
-        std::cout<<"Starting real CPU trial: 2 epochs, 2 optimizer updates, batch size 1. Evidence: "<<run.generic_string()<<std::endl;
+        std::cout<<"Starting real CPU trial: "<<epochs<<" epochs, "<<iterations<<" optimizer updates, batch size 1. Evidence: "<<run.generic_string()<<std::endl;
         Result training;int rc=torch_runtime_run_business_trial_v1(handle.value,&req,on_epoch,cancelled,&progress,&training.value);
         auto train_result=result_json(training.value,rc);write_new(run/"training_receipt.json",train_result.dump(2));
         check(rc==0&&training.value.ok==1,"TRIAL_TRAINING_FAILED_SEE_RECEIPT");
-        check(progress.epochs.size()==2&&progress.epochs.back().at("completed_iterations")==2,"TRIAL_EPOCH_ACCOUNTING_MISMATCH");
+        check(progress.epochs.size()==epochs&&progress.epochs.back().at("completed_iterations")==iterations,"TRIAL_EPOCH_ACCOUNTING_MISMATCH");
         auto candidate=train_dir/"candidate";
         auto trace=read_json(candidate/"training_trace.json");
         check(trace.at("points").size()==progress.epochs.size(),"TRIAL_TRACE_COUNT_MISMATCH");
@@ -164,6 +170,9 @@ int main(int argc,char** argv) {
             }
         }
         auto cm=read_json(candidate/"model_manifest.json");
+        check(cm.at("training_loss_version")=="center_dense_balanced_bce_v2"&&
+            cm.at("training_loss_version")==trace.at("training_loss_version")&&
+            cm.at("training_loss_version")==train_result.at("result").at("training_loss_version"),"TRIAL_LOSS_VERSION_MISMATCH");
         auto weights=candidate/cm.at("weights").get<std::string>();
         check(digest(weights)==train_result.at("result").at("candidate_model_sha256"),"TRIAL_CANDIDATE_DIGEST_MISMATCH");
         auto verify=read_json(run/"ellipse"/"verify"/"asset_binding.json");
@@ -209,7 +218,7 @@ int main(int argc,char** argv) {
         check(tree_digests(run/"ellipse")==input_inventory,"TRIAL_SOURCE_ASSETS_CHANGED");
         J summary={{"status","PASS"},{"project_id",binding.at("project_id")},{"runtime",runtime},
             {"parent_files_unchanged",true},{"source_assets_unchanged",true},{"strict_tensor_loading_verified",true},
-            {"real_training_executed",true},{"optimizer_updates",2},{"epoch_callbacks",2},
+            {"real_training_executed",true},{"optimizer_updates",iterations},{"epoch_callbacks",epochs},
             {"real_verify_inference_executed",true},{"python_executed",false},
             {"verify_observation",observation},
             {"dataset_revision_id",bundle.at("dataset_revision_id")},{"candidate_model_sha256",train_result.at("result").at("candidate_model_sha256")},
