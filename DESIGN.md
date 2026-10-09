@@ -46,3 +46,12 @@ Actual receipt display separates requested and executed configurations, budget u
 Coarse/fine curves show recorded cyclic-shift correlations, not probabilities or physical angle-grid responses.
 Response tables scroll within 160 units. Partial traces explicitly mean incomplete search, never accepted production poses.
 Native guards, real CxScript and catalog/ImGui draw smoke are required; desktop click/screenshot acceptance remains separate.
+
+## Evidence current-case search (2026-10-09)
+Search edits reveal matching folder paths without activating cases or replacing Image View.
+Filtered trees use a separate ImGui ID scope so clearing search restores browse fold state.
+Hide Recent Cases during search to avoid unmatched and duplicate results; restore it when empty.
+Hidden-catalog lookup and current-case search have distinct explanatory text.
+Desktop verification: harmonic search reveals cases; clearing search restores collapsed browsing.
+Native regression: 17/17 CTest plus three Harmonic catalog/bridge cases.
+Remaining gaps: panel overlap, Chinese glyphs, independent-pair accuracy acceptance.
