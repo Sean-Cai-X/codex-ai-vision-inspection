@@ -1,0 +1,72 @@
+Registered parent / actual training and inference - 2026-10-09
+============================================================
+
+Project: test001-ellipse-business-trial
+Parent: dev_parent_yolov8seg_7class_warmup_20260915
+Source binding: contracts/development_parent_test001_20261009.json (business
+handoff IDs and digests; no new attestation or re-registration fabricated).
+
+Preflight: manifest/checkpoint/attestation/lineage SHA256 all recomputed and
+matched the handoff. Fixed seven-class order and development-only flags matched.
+Manifest weights_format=python_state_dict loaded through native LibTorch.
+Python executed: NO. Business project images opened/modified: NO.
+
+Canonical final run, generated only from R&D synthetic ellipse assets:
+  ../cxscript_runs/registered_parent_ellipse_trial/27608984190600/
+Read trial_summary.json, verify_observation.json, training_receipt.json,
+inference_receipt.json and epoch_events.jsonl there.
+
+Execution PASS:
+  Actual DLL C ABI training call, CPU, 2 epochs, 2 optimizer updates, batch 1.
+  2 Train + 1 Valid; one separate unlabelled VERIFY image, no VERIFY mask.
+  Training fraction 67% (rounded labelled-image fraction, VERIFY excluded).
+  Exactly 2 live epoch callbacks, checked against actual training_trace.json.
+  Candidate written as CANDIDATE_REVIEW_REQUIRED and strictly reloaded.
+  Inference weight mapping: 417/417 tensors loaded, no missing/unknown/shape
+  mismatches. Same candidate digest in train receipt, inference and instances.
+  Original image dimension 64x64, output box bounds checked; this is not a
+  contour/geometry accuracy measurement.
+  Parent hashes and every generated input asset digest unchanged after execution.
+
+Actual callback metrics (not generated curves):
+  epoch 1: updates=1, train_loss=4.90432596206665,
+           validation_score=0.18048863864628012, LR=0.0001
+  epoch 2: updates=2, train_loss=4.535931587219238,
+           validation_score=0.19696848310039922, LR=0.000001
+Actual trace validation losses: 4.54051, 4.07695 (serialized precision).
+Score definition is inverse_total_loss = 1/(1+loss), NOT mAP/IoU/accuracy.
+
+Model-effect observation - NOT ACCEPTED:
+  14 raw VERIFY instances: line=7, polygon=5, open_curve=2, ellipse=0.
+  project_target_result=NO_PROJECT_TARGET_DETECTED.
+  model_quality_accepted=false, geometry_accuracy_measured=false.
+  No class remapping, threshold relaxation or filtering was applied to hide
+  these observations. Two updates are not a convergence/accuracy acceptance.
+
+Actual bound artifacts:
+  runtime DLL SHA256:
+    21cbae7f5dc8e8fa08504c0887e4736dc0064ff6868b32db40d7cd370a136713
+  runner EXE SHA256:
+    63ab08f4a0a9b04662d5ef8e7861acfe7cac4ce30926ddae6454290c17b254ba
+  dataset revision:
+    sv1-8766d1be56f88f9361bb9f7ea3bcd5066b3815ca5cb11e931e084bc3df253c71
+  dataset manifest SHA256:
+    caae6d9b5f52ec1fef7123fa79e791d1cd354780f47e4cc9e91b988d2a892615
+  candidate checkpoint SHA256:
+    37263a0975c1d4f03afdbaeb075c05d7d1bdc0e45b2038399ee17a14604ceaa9
+
+Earlier retained runs 27361259987200 and 27518756750300 independently executed
+the same two updates; callback values and candidate digest matched this run.
+They are repeated execution evidence, NOT independent model-quality evidence.
+
+Final regression:
+  Native Release CTest: 3/3 PASS.
+  Actual runtime C ABI smoke + production-loader probe: 2/2 PASS.
+  git diff --check: PASS.
+The training runner is explicitly invoked, not registered as an automatic test.
+No push, installed runtime replacement, business UI change, production approval
+or automatic activation is included. Read README.registered_trial.txt to replay.
+
+Next: diagnose parent baseline vs candidate on controlled samples, then bounded
+effect/contour validation. Offline package import/typed business UI acceptance
+remain separate gates from the successfully executed native training pipeline.

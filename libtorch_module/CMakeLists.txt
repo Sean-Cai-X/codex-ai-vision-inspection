@@ -353,6 +353,21 @@ if(LIBTORCH_MODULE_BUILD_RUNTIME_DLL)
         configure_libtorch_module_test_environment(
             libtorch_module_business_c_api_smoke)
         if(LIBTORCH_MODULE_BUILD_DATASET_PROBE)
+            # Explicit invocation only: this target trains a registered parent.
+            # It is intentionally NOT registered as an automatic CTest.
+            add_executable(libtorch_module_registered_parent_trial
+                ../tests/seven_class_supervision/business_trial_main.cpp
+                ../cximage/CxSevenClassSupervision.cpp
+                ../cxgeom/src/CxGeoSO2ReferenceAsset.cpp
+                ../cxgeom/src/CxGeoSO2Harmonic.cpp)
+            target_include_directories(libtorch_module_registered_parent_trial PRIVATE
+                "${CMAKE_CURRENT_SOURCE_DIR}/../cxgeom/include")
+            configure_libtorch_module_target(libtorch_module_registered_parent_trial)
+            target_link_libraries(libtorch_module_registered_parent_trial PRIVATE libtorch_module_runtime)
+            add_custom_command(TARGET libtorch_module_registered_parent_trial POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    "$<TARGET_FILE:libtorch_module_runtime>"
+                    "$<TARGET_FILE_DIR:libtorch_module_registered_parent_trial>")
             set(_dataset_probe_sources ${LIBTORCH_MODULE_CORE_SOURCES})
             list(REMOVE_ITEM _dataset_probe_sources torch_runtime_yolov8_seg_executor.cpp)
             add_executable(libtorch_module_business_dataset_probe

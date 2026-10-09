@@ -1,0 +1,18 @@
+{
+  "schema": "visionai.rd_registered_parent_binding.v1",
+  "project_id": "test001-ellipse-business-trial",
+  "development_parent_model_id": "dev_parent_yolov8seg_7class_warmup_20260915",
+  "trial_model_id": "dev_parent_yolov8seg_7class_warmup_20260915",
+  "parent_manifest_reference": "model_manifest.json",
+  "parent_manifest_sha256": "sha256:a14e78e0aace85517e0fc4f38f55d0a4ec9ea40b8e37a2545d9e51425eb01ef0",
+  "checkpoint_sha256": "sha256:c24110c9d20db2ad79accb234ab9f6228a6d9258ab1accff5ed5f48de2d99e09",
+  "attestation_reference": "business-parent-attestation.v1.json",
+  "attestation_sha256": "sha256:fe579064582c61b03415cd63644a280bdbd3ff37751646bebc87971a1fa9d77f",
+  "lineage_reference": "source-lineage-node.json",
+  "source_lineage_sha256": "sha256:2bd2b1e9f83db937314a24eb2e70c74d63feac018413804dc7fe71f0376f2b41",
+  "task": "instance_segmentation",
+  "geometry_contract": ["arc", "circle", "ellipse", "line", "open_curve", "polygon", "closed_curve"],
+  "parent_usage": "DEVELOPMENT_ONLY",
+  "trial_only": true,
+  "production_allowed": false
+}
