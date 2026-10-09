@@ -62,3 +62,13 @@ Torch training/runtime, analytics smoke and parameter conclusion windows allow t
 Training process polling precedes Begin so collapsing the training image window cannot skip polling.
 Desktop: collapse, restore training panel, refocus, and native Harmonic execution verified.
 No live training job was started for this layout check. Chinese font coverage remains unresolved.
+
+## Offline CJK font fallback (2026-10-09)
+Both GUI initialization paths use CxUiFont.h; default Latin font and 13px sizing are retained.
+CXVISION_UI_FONT selects a trusted local CJK TTF/TTC (not downloaded or committed).
+Without an override, try standard local Droid/Noto/WenQuanYi paths on Linux and system fonts on Windows.
+Explicit missing override keeps Latin fallback and logs UI_FONT_CJK_MISSING with configuration guidance.
+Startup logs font path and CJK probe status; native tests inspect glyphs, not file existence alone.
+Linux desktop verified Chinese Evidence labels and unchanged case search/focus behavior.
+Windows candidate build and visual validation remain unperformed in this increment.
+Set CXVISION_TEST_CJK_FONT at CMake configure time to include the local CJK glyph test.
