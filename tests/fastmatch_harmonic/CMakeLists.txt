@@ -50,3 +50,6 @@ add_test(NAME harmonic_ui_parameter_guards COMMAND harmonic_ui_parameter_guards)
 
 add_executable(harmonic_feature_receipt_check native_feature_receipt_test.cpp)
 target_compile_features(harmonic_feature_receipt_check PRIVATE cxx_std_17)
+add_executable(so2_pose_guards native_pose_test.cpp)
+target_link_libraries(so2_pose_guards PRIVATE cx_so2)
+add_test(NAME pose_guards COMMAND so2_pose_guards)

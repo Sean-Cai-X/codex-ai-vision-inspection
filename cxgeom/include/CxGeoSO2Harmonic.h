@@ -36,6 +36,7 @@ struct Descriptor {
 };
 struct Pose {
     double angle_deg = 0, scale = 1, correlation = 0, residual = 0, cyclic_shift = 0;
+    double translation_x = 0, translation_y = 0; // Reference to observation.
 };
 struct Result {
     bool succeeded = false;

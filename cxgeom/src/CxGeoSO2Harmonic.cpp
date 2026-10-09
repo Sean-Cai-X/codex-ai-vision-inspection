@@ -180,6 +180,9 @@ Result Match(const Descriptor& a,const Descriptor& b) {
         Pose p;p.angle_deg=wrap(std::arg(value)*360/tau,360);p.scale=b.scale/a.scale;
         p.correlation=std::min(1.0,std::abs(value)/std::sqrt(er*eo));
         p.residual=std::sqrt(std::max(0.0,2-2*p.correlation));p.cyclic_shift=wrap(shift,1);
+        const Z t=b.centroid-p.scale*std::polar(1.0,p.angle_deg*tau/360)*a.centroid;
+        require(finite(t),"NONFINITE_POSE_TRANSLATION");
+        p.translation_x=t.real();p.translation_y=t.imag();
         candidates.push_back(p);
     }
     std::sort(candidates.begin(),candidates.end(),[](const Pose& x,const Pose& y) {
