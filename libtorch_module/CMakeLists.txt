@@ -353,6 +353,18 @@ if(LIBTORCH_MODULE_BUILD_RUNTIME_DLL)
         configure_libtorch_module_test_environment(
             libtorch_module_business_c_api_smoke)
         if(LIBTORCH_MODULE_BUILD_DATASET_PROBE)
+            add_executable(libtorch_module_parent_candidate_compare
+                ../tests/seven_class_supervision/model_compare_main.cpp
+                ../cximage/CxSevenClassSupervision.cpp
+                ../cxgeom/src/CxGeoSO2ReferenceAsset.cpp
+                ../cxgeom/src/CxGeoSO2Harmonic.cpp)
+            target_include_directories(libtorch_module_parent_candidate_compare PRIVATE
+                "${CMAKE_CURRENT_SOURCE_DIR}/../cxgeom/include" ${OpenCV_INCLUDE_DIRS})
+            configure_libtorch_module_target(libtorch_module_parent_candidate_compare)
+            target_link_libraries(libtorch_module_parent_candidate_compare PRIVATE libtorch_module_runtime)
+            add_test(NAME libtorch_module_comparison_metrics
+                COMMAND libtorch_module_parent_candidate_compare --metrics-self-test)
+            configure_libtorch_module_test_environment(libtorch_module_comparison_metrics)
             # Explicit invocation only: this target trains a registered parent.
             # It is intentionally NOT registered as an automatic CTest.
             add_executable(libtorch_module_registered_parent_trial
