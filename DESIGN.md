@@ -38,3 +38,11 @@ Keep ambiguous candidates; do not auto-select a pose or imply production approva
 Legacy missing fields are unavailable, never zero-filled; partial/malformed mappings are errors.
 Render only the current receipt; parameter edits keep existing invalidation behavior.
 Long candidate lists scroll within a bounded region. Desktop visual acceptance remains separate.
+
+## Harmonic staged-search controls (2026-10-09)
+Keep the existing two-column controls and inline invalidation. The staged group exposes eight bounded controls, OFF by default.
+Only canonical bound closed-contour scripts enable the group; open observations remain endpoint/order preserving.
+Actual receipt display separates requested and executed configurations, budget use, search completion and reason.
+Coarse/fine curves show recorded cyclic-shift correlations, not probabilities or physical angle-grid responses.
+Response tables scroll within 160 units. Partial traces explicitly mean incomplete search, never accepted production poses.
+Native guards, real CxScript and catalog/ImGui draw smoke are required; desktop click/screenshot acceptance remains separate.

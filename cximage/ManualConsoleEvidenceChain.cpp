@@ -5443,6 +5443,11 @@ int RunHarmonicEvidenceCatalogSmoke() {
     if(!RunHarmonicAuditGuiBridgeSmoke(*context,reason)) {
       std::cout<<"harmonic_gui_bridge_error="<<reason<<"\n";pass=false;
     }
+    ImGui::NewFrame();
+    ImGui::Begin("Key Parameter Controls");
+    DrawKeyParameterControlPanel(*context,nullptr);
+    ImGui::End();ImGui::Render();
+    if(!ImGui::GetDrawData() || ImGui::GetDrawData()->TotalVtxCount<=0)pass=false;
     found.insert(item.case_id);
     std::cout<<"harmonic_evidence_case="<<item.case_id<<" parameters="
              <<std::size(cxharmonicui::parameters)<<"\n";

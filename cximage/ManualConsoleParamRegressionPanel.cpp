@@ -1,5 +1,6 @@
 #include "../libtorchsegmentation/src/utils/json.hpp"
 #include "CxHarmonicPosePresentation.h"
+#include "CxHarmonicStagedPresentation.h"
 #include "CxHarmonicEvidenceParameters.h"
 #include "CxSetMatchEvidenceParameters.h"
 #include "CxParameterProfileRuntime.h"
@@ -8963,7 +8964,7 @@ static void DrawHarmonicAuditControls(ManualTestContext& context) {
   bool edited=false;
   auto group=[&](const char* title,int begin,int end,bool expanded,bool enabled) {
     if(!ImGui::CollapsingHeader(title,expanded?ImGuiTreeNodeFlags_DefaultOpen:0))return;
-    if(!enabled)ImGui::TextWrapped("Inactive for this open observation; no harmonic solver is executed.");
+    if(!enabled)ImGui::TextWrapped("Inactive: unsupported source or missing script binding.");
     ImGui::BeginDisabled(!enabled || context.has_pending_execution_snapshot);
     if(ImGui::BeginTable(title,2,ImGuiTableFlags_SizingStretchProp)) {
       ImGui::TableSetupColumn("Parameter",ImGuiTableColumnFlags_WidthStretch,0.64f);
@@ -8990,15 +8991,19 @@ static void DrawHarmonicAuditControls(ManualTestContext& context) {
   if(cxharmonicui::SupportsFeatureDebug(context.editor_text))
     group("5. Debug capture",21,23,true,true);
   else ImGui::TextWrapped("Legacy script: feature debug capture unavailable. Use the updated Evidence script.");
+  const bool stagedBinding=cxharmonicui::SupportsStagedSearch(context.editor_text);
+  group("6. Staged cyclic-shift search",23,31,true,!open && stagedBinding);
+  if(!stagedBinding)ImGui::TextWrapped("Script lacks staged binding; use updated closed Evidence case.");
+  ImGui::TextWrapped("Disabled by default. Capture requires Debug mode=1; no production promotion.");
 
   if(ImGui::CollapsingHeader("Contract and unsupported extensions")) {
     ImGui::TextWrapped("Topology is source evidence, not a bypass switch. No AUTO_DETECT. A declaration cannot override conflicting measured topology.");
     ImGui::TextWrapped("Anchor selects boundary samples, not a target box. Ambiguous components/arcs are rejected.");
-    ImGui::TextWrapped("Implemented: one harmonic order, DFT/EFD, centroid removal, optional scale normalization, cyclic-shift pose hypotheses. Scores are not probabilities.");
+    ImGui::TextWrapped("Implemented: DFT/EFD and bounded coarse/fine cyclic shifts with analytic rotation. Scores are not probabilities.");
     ImGui::TextWrapped("NOT IMPLEMENTED: prior_shape_type; completion_mode (OFF only); max_completion_ratio; synthetic_segment_penalty; automatic completion_fallback.");
-    ImGui::TextWrapped("NOT IMPLEMENTED: harmonic_order_coarse/fine; coarse/fine angle step/range/threshold; coarse/fine enable; phase_correlation_mode; scale range/step/solve switch.");
+    ImGui::TextWrapped("NOT IMPLEMENTED: physical angle step/range/threshold; phase correlation mode; scale range/step.");
     ImGui::TextWrapped("FIXED: start_order=1; no HANN/HAMMING window; centroid alignment cannot be disabled. No alternate centroid method or offset realignment.");
-    ImGui::TextWrapped("Coefficient spectra are available with debug capture. Rotation-response curves, step dumps, tag overlays and log-level switches are not implemented.");
+    ImGui::TextWrapped("Coefficient spectra and cyclic-shift responses support debug capture; no angle-grid scan.");
     ImGui::TextWrapped("quality_use_observed_only is a non-bypassable future quality contract. Completion and calibrated solvability are unavailable; no production defaults claimed.");
   }
   ImGui::BeginDisabled(context.has_pending_execution_snapshot);
@@ -9017,7 +9022,7 @@ static void DrawHarmonicAuditControls(ManualTestContext& context) {
     context.debug_reason="Parameters changed; previous result invalidated. Run again.";
     RecordManualOperationTraceEvent(context,"harmonic_parameter_edit","staged",context.debug_reason);
   }
-  std::string reason;const bool valid=cxharmonicui::Validate(context.runtime_int_vars,reason);
+  std::string reason;const bool valid=cxharmonicui::ValidateScript(context.editor_text,context.runtime_int_vars,reason);
   if(!valid)ImGui::TextWrapped("Cannot run: %s",reason.c_str());
   ImGui::BeginDisabled(!valid || context.has_pending_execution_snapshot);
   if(ImGui::Button("Run Harmonic Audit") && !RequestHarmonicAuditRun(context,reason))context.debug_reason=reason;
@@ -9040,6 +9045,35 @@ static void DrawHarmonicAuditControls(ManualTestContext& context) {
       if(scrollPoses) ImGui::BeginChild("harmonic_pose_candidates",ImVec2(0,180),true);
       for(const auto& line:poseLines) ImGui::TextWrapped("%s",line.c_str());
       if(scrollPoses) ImGui::EndChild();
+      const auto staged=cxharmonicui::StagedDisplayData(result);
+      if(ImGui::TreeNodeEx("Staged search / actual execution",ImGuiTreeNodeFlags_DefaultOpen)) {
+        for(const auto& line:staged.lines)ImGui::TextWrapped("%s",line.c_str());
+        auto plot=[&](const char* label,const char* key,const std::vector<float>& values) {
+          if(values.empty())return;
+          if(ImGui::TreeNode(label)) {
+            ImGui::PlotLines("Correlation",values.data(),static_cast<int>(values.size()),
+              0,"Recorded shift samples only",0.0f,1.0f,ImVec2(0,100));
+            const auto& rows=result.at("staged_search").at(key);
+            if(ImGui::BeginTable("response",4,ImGuiTableFlags_ScrollY|ImGuiTableFlags_Borders,ImVec2(0,160))) {
+              for(const char* title:{"Shift (turns)","Angle (deg)","Correlation","Residual"})
+                ImGui::TableSetupColumn(title);
+              ImGui::TableSetupScrollFreeze(0,1);ImGui::TableHeadersRow();
+              ImGuiListClipper clip;clip.Begin(static_cast<int>(rows.size()));
+              while(clip.Step())for(int i=clip.DisplayStart;i<clip.DisplayEnd;++i) {
+                ImGui::TableNextRow();
+                for(const char* field:{"shift_turns","angle_deg","correlation","residual"}) {
+                  ImGui::TableNextColumn();ImGui::Text("%.7g",rows.at(i).at(field).get<double>());
+                }
+              }
+              ImGui::EndTable();
+            }
+            ImGui::TreePop();
+          }
+        };
+        plot("Coarse response","coarse_response",staged.coarse);
+        plot("Fine response","fine_response",staged.fine);
+        ImGui::TreePop();
+      }
       if(result.contains("debug")) {
         const auto& debug=result.at("debug");
         ImGui::TextWrapped("Feature capture: %s | %s",debug.at("status").get<std::string>().c_str(),debug.at("reason").get<std::string>().c_str());

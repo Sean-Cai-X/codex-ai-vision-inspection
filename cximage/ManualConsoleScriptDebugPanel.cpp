@@ -68,7 +68,7 @@ bool PrepareHarmonicAuditRun(ManualTestContext& context, ParserDebugBridge& brid
   context.harmonic_audit_receipt.clear();
   if((context.runtime_int_vars["global_harmonic_debug_mode"] || context.runtime_int_vars["global_harmonic_save_features"]) &&
      !cxharmonicui::SupportsFeatureDebug(context.editor_text)){reason="Script lacks harmonic feature debug binding";return false;}
-  if(!cxharmonicui::Validate(context.runtime_int_vars,reason)) return false;
+  if(!cxharmonicui::ValidateScript(context.editor_text,context.runtime_int_vars,reason))return false;
   try {
     const auto root=ResolveCxVisionRunPath("cxscript_runs/harmonic_audit_manual");
     std::filesystem::create_directories(root);
@@ -723,7 +723,7 @@ bool RequestHarmonicAuditRun(ManualTestContext& context,std::string& reason) {
   if(context.has_pending_execution_snapshot){reason="A run is already pending";return false;}
   if((context.runtime_int_vars["global_harmonic_debug_mode"] || context.runtime_int_vars["global_harmonic_save_features"]) &&
      !cxharmonicui::SupportsFeatureDebug(context.editor_text)){reason="Script lacks harmonic feature debug binding";return false;}
-  if(!cxharmonicui::Validate(context.runtime_int_vars,reason))return false;
+  if(!cxharmonicui::ValidateScript(context.editor_text,context.runtime_int_vars,reason))return false;
   context.harmonic_audit_receipt.clear();
   context.harmonic_audit_result_summary.clear();
   context.debug_action="Key Parameter Controls Run Script";
@@ -875,15 +875,29 @@ bool ViewController::RunHarmonicPendingEntrySmoke(ManualTestContext& source,std:
       c.runtime_int_vars["global_harmonic_debug_mode"]=i;
       c.runtime_int_vars["global_harmonic_save_features"]=i;
     }
+    if(cxharmonicui::SupportsStagedSearch(c.editor_text)) {
+      c.runtime_int_vars["global_harmonic_staged_search"]=i;
+      c.runtime_int_vars["global_harmonic_staged_capture_response"]=i;
+      c.runtime_int_vars["global_harmonic_staged_maximum_evaluations"]=65536;
+    }
     if(!RequestHarmonicAuditRun(c,reason))return false;
     std::string duplicate;
     if(RequestHarmonicAuditRun(c,duplicate)){reason="Duplicate harmonic run accepted";return false;}
     c.runtime_int_vars["global_harmonic_sample_count"]=512;
+    if(i && cxharmonicui::SupportsStagedSearch(c.editor_text))
+      c.runtime_int_vars["global_harmonic_staged_maximum_evaluations"]=1;
     if(!ConsumePendingManualScriptRun(c,"harmonic_pending_smoke") ||
        c.harmonic_audit_receipt.empty()){reason="Missing pending harmonic receipt: "+c.debug_reason;return false;}
     const auto r=nlohmann::json::parse(c.harmonic_audit_receipt);
     if(r.at("runs").back().at("parameters").at("sample_count")!=(i?128:256)) {
       reason="Harmonic snapshot not frozen";return false;
+    }
+    if(i && cxharmonicui::SupportsStagedSearch(c.editor_text)) {
+      const auto& staged=r.at("runs").back().at("staged_search");
+      if(staged.at("status")!="COMPLETED" || staged.at("executed").at("maximum_evaluations")!=65536 ||
+         staged.at("coarse_response").size()!=64 || staged.at("fine_response").size()!=256) {
+        reason="Staged frozen snapshot/capture mismatch";return false;
+      }
     }
     if(i && cxharmonicui::SupportsFeatureDebug(c.editor_text)) {
       const auto& debug=r.at("runs").back().at("debug");
@@ -914,6 +928,12 @@ bool RunHarmonicAuditGuiBridgeSmoke(ManualTestContext& context, std::string& rea
   }
   for(int run=0;run<2;++run) {
     if(run)context.runtime_int_vars["global_harmonic_sample_count"]=128;
+    if(run && cxharmonicui::SupportsStagedSearch(context.editor_text)) {
+      context.runtime_int_vars["global_harmonic_staged_search"]=1;
+      context.runtime_int_vars["global_harmonic_debug_mode"]=1;
+      context.runtime_int_vars["global_harmonic_staged_capture_response"]=1;
+      context.runtime_int_vars["global_harmonic_staged_maximum_evaluations"]=10;
+    }
     for(const auto& value:context.runtime_int_vars)bridge.SetGlobalInt(value.first,value.second);
     bridge.SetGlobalInt("global_match_count",0);
     if(!PrepareHarmonicAuditRun(context,bridge,reason))return false;
@@ -933,6 +953,15 @@ bool RunHarmonicAuditGuiBridgeSmoke(ManualTestContext& context, std::string& rea
        replayValues.at("global_harmonic_sample_count")!=actual) {
       reason="Archived GUI script is not replayable";return false;
     }
+    if(run && cxharmonicui::SupportsStagedSearch(context.editor_text)) {
+      const auto& staged=receipt.at("runs").back().at("staged_search");
+      if(staged.at("status")!="BUDGET_EXHAUSTED" ||
+         staged.at("requested").at("maximum_evaluations")!=10 ||
+         replayValues.at("global_harmonic_staged_maximum_evaluations")!=10) {
+        reason="Staged budget execution/replay mismatch";return false;
+      }
+    }
+    context.harmonic_audit_receipt=receipt.dump();
   }
   return true;
  } catch(const std::exception& e) {reason=e.what();return false;}

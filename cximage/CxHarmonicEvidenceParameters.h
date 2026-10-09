@@ -30,7 +30,16 @@ inline const Parameter parameters[] = {
  {"global_harmonic_roi_w","Source ROI width (px)",320,1,100000},
  {"global_harmonic_roi_h","Source ROI height (px)",240,1,100000},
  {"global_harmonic_debug_mode","Debug mode (0/1)",0,0,1},
- {"global_harmonic_save_features","Save intermediate features (0/1)",0,0,1}
+ {"global_harmonic_save_features","Save intermediate features (0/1)",0,0,1},
+
+ {"global_harmonic_staged_search","Enable staged search (0/1)",0,0,1},
+ {"global_harmonic_staged_coarse_order","Coarse harmonic order",4,1,511},
+ {"global_harmonic_staged_fine_order","Fine harmonic order",12,1,511},
+ {"global_harmonic_staged_coarse_samples","Coarse shift samples",64,4,2048},
+ {"global_harmonic_staged_fine_samples","Fine shift samples",256,4,2048},
+ {"global_harmonic_staged_refinement_iterations","Refinement iterations",32,1,64},
+ {"global_harmonic_staged_maximum_evaluations","Maximum spectral evaluations",65536,1,262144},
+ {"global_harmonic_staged_capture_response","Capture shift response (0/1)",0,0,1},
 };
 inline bool IsCase(const std::string& text) {
  return text.find("// harmonic_evidence_binding: 1")!=std::string::npos;
@@ -38,6 +47,22 @@ inline bool IsCase(const std::string& text) {
 inline bool SupportsFeatureDebug(const std::string& text) {
  return text.find(".parameter(global_harmonic_debug_mode,")!=std::string::npos &&
         text.find(".parameter(global_harmonic_save_features,")!=std::string::npos;
+}
+inline bool SupportsStagedSearch(const std::string& text) {
+ // Canonical shipped-script binding check; actual receipts remain execution evidence.
+ std::string code,line;std::istringstream lines(text);
+ while(std::getline(lines,line))code+=line.substr(0,line.find("//"));
+ std::size_t at=0;
+ while((at=code.find("/*",at))!=std::string::npos) {
+  const auto end=code.find("*/",at+2);if(end==std::string::npos)return false;
+  code.erase(at,end+2-at);
+ }
+ for(int i=23;i<31;++i) {
+  const std::string key=parameters[i].key;
+  const std::string call=".parameter("+key+",\""+key.substr(16)+"\");";
+  if(code.find(call)==std::string::npos)return false;
+ }
+ return true;
 }
 inline bool Defaults(const std::string& text, std::unordered_map<std::string,int>& out,
                      std::string& reason) {
@@ -57,6 +82,9 @@ inline bool Defaults(const std::string& text, std::unordered_map<std::string,int
   if(!found){reason="Unknown harmonic default: "+key;return false;}
  }
  if((out.at("global_harmonic_debug_mode") || out.at("global_harmonic_save_features")) && !SupportsFeatureDebug(text)) {reason="Script lacks harmonic feature debug binding";return false;}
+ if(out.at("global_harmonic_staged_search") && !SupportsStagedSearch(text)) {
+  reason="Script lacks complete staged search binding";return false;
+ }
  reason.clear();return true;
 }
 inline bool Validate(const std::unordered_map<std::string,int>& values,std::string& reason) {
@@ -77,6 +105,31 @@ inline bool Validate(const std::unordered_map<std::string,int>& values,std::stri
  if(values.at("global_harmonic_save_features") && !values.at("global_harmonic_debug_mode")) {
   reason="Save intermediate features requires debug mode";return false;
  }
+ if(values.at("global_harmonic_staged_search")) {
+  auto v=[&](const char* key){return values.at(std::string("global_harmonic_")+key);};
+  if(v("staged_coarse_order")>v("staged_fine_order") || v("staged_fine_order")>v("max_order")) {
+   reason="Staged orders must satisfy coarse <= fine <= maximum order";return false;
+  }
+  if(v("staged_coarse_samples")<4*v("staged_coarse_order") ||
+     v("staged_fine_samples")<4*v("staged_fine_order") ||
+     v("staged_fine_samples")<v("staged_coarse_samples")) {
+   reason="Shift samples must be >= 4 * order and fine >= coarse";return false;
+  }
+  if(v("staged_capture_response") && !v("debug_mode")) {
+   reason="Staged response capture requires debug mode";return false;
+  }
+ }
  reason.clear();return true;
+}
+inline bool ValidateScript(const std::string& text,
+ const std::unordered_map<std::string,int>& values,std::string& reason) {
+ if(!Validate(values,reason))return false;
+ if(values.at("global_harmonic_staged_search")) {
+  if(!SupportsStagedSearch(text)){reason="Script lacks complete staged search binding";return false;}
+  if(text.find(".fromobjectarc(")!=std::string::npos) {
+   reason="Open observation cannot execute closed staged search";return false;
+  }
+ }
+ return true;
 }
 }
