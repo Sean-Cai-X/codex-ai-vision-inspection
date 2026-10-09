@@ -11,6 +11,7 @@ source_set("cxvision_source_inventory") {
   sources = filter_exclude(cxvision_default_sources, [
     "cximage/CxFastMatchHarmonicAudit.cpp",
     "cxgeom/src/CxGeoSO2Harmonic.cpp",
+    "cxgeom/src/CxGeoSO2StagedSearch.cpp",
     "cxgeom/src/CxGeoSO2ReferenceAsset.cpp",
   ]) + [
     "cximage/CxFastMatchHarmonicAudit.cpp",
@@ -73,6 +74,7 @@ static_library("cxgeom_set_match_adapter") {
   sources = [
     "cximage/FindSetMatch.cpp",
     "cxgeom/src/CxGeoSO2Harmonic.cpp",
+    "cxgeom/src/CxGeoSO2StagedSearch.cpp",
     "cxgeom/src/CxGeoSO2ReferenceAsset.cpp",
   ]
   include_dirs = [ "cxgeom/include" ]
@@ -81,6 +83,12 @@ static_library("cxgeom_set_match_adapter") {
 }
 executable("geometric_set_adapter_test") {
   sources = [ "tests/geometric_set_matching/adapter_test.cpp" ]
+  deps = [ ":cxgeom_set_match_adapter" ]
+  configs = [ ":geometric_set_platform" ]
+}
+executable("harmonic_staged_test") {
+  sources = [ "tests/fastmatch_harmonic/native_staged_test.cpp" ]
+  include_dirs = [ "cxgeom/include" ]
   deps = [ ":cxgeom_set_match_adapter" ]
   configs = [ ":geometric_set_platform" ]
 }
