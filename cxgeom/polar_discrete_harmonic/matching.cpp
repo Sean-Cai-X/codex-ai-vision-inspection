@@ -8,6 +8,14 @@ MatchResult MatchFull(const std::string& rid,const std::vector<Feature>& rf,
  const std::string& tid,const std::vector<Feature>& tf,const MatchConfig& cfg){
  constexpr double pi=3.14159265358979323846;
  auto need=[](bool b,const char* s){if(!b)throw std::invalid_argument(s);};
+ need(std::isfinite(cfg.angle_min_deg)&&std::isfinite(cfg.angle_max_deg)&&
+      cfg.angle_min_deg>=-180&&cfg.angle_min_deg<=180&&
+      cfg.angle_max_deg>=-180&&cfg.angle_max_deg<=180,"POLAR_INVALID_ANGLE_RANGE");
+ auto inAngle=[&](double value){
+  auto within=[&](double x){return cfg.angle_min_deg<=cfg.angle_max_deg?
+   x>=cfg.angle_min_deg&&x<=cfg.angle_max_deg:x>=cfg.angle_min_deg||x<=cfg.angle_max_deg;};
+  return within(value)||(std::abs(value)==180&&within(-value));
+ };
  need(std::isfinite(cfg.scale_min)&&std::isfinite(cfg.scale_max)&&cfg.scale_min>0&&
       cfg.scale_max>=cfg.scale_min,"POLAR_INVALID_SCALE_RANGE");
  need(std::isfinite(cfg.max_residual_px)&&cfg.max_residual_px>0&&
@@ -17,6 +25,7 @@ MatchResult MatchFull(const std::string& rid,const std::vector<Feature>& rf,
       cfg.maximum_pair_checks>0,"POLAR_INVALID_MATCH_LIMIT");
  auto a=Encode(rid,rf,cfg.encoding),b=Encode(tid,tf,cfg.encoding);
  MatchResult out;out.reference_source=rid;out.target_source=tid;out.executed=cfg;
+ out.reason="bounded_phase_roots_only;no_partial_recovery;no_production_admission";
  if(rf.size()!=tf.size()){out.status="UNSUPPORTED_PARTIAL_SET";return out;}
  need(rf.size()<=128,"POLAR_FULL_SET_SIZE_LIMIT");
  for(const auto* d:{&a,&b})for(const auto& f:d->features)
@@ -38,6 +47,7 @@ MatchResult MatchFull(const std::string& rid,const std::vector<Feature>& rf,
   }
   ++out.evaluated_candidates;
   double angle=std::remainder(base+2*pi*root/k,2*pi),distance=0;
+  if(!inAngle(angle*180/pi)){++out.angle_rejected;continue;}
   for(int ch=0;ch<3;++ch)for(int order=0;order<=cfg.encoding.max_order;++order)
    distance+=std::norm(b.moments[ch][order]-a.moments[ch][order]*std::polar(1.,-order*angle));
   distance=std::sqrt(distance/(3*(cfg.encoding.max_order+1)));
@@ -80,6 +90,7 @@ MatchResult MatchFull(const std::string& rid,const std::vector<Feature>& rf,
   return x.angle_deg<y.angle_deg;
  });
  out.status=out.candidates.empty()?"NO_SPATIAL_MATCH":"FULL_SET_AUDIT_CANDIDATES";
+ if(out.candidates.empty()&&out.angle_rejected==out.evaluated_candidates)out.status="ANGLE_RANGE_REJECTED";
  if(out.candidates.size()>1)out.status="AMBIGUOUS";
  for(const auto& p:out.candidates)if(p.correspondence_ambiguous)out.status="AMBIGUOUS";
  out.reason="bounded_phase_roots_only;no_partial_recovery;no_production_admission";

@@ -137,3 +137,7 @@ add_test(NAME polar_encoding COMMAND harmonic_polar_encoding)
 add_executable(harmonic_polar_matching native_polar_matching_test.cpp)
 target_link_libraries(harmonic_polar_matching PRIVATE cxgeom_polar_discrete_harmonic)
 add_test(NAME polar_matching COMMAND harmonic_polar_matching)
+add_executable(harmonic_polar_receipt native_polar_receipt_test.cpp)
+target_link_libraries(harmonic_polar_receipt PRIVATE cxgeom_polar_discrete_harmonic)
+add_test(NAME polar_noise_receipt COMMAND harmonic_polar_receipt
+  ${CMAKE_CURRENT_BINARY_DIR}/polar_match_receipt.json)

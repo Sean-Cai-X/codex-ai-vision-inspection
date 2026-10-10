@@ -4,6 +4,8 @@ namespace cxgeom::polar {
 struct MatchConfig {
  Config encoding;
  double scale_min=.5, scale_max=2;
+ // Degrees in [-180,180]; min>max selects a window crossing the +/-180 seam.
+ double angle_min_deg=-180,angle_max_deg=180;
  double max_residual_px=.3, max_spectral_distance=.05;
  double min_phase_amplitude=1e-6;
  size_t maximum_candidates=64, maximum_pair_checks=1000000;
@@ -20,6 +22,7 @@ struct MatchResult {
  MatchConfig executed;
  std::vector<PoseCandidate> candidates;
  size_t evaluated_candidates=0,pair_checks=0;
+ size_t angle_rejected=0;
  int phase_order=0,phase_channel=0;
  bool search_complete=false,production_eligible=false;
 };
