@@ -3,6 +3,7 @@
 #include "CxHarmonicStagedPresentation.h"
 #include "CxHarmonicEvidenceParameters.h"
 #include "CxSetMatchEvidenceParameters.h"
+#include "CxPartialMatchUiParameters.h"
 #include "CxParameterProfileRuntime.h"
 #include "CxScriptCasePackageWriter.h"
 #include "CxUnifiedLog.h"
@@ -9124,8 +9125,47 @@ static void DrawHarmonicAuditControls(ManualTestContext& context) {
   }
 }
 
+static void DrawPartialMatchControls(ManualTestContext& context) {
+ ImGui::TextUnformatted("Partial Match / GEOMETRY AUDIT ONLY");
+ ImGui::TextWrapped("Parameters below edit literal script calls. Run the script again after edits; old results are stale. No image extraction or production activation.");
+ ImGui::BeginDisabled(context.has_pending_execution_snapshot);
+ if(ImGui::Button("Expose missing parameters with defaults")){
+  try{cxpartialui::Expose(context.editor_text);context.editor_dirty=true;context.debug_reason.clear();}
+  catch(const std::exception& e){context.debug_reason=e.what();}
+ }
+ std::string object;
+ try{object=cxpartialui::Object(context.editor_text);}
+ catch(const std::exception& e){context.debug_reason=e.what();}
+ if(!object.empty()&&ImGui::BeginTable("partial_parameters",2,ImGuiTableFlags_SizingStretchProp)){
+  ImGui::TableSetupColumn("Parameter");ImGui::TableSetupColumn("Script value");
+  for(const auto& p:cxpartialui::Parameters()){
+   ImGui::TableNextRow();ImGui::TableNextColumn();ImGui::TextUnformatted(p.key);
+   if(ImGui::IsItemHovered())ImGui::SetTooltip("Default %.9g | range %.9g .. %.9g | %s",p.initial,p.minimum,p.maximum,p.integer?"integer":"real");
+   ImGui::TableNextColumn();ImGui::PushID(p.key);
+   try {
+    auto value=cxpartialui::Read(context.editor_text,object,p);
+    if(!value.present)ImGui::TextUnformatted("Not explicit - expose defaults");
+    else {
+     ImGui::SetNextItemWidth(-1);
+     if(ImGui::InputDouble("##value",&value.value,0,0,"%.12g")){
+      cxpartialui::Set(context.editor_text,p,value.value);context.editor_dirty=true;
+      context.debug_reason="Parameters changed; rerun script before reviewing results.";
+     }
+    }
+   }catch(const std::exception& e){ImGui::TextWrapped("%s",e.what());}
+   ImGui::PopID();
+  }
+  ImGui::EndTable();
+ }
+ ImGui::EndDisabled();
+ ImGui::TextWrapped("Angle min > max means a window crossing +/-180 degrees. Cross-parameter constraints are checked by the solver. Compare executed parameters in partial_match_receipt_0.json.");
+ if(!context.debug_reason.empty())ImGui::TextWrapped("%s",context.debug_reason.c_str());
+}
 void DrawKeyParameterControlPanel(
     ManualTestContext &context, const ParserDebugBridge *parserDebugBridge) {
+  if(cxpartialui::IsCase(context.editor_text)){
+    DrawPartialMatchControls(context);return;
+  }
   if (cxsetmatchui::IsCase(context.editor_text)) {
     DrawSetMatchControls(context);return;
   }
