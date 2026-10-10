@@ -4,3 +4,4 @@ target_include_directories(cxgeom_polar_discrete_harmonic PUBLIC ${CMAKE_CURRENT
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   target_compile_options(cxgeom_polar_discrete_harmonic PRIVATE -Wall -Wextra -Werror -pedantic)
 endif()
+target_sources(cxgeom_polar_discrete_harmonic PRIVATE matching.cpp)
