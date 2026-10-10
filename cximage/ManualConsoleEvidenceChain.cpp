@@ -5422,6 +5422,7 @@ int RunPartialMatchEvidenceCatalogSmoke() {
   if(!ReadTextFile(item.script_path,source)||cv::imread(item.image_path).empty()||
      cv::imread(item.thumbnail_path).empty())throw std::runtime_error("partial_asset_load_failed");
   context->editor_text=source;
+  if(!IsGeometryAuditKeyParameterContext(*context))throw std::runtime_error("partial_outer_parameter_gate_rejected");
   for(const auto& p:cxpartialui::Parameters())
    if(!cxpartialui::Read(source,"p",p).present)throw std::runtime_error("partial_parameter_missing");
   for(int frame=0;frame<2;++frame){

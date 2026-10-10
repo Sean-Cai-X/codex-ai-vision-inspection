@@ -9126,6 +9126,10 @@ static void DrawHarmonicAuditControls(ManualTestContext& context) {
   }
 }
 
+bool IsGeometryAuditKeyParameterContext(const ManualTestContext& context) {
+ return cxpartialui::IsCase(context.editor_text)||cxharmonicui::IsCase(context.editor_text)||
+        cxsetmatchui::IsCase(context.editor_text);
+}
 static void DrawPartialMatchControls(ManualTestContext& context) {
  ImGui::TextUnformatted("Partial Match / GEOMETRY AUDIT ONLY");
  ImGui::TextWrapped("Parameters below edit literal script calls. Run the script again after edits; old results are stale. No image extraction or production activation.");
