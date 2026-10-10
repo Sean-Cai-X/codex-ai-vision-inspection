@@ -1,0 +1,22 @@
+{
+  "schema": "visionai.seven_class_supervision_rules.v1",
+  "version": "1.0.0",
+  "classes": ["arc", "circle", "ellipse", "line", "open_curve", "polygon", "closed_curve"],
+  "open_classes": ["arc", "line", "open_curve"],
+  "coordinates": "original_image_integer_pixel_centers_xy_top_left_subpixel_vertices",
+  "input_geometry": "explicit_ordered_polyline_or_simple_ring_no_fitting",
+  "open_width_px": 3.0,
+  "sample_max_step_px": 1.0,
+  "stroke": "euclidean_distance_to_original_segments_round_caps_round_joins",
+  "fill": "even_odd_pixel_center_with_boundary_included",
+  "background": 255,
+  "self_intersections": "reject",
+  "open_stroke_raster_holes": "reject",
+  "holes": "reject",
+  "out_of_bounds_vertices": "reject",
+  "stroke_at_image_border": "clip_raster_preserve_source_endpoints_and_report",
+  "cross_instance_touching_or_overlap": "reject_8_connected",
+  "unlabelled_verify": "no_mask_not_training",
+  "open_mask_is_region_not_centerline": true,
+  "admission": ["development_trial", "isolated_business_validation"]
+}

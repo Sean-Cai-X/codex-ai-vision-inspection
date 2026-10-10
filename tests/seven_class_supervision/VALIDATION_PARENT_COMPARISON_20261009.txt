@@ -1,0 +1,77 @@
+Native parent/candidate comparison - 2026-10-09
+
+Scope
+Development diagnostic only; no training, promotion, activation, threshold change,
+class remapping, business-image access or modification of historical inputs.
+Uses the real runtime generic C ABI instance-segmentation task for BOTH models.
+This is a developer comparison, not a substitute for the typed business service
+admission path (already tested separately by registered_parent_trial).
+
+Build / run (PowerShell from repository root)
+cmake --build ../build_supervision_runtime --config Release --target libtorch_module_parent_candidate_compare --parallel 4
+$env:PATH = 'D:/libtorch/lib;D:/opencv/build/x64/vc16/bin;' + $env:PATH
+& ../build_supervision_runtime/Release/libtorch_module_parent_candidate_compare.exe contracts/development_parent_test001_20261009.json D:/Codex-WorkDir/Sean_WorkDir/Vision-AI/business_trials/test001-ellipse-trial-r1/parent_model ../cxscript_runs/registered_parent_ellipse_trial/27608984190600 contracts/seven_class_supervision_rules.v1.json ../cxscript_runs/parent_candidate_comparison
+
+Explicit invocation only. Full model comparison is not an automatic CTest.
+Metric unit tests are automatic and require no model asset.
+Each invocation creates a new evidence directory. Original images, masks, model
+files, manifests, attestation and prior run files are rehashed after execution.
+VERIFY stays unlabelled in the frozen dataset. Its oracle is reconstructed in
+memory from the exact R&D generator, used only for this diagnostic.
+The three Train/Valid masks are independently regenerated and compared bytewise
+at the decoded-pixel level with the frozen masks before inference.
+
+Final evidence
+../cxscript_runs/parent_candidate_comparison/31222291891400/comparison.json
+Each of its eight model/sample directories contains actual runtime instance
+masks, original-coordinate evidence, strict loading report and C ABI call status.
+runtime DLL SHA256: 21cbae7f5dc8e8fa08504c0887e4736dc0064ff6868b32db40d7cd370a136713
+comparison EXE SHA256: cfb1f230c6dd79b0f2fa7098aa3e2d7e2cb1bcc396a49a337473022d54b9a8fb
+Parent/candidate checkpoint SHA and dataset revision are bound in comparison.json.
+
+Results: best instance across ALL classes (not ellipse accuracy)
+sample       parent class / IoU     candidate class / IoU
+0 Train      open_curve / .976048   open_curve / .960813
+1 Train      open_curve / .963563   line       / .932903
+2 Valid      open_curve / .854369   open_curve / .835646
+3 VERIFY     open_curve / .911249   line       / .996659
+All eight runs: zero ellipse instances, best ellipse IoU = 0.
+VERIFY symmetric mean raster boundary distance: parent .802056 pixels;
+candidate .018713 pixels, but BOTH have the wrong class.
+Boundary distance is the mean of two directed Euclidean distance-transform
+means on the inner one-pixel boundaries; empty boundaries yield missing/null,
+not an invented zero. This is not subpixel metrology or Hausdorff distance.
+
+Conclusions and limits
+Execution PASS, strict tensor load PASS, source files unchanged PASS.
+Model quality NOT accepted. Synthetic same-generator variants are not independent
+business accuracy evidence. IoU of the best wrong-class mask is diagnostic only.
+The parent already exhibits this classification error: it is not introduced only
+by the new two-update trial. The candidate improves the VERIFY mask but does not
+correct its class; Train/Valid mask overlap does not uniformly improve.
+Fixed class ordering and original 64x64 mask dimensions passed checks. This does
+not establish that historical parent training used semantically correct labels.
+
+Code audit
+DecodeCandidates takes sigmoid(class_logits).max(class axis), no class-ID offset.
+ComputeBusinessYoloV8SegLoss supervises one target-center anchor per feature
+level and has no classification penalty on nonselected/background anchors.
+This is a confirmed supervision limitation, not yet a proven sole root cause.
+Validation uses the same loss; validation_score = 1/(1+loss), not mAP or IoU.
+Training mode is correctly restored with model->train() after validation.
+
+Next bounded step
+Audit historical parent label semantics and reuse existing task-aligned target
+assignment assets for full-anchor classification supervision. Add tests for
+background gradients, class-channel identity and competing targets, then rerun
+controlled overfit and the identical comparison. Do not fix the result through
+class relabelling, threshold relaxation or confidence-only acceptance.
+
+Verification
+Release build PASS; runtime CTest 3/3 (C ABI smoke, real dataset loader,
+comparison metric identity/shift/empty-boundary tests); native supervision
+CTest 3/3; real model comparison 8/8 executed.
+Earlier diagnostic development runs are retained (one missing VERIFY analysis
+receipt field, one relative-manifest resolution error). They are not success
+evidence. Final runner resolves model roots to absolute paths and supplies the
+analysis-only receipt field without altering the original VERIFY asset.

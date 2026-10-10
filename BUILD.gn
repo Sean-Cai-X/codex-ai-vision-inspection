@@ -14,6 +14,7 @@ source_set("cxvision_source_inventory") {
     "cxgeom/src/CxGeoSO2StagedSearch.cpp",
     "cxgeom/src/CxGeoSO2ReferenceAsset.cpp",
   ]) + [
+    "cximage/CxSevenClassSupervision.cpp",
     "cximage/CxFastMatchHarmonicAudit.cpp",
     glad_root + "/src/gl.c",
   ]

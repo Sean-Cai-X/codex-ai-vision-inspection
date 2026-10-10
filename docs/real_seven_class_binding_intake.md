@@ -5,8 +5,8 @@
 ## 业务资产代理负责人提供
 
 1. 在受控本机登记 `normalized_asset_root_ref`，并将实际路径保留在代理内部。
-2. 按 `business_asset_broker_registration_template.v1.json` 登记七类真实资产；每类至少 1 Train、1 Valid、1 VERIFY。
-3. 对每条资产生成 `asset_ref`、原图 SHA256、人工确认 annotation receipt digest、真实 mask manifest digest。
+2. 按 `business_asset_broker_registration_template.v1.json` 登记七类真实资产；每类单项目至少 2 Train、1 Valid、1 未标注 VERIFY。
+3. 每条资产生成 `asset_ref` 和原图 SHA256；仅 Train/Valid 要求人工确认 annotation receipt digest 与监督 mask 绑定。未标注 VERIFY 不生成训练 mask。
 4. 冻结 manifest 后生成 dataset revision 和 dataset SHA256。
 5. 只向研发服务 bridge 提供逻辑 ID/digest；不提供 source path、图片、mask、overlay 或缩略图。
 
@@ -21,7 +21,7 @@
 ## 绑定前检查
 
 - 七类均齐全；无 rectangle 和未知类。
-- 每条记录具备真实 image-mask 配对，且没有使用 overlay、推理结果或生成数据替代 mask。
+- Train/Valid 记录具备原图与人工标注转换出的监督 mask 配对，不使用 overlay 或预测结果替代人工监督。VERIFY 单独绑定原图，不要求 mask。研发合成数据只验证流程，不作为业务图集或独立效果证据。
 - Train、Valid 均非空；VERIFY 不混入训练。
 - capability 不产生 APPROVED、ACTIVE 或生产发布状态。
 - 提供一个成功训练、一个取消、一个 hash 失败、一个类别不匹配、一个单图 REVIEW 的无图像 receipt。

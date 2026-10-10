@@ -1,0 +1,54 @@
+Dataset freeze / runtime guard validation - 2026-10-09
+====================================================
+
+Native Release: 2/2 CTest tests PASS.
+Native Debug: 2/2 CTest tests PASS.
+Tests: SevenClass_Native_CxScript_Conversion,
+       SevenClass_Dataset_Freeze_And_Runtime_Guards.
+The dataset test runs 37 assertions, including all seven project classes,
+canonical ordering, rule changes, duplicate/unsafe IDs, source/image split
+leakage, invalid VERIFY annotation, mixed classes, wrong revision, changed
+geometry/hash/mask/dimensions, prefix normalization and actual CxScript freeze.
+
+Dataset native evidence (relative to repository):
+  ../build_seven_class_supervision_native/dataset-evidence/20827558851000 (Release)
+  ../build_seven_class_supervision_native/dataset-evidence/20868848956100 (Debug)
+Synthetic dataset SHA256:
+  41ce785531b47f1581207f6e5b1007bfab7d7424e98dda2489aed144aff23f4f
+This is NOT a business dataset or independent model accuracy evidence.
+
+Real runtime compilation:
+  build01 source compilation succeeded, but linking failed with LNK1104 for
+  build01/Release/libtorch_module_runtime.dll. No running process was stopped
+  and no forced overwrite was attempted.
+  Reconfigured standalone in ../build_supervision_runtime; complete Release
+  runtime DLL and libtorch_module_business_c_api_smoke build succeeded.
+  Repeated build succeeded without rebuilding sources.
+  libtorch_module_business_c_api_smoke: PASS (4.46 seconds).
+
+New isolated runtime artifact (not an installed/offline delivery package):
+  ../build_supervision_runtime/Release/libtorch_module_runtime.dll
+SHA256 of this actual file:
+  d78a297a7b41e4f55e5e1081f3cd141c0a26f56d44507a4ee1edb74ca80bd702
+Do not substitute a historical handoff SHA or assume rebuild reproducibility.
+
+Reproduce isolated build:
+cmake -S libtorch_module -B ../build_supervision_runtime -G "Visual Studio 17 2022" -A x64 -DOpenCV_DIR=D:/opencv/build -DLIBTORCH_MODULE_BUILD_MINIMAL=OFF -DLIBTORCH_MODULE_BUILD_FULL=OFF -DLIBTORCH_MODULE_BUILD_CONTRACT=OFF -DLIBTORCH_MODULE_BUILD_MOBILEVIT=OFF -DLIBTORCH_MODULE_BUILD_SEGMENTATION=OFF
+cmake --build ../build_supervision_runtime --config Release --target libtorch_module_business_c_api_smoke --parallel 2
+ctest --test-dir ../build_supervision_runtime -C Release -R "^libtorch_module_business_c_api_smoke$" --output-on-failure
+
+Warnings: pre-existing LibTorch C4267 template conversions and parser numeric
+callback conversion warnings; not suppressed. git diff --check passed.
+
+Evidence limits:
+- Shared v2 guard functions are native-tested and compiled into the actual DLL.
+- C ABI smoke validates rejection/cancellation, not successful v2 materialized
+  asset loading followed by optimizer steps. That end-to-end trial is pending.
+- VERIFY bytes are not read by the training loader; only declared metadata is
+  checked for split isolation. Independent inference binding must verify them.
+- No Python, real-model training, model quality claim, installed package import
+  or production activation occurred. Scope remains development trial only.
+
+Next: native fixture materializer that writes actual development image/mask
+pairs and v2 manifest, then successful v2 loader/training/inference receipt;
+package only after its parent model and dependency bindings are verified.

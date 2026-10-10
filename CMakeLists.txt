@@ -101,6 +101,7 @@ set(CXIMAGE_CORE_SOURCES
   cximage/RegionPatternTool.cpp
   cximage/FastMatchDiagnostic.cpp
   cximage/FindSetMatch.cpp
+  cximage/CxSevenClassSupervision.cpp
   cximage/CxFastMatchHarmonicAudit.cpp
   cxgeom/polar_discrete_harmonic/encoding.cpp
   cxgeom/polar_discrete_harmonic/matching.cpp

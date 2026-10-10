@@ -1,0 +1,36 @@
+Native supervision conversion validation - 2026-10-09
+
+Environment: Windows x64, Visual Studio 2022 / MSVC 19.39.33520, C++17.
+Method: existing mu::Parser, shared application binding, native CTest.
+Python executed: NO. Real model training executed: NO.
+
+Results:
+  Release: SevenClass_Native_CxScript_Conversion PASS (1.14 seconds)
+  Debug:   SevenClass_Native_CxScript_Conversion PASS (0.98 seconds)
+  Existing SO2 native_asset_guards: PASS (1.44 seconds)
+  git diff --check: PASS before commit
+
+Seven generated class cases plus negative/state/hash checks. 7304 assertions
+per run include per-pixel class-ID assertions; this is NOT 7304 independent
+cases and NOT independent model accuracy evidence.
+
+Local evidence directories (outside the repository):
+  ../build_seven_class_supervision_native/native-evidence/19736506244400 (Release)
+  ../build_seven_class_supervision_native/native-evidence/19772743513600 (Debug)
+Each contains native_test_receipt.json, case_index.json and actual script/mask
+conversion outputs. Rerun instructions: README.native.txt.
+
+Rules digest (nlohmann JSON dump canonicalization, not file-byte digest):
+  8456a572cea046209a26261a4bdd2163b4bb19b5fb3952cf943b775a49a81975
+
+Known build warnings: existing muParserBase.h C4310 and muParserClass.h C4244
+numeric callback template conversions. No compiler error; warnings are not
+hidden/suppressed by this target.
+
+Remaining gates:
+  - dataset-level freezing, split-isolation checks and native materializer
+    consumption of the rule/sample binding;
+  - source image bytes verified against supplied digest;
+  - full GUI application build and installed-runtime execution;
+  - DLL/offline package, real training/inference and geometry accuracy tests.
+Admission remains development_trial / isolated_business_validation only.

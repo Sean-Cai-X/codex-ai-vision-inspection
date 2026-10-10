@@ -1,0 +1,57 @@
+Native materializer and real loader evidence - 2026-10-09
+=======================================================
+
+Native Release: 3/3 CTest PASS.
+Native Debug: 3/3 CTest PASS.
+Includes the existing CxScript conversion/freeze and the new actual-image/mask
+materializer. Python executed: NO.
+
+Actual production loader test executable: Release build PASS.
+libtorch_module_business_dataset_probe: PASS (1.35 seconds).
+Seven positive classes each loaded 2 Train + 1 Valid, with original file SHA,
+OpenCV decode, mask pixel hashes, rules/revision and geometry checks executed.
+Six negative bundles rejected with their expected stable codes. No parent model
+or optimizer was instantiated. Test uses the real private loader translation
+unit; it is not a new DLL export or a public business API bypass.
+Updated runtime DLL and libtorch_module_business_c_api_smoke: PASS (0.46 seconds).
+This ABI smoke verifies boundary rejection/cancellation, not completed training.
+
+Human-review fixture package (outside source control):
+  ../cxscript_runs/seven_class_native_materialization/21615889148500/
+Start with case_index.json. Seven English case names and instructions are in
+README.materializer.txt. No Evidence GUI registry entries were added/changed.
+
+Real loader receipt:
+  ../build_supervision_runtime/dataset-probe-evidence/21680704077200/runtime_dataset_probe_receipt.json
+All cases have expectation_passed=true; positive cases have loader_ok=true,
+train_count=2, valid_count=1. Invalid bundles have loader_ok=false and explicit
+error codes. Fresh fixtures were written once, never by changing existing test
+images. VERIFY bytes stay outside the training materialization directory.
+
+Updated isolated runtime DLL:
+  ../build_supervision_runtime/Release/libtorch_module_runtime.dll
+Actual SHA256:
+  21cbae7f5dc8e8fa08504c0887e4736dc0064ff6868b32db40d7cd370a136713
+Do not reuse the previous step's SHA or claim an installed offline package.
+
+Parent readiness audit (bounded to repository testdata, sibling lineage/evidence
+fixtures and attestation filename search under sibling cxscript_runs):
+- libtorch_module/testdata/manifests/yolov8_cpu_v1.json declares detection,
+  one class [target], python_state_dict. Its y8_model.pt is not a registered
+  fixed-seven-class segmentation parent.
+- model_lineage_test_fixtures/fixture_20260901_174500_asset_mutations/
+  manifests/base_model_manifest.json declares detection and ends its seven
+  classes with rectangle, not closed_curve. It is a mutation-test asset.
+- Checked-in business_development_parent_attestation.v1.template.json contains
+  invalid placeholders. No matching completed attestation was found in the
+  locations above. This is not a claim about all files on the machine.
+
+Therefore full business incremental training remains unexecuted. A registered
+seven-class Seg parent and its matching checkpoint/manifest/lineage attestation
+are required. No attestation, curve, model-quality claim or production approval
+was fabricated. The generated split is suitable for functional regression only,
+not independent validation of model accuracy.
+
+Documentation consistency fixes: minimum 2 Train + 1 Valid + unlabelled VERIFY;
+no mask/annotation requirement on unlabelled VERIFY; v2 rules binding described.
+git diff --check passed. Existing LibTorch C4267 warnings remain unsuppressed.
