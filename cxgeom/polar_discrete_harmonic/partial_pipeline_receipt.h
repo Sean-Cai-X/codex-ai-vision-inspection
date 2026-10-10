@@ -8,6 +8,16 @@ inline std::string PartialPipelineReceiptV1(const PartialPipelineResult& r){
     r.candidates.size()!=r.candidate_sources.size()||r.refinements.size()!=r.decisions.size()||
     r.refinements.size()>r.raw.candidates.size()||r.pair_checks>r.raw.executed_assessment.maximum_pair_checks)
   throw std::invalid_argument("inconsistent_partial_pipeline");
+ for(size_t i=0;i<r.refinements.size();++i){
+  const auto& fit=r.refinements[i];
+  if(fit.status!="ONLINE_REFIT_REUSED")continue;
+  bool found=false;
+  for(const auto& trace:r.raw.online_refits)
+   if(trace.decision=="refit_selected"&&SamePartialAssessment(trace.before,fit.before)&&
+      SamePartialAssessment(trace.after,fit.after)&&SamePartialAssessment(trace.after,r.raw.candidates[i]))found=true;
+  if(!found||!fit.accepted||fit.pair_checks!=0||fit.production_eligible)
+   throw std::invalid_argument("invalid_online_reuse_receipt");
+ }
  size_t checks=r.raw.pair_checks;for(const auto& fit:r.refinements)checks+=fit.pair_checks;
  if(checks!=r.pair_checks||(r.complete&&r.refinements.size()!=r.raw.candidates.size()))
   throw std::invalid_argument("inconsistent_pipeline_accounting");

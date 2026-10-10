@@ -1,5 +1,6 @@
 #pragma once
 #include "partial_refinement.h"
+#include "partial_provenance.h"
 namespace cxgeom::polar {
 struct PartialPipelineResult {
  PartialSearchResult raw;
@@ -28,9 +29,23 @@ inline PartialPipelineResult SearchRefinedPartial(const PartialRequest& request,
  if(!out.raw.search_complete){fail(out.raw.status);return out;}
  for(size_t i=0;i<out.raw.candidates.size();++i){
   const auto& raw=out.raw.candidates[i];PartialAssessment selected=raw;bool refined=false;
-  if(out.pair_checks>=request.config.maximum_pair_checks){fail("PAIR_BUDGET_EXHAUSTED");return out;}
-  auto bounded=request;bounded.config.maximum_pair_checks-=out.pair_checks;
-  auto fit=RefinePartial(bounded,raw.supplied);out.pair_checks+=fit.pair_checks;
+  PartialRefinement fit;bool reused=false;
+  for(const auto& trace:out.raw.online_refits){
+   if(trace.decision=="refit_selected"&&SamePartialAssessment(trace.after,raw)){
+    fit.before=trace.before;fit.after=trace.after;fit.accepted=true;
+    fit.status="ONLINE_REFIT_REUSED";fit.reason="already_charged_in_raw_search";
+    reused=true;break;
+   }
+  }
+  if(!reused){
+   if(out.pair_checks>=request.config.maximum_pair_checks){fail("PAIR_BUDGET_EXHAUSTED");return out;}
+   auto bounded=request;bounded.config.maximum_pair_checks-=out.pair_checks;
+   fit=RefinePartial(bounded,raw.supplied);out.pair_checks+=fit.pair_checks;
+  }
+  // Reused fitting work has zero additional charge; original evidence remains in raw.
+  if(reused)fit.pair_checks=0;
+  if(reused&&!PartialPoseInWindow(fit.after.supplied,cfg)){fail("INVALID_ONLINE_REFIT");return out;}
+
   out.refinements.push_back(fit);
   if(fit.status=="PAIR_BUDGET_EXHAUSTED"||fit.before.status=="PAIR_BUDGET_EXHAUSTED"||
      fit.after.status=="PAIR_BUDGET_EXHAUSTED"){

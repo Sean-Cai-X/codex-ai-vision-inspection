@@ -42,6 +42,29 @@ int main(int argc,char** argv)try{
   check(grouped.complete&&!grouped.candidates.empty(),"online grouping capacity32 completion");
   maxGroupedChecks=std::max(maxGroupedChecks,grouped.pair_checks);
   maxGroupedCandidates=std::max(maxGroupedCandidates,grouped.raw.candidates.size());
+  size_t extraChecks=0;bool anyReused=false;
+  for(size_t j=0;j<grouped.refinements.size();++j){
+   const auto& fit=grouped.refinements[j];extraChecks+=fit.pair_checks;
+   bool eligible=false;
+   for(const auto& trace:grouped.raw.online_refits)
+    if(trace.decision=="refit_selected"&&SamePartialAssessment(trace.after,grouped.raw.candidates[j]))eligible=true;
+   if(eligible){check(fit.status=="ONLINE_REFIT_REUSED"&&fit.pair_checks==0,"verified online fit reused");anyReused=true;}
+  }
+  check(anyReused,"online reuse exercised");
+  check(grouped.pair_checks==grouped.raw.pair_checks+extraChecks,"no duplicate distance charge");
+  // Rejected or changed-correspondence online fits still need the normal fallback path.
+  auto rejectGrouped=[](const PartialPipelineResult& bad){
+   bool threw=false;try{(void)PartialPipelineReceiptV1(bad);}catch(const std::invalid_argument&){threw=true;}
+   check(threw,"online inconsistent receipt rejected");
+  };
+  auto corruptGrouped=grouped;corruptGrouped.raw.online_refits.front().after.supplied.translation+=Z(1,0);
+  rejectGrouped(corruptGrouped);
+  corruptGrouped=grouped;corruptGrouped.raw.online_refits.front().decision="equivalent_to:missing";
+  rejectGrouped(corruptGrouped);
+  corruptGrouped=grouped;corruptGrouped.raw.online_refits.front().pair_checks=grouped.raw.pair_checks+1;
+  rejectGrouped(corruptGrouped);
+  corruptGrouped=grouped;corruptGrouped.refinements.front().pair_checks=1;++corruptGrouped.pair_checks;
+  rejectGrouped(corruptGrouped);
   auto signatures=[](const PartialPipelineResult& value){
    std::set<std::vector<std::pair<std::string,std::string>>> keys;
    for(const auto& c:value.candidates){

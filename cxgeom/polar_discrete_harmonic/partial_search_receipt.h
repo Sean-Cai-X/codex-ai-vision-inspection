@@ -1,9 +1,11 @@
 #pragma once
 #include "partial_search.h"
 #include "receipt.h"
+#include "partial_provenance.h"
 namespace cxgeom::polar {
 // Audit receipt, not a signature, approval or exhaustive continuous pose proof.
 inline std::string PartialSearchReceiptV1(const PartialSearchResult& r){
+ ValidateOnlineRefits(r);
  const bool success=r.status=="PARTIAL_AUDIT_CANDIDATE"||r.status=="AMBIGUOUS";
  if(r.request_id.empty()||r.reference_source.empty()||r.observation_source.empty()||
     r.status.empty()||r.reason.empty()||r.production_eligible||
