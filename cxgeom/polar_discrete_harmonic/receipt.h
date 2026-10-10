@@ -46,7 +46,7 @@ inline std::string ReceiptV1(const MatchResult& r){
  o<<"\"maximum_pair_checks\":"<<c.maximum_pair_checks<<"},\"candidates\":[";
  bool first=true;
  for(const auto& p:r.candidates){
-  if(!first)o<<',';first=false;o<<'{';
+  if(!first){o<<',';} first=false;o<<'{';
   num("angle_deg",p.angle_deg);num("scale",p.scale);
   num("translation_x",p.translation.real());num("translation_y",p.translation.imag());
   num("observed_rms_px",p.rms_px);num("observed_max_px",p.max_px);
@@ -54,7 +54,7 @@ inline std::string ReceiptV1(const MatchResult& r){
   o<<"\"correspondence_ambiguous\":"<<(p.correspondence_ambiguous?"true":"false")<<",\"pairs\":[";
   bool firstPair=true;
   for(const auto& pair:p.pairs){
-   if(!firstPair)o<<',';firstPair=false;o<<'{';
+   if(!firstPair){o<<',';} firstPair=false;o<<'{';
    str("reference_id",pair.reference_id);str("target_id",pair.target_id);
    if(!std::isfinite(pair.residual_px))throw std::invalid_argument("POLAR_RECEIPT_NONFINITE");
    o<<"\"residual_px\":"<<pair.residual_px<<'}';

@@ -97,6 +97,7 @@ executable("harmonic_staged_test") {
 static_library("cxgeom_polar_discrete_harmonic") {
   sources = [ "cxgeom/polar_discrete_harmonic/encoding.cpp" ]
   sources += [ "cxgeom/polar_discrete_harmonic/matching.cpp" ]
+  sources += [ "cxgeom/polar_discrete_harmonic/partial_assessment.cpp" ]
   configs = [ ":geometric_set_platform" ]
 }
 executable("harmonic_polar_encoding_test") {
@@ -121,6 +122,11 @@ executable("harmonic_polar_boundary_test") {
 }
 executable("harmonic_polar_partial_contract_test") {
   sources = [ "tests/fastmatch_harmonic/native_polar_partial_contract_test.cpp" ]
+  deps = [ ":cxgeom_polar_discrete_harmonic" ]
+  configs = [ ":geometric_set_platform" ]
+}
+executable("harmonic_polar_partial_assessment_test") {
+  sources = [ "tests/fastmatch_harmonic/native_polar_partial_assessment_test.cpp" ]
   deps = [ ":cxgeom_polar_discrete_harmonic" ]
   configs = [ ":geometric_set_platform" ]
 }

@@ -6,6 +6,7 @@ struct PartialConfig {
  Config encoding;
  size_t minimum_matches=3,maximum_features=128;
  size_t maximum_hypotheses=256,maximum_pair_checks=1000000;
+ // Coverage thresholds are point-count fractions, not confidence-weighted fractions.
  double minimum_reference_coverage=.5,minimum_observation_coverage=.5;
  double minimum_spatial_span=.25,max_residual_px=.3;
 };
