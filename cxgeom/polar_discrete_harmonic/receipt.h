@@ -19,6 +19,10 @@ inline std::string quote(const std::string& s){
 }
 // Offline evidence, not a signature or production approval. No image/feature coordinates.
 inline std::string ReceiptV1(const MatchResult& r){
+ if(!r.search_complete&&!r.candidates.empty())throw std::invalid_argument("POLAR_RECEIPT_INCOMPLETE_CANDIDATES");
+ const bool accepted=r.status=="FULL_SET_AUDIT_CANDIDATES"||r.status=="AMBIGUOUS";
+ if(r.status.empty()||r.reason.empty()||r.reference_source.empty()||r.target_source.empty()||
+    accepted!=!r.candidates.empty())throw std::invalid_argument("POLAR_RECEIPT_INVALID_STATE");
  if(r.production_eligible)throw std::invalid_argument("POLAR_RECEIPT_PRODUCTION_CLAIM");
  std::ostringstream o;o.imbue(std::locale::classic());o<<std::setprecision(17);
  auto str=[&](const char* k,const std::string& v){o<<receipt_detail::quote(k)<<':'<<receipt_detail::quote(v)<<',';};

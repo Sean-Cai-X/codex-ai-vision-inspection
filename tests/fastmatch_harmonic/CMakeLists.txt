@@ -141,3 +141,6 @@ add_executable(harmonic_polar_receipt native_polar_receipt_test.cpp)
 target_link_libraries(harmonic_polar_receipt PRIVATE cxgeom_polar_discrete_harmonic)
 add_test(NAME polar_noise_receipt COMMAND harmonic_polar_receipt
   ${CMAKE_CURRENT_BINARY_DIR}/polar_match_receipt.json)
+add_executable(harmonic_polar_boundary native_polar_boundary_test.cpp)
+target_link_libraries(harmonic_polar_boundary PRIVATE cxgeom_polar_discrete_harmonic)
+add_test(NAME polar_boundary COMMAND harmonic_polar_boundary)
