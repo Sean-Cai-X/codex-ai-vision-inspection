@@ -8,6 +8,7 @@
 using namespace cxgeom::polar;
 using Z=std::complex<double>;
 void check(bool b,const char* s){if(!b)throw std::runtime_error(s);}
+int main()try{
  PartialSearchConfig limits;Hypothesis windowPose;windowPose.scale=1;windowPose.angle_deg=180;
  limits.angle_min_deg=-180;limits.angle_max_deg=-180;
  check(PartialPoseInWindow(windowPose,limits),"pipeline signed seam");
@@ -16,7 +17,6 @@ void check(bool b,const char* s){if(!b)throw std::runtime_error(s);}
  windowPose.scale=limits.scale_max+.001;
  check(!PartialPoseInWindow(windowPose,limits),"pipeline scale limit");
  windowPose.scale=1;windowPose.angle_deg=0;check(!PartialPoseInWindow(windowPose,limits),"pipeline outside angle");
-int main()try{
  PartialRequest base;base.request_id="automatic-partial";base.reference_source="ref";base.observation_source="obs";
  base.config.maximum_hypotheses=4096;base.config.max_residual_px=1e-6;
  base.reference={{"r0","e",{-40,-10}},{"r1","e",{10,-30}},{"r2","e",{60,20}},
