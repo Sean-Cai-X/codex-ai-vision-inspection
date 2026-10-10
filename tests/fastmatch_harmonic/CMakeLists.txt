@@ -130,3 +130,7 @@ add_executable(harmonic_circle_completion native_circle_completion_test.cpp)
 target_link_libraries(harmonic_circle_completion PRIVATE cx_so2)
 add_test(NAME circle_completion COMMAND harmonic_circle_completion
   ${CMAKE_CURRENT_BINARY_DIR}/circle_completion.csv)
+add_subdirectory(../../cxgeom/polar_discrete_harmonic polar_encoding)
+add_executable(harmonic_polar_encoding native_polar_encoding_test.cpp)
+target_link_libraries(harmonic_polar_encoding PRIVATE cxgeom_polar_discrete_harmonic)
+add_test(NAME polar_encoding COMMAND harmonic_polar_encoding)

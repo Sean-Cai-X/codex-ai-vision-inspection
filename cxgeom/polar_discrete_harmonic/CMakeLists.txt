@@ -1,0 +1,6 @@
+add_library(cxgeom_polar_discrete_harmonic STATIC encoding.cpp)
+target_compile_features(cxgeom_polar_discrete_harmonic PUBLIC cxx_std_17)
+target_include_directories(cxgeom_polar_discrete_harmonic PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+  target_compile_options(cxgeom_polar_discrete_harmonic PRIVATE -Wall -Wextra -Werror -pedantic)
+endif()
