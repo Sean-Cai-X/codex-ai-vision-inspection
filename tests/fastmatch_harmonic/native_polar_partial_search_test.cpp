@@ -1,5 +1,6 @@
 #include "../../cxgeom/polar_discrete_harmonic/partial_search_receipt.h"
 #include "../../cxgeom/polar_discrete_harmonic/partial_refinement.h"
+#include "../../cxgeom/polar_discrete_harmonic/partial_pipeline_receipt.h"
 #include <fstream>
 #include "../../libtorchsegmentation/src/utils/json.hpp"
 #include <algorithm>
@@ -7,6 +8,14 @@
 using namespace cxgeom::polar;
 using Z=std::complex<double>;
 void check(bool b,const char* s){if(!b)throw std::runtime_error(s);}
+ PartialSearchConfig limits;Hypothesis windowPose;windowPose.scale=1;windowPose.angle_deg=180;
+ limits.angle_min_deg=-180;limits.angle_max_deg=-180;
+ check(PartialPoseInWindow(windowPose,limits),"pipeline signed seam");
+ limits.angle_min_deg=170;limits.angle_max_deg=-170;windowPose.angle_deg=-179;
+ check(PartialPoseInWindow(windowPose,limits),"pipeline wrapped window");
+ windowPose.scale=limits.scale_max+.001;
+ check(!PartialPoseInWindow(windowPose,limits),"pipeline scale limit");
+ windowPose.scale=1;windowPose.angle_deg=0;check(!PartialPoseInWindow(windowPose,limits),"pipeline outside angle");
 int main()try{
  PartialRequest base;base.request_id="automatic-partial";base.reference_source="ref";base.observation_source="obs";
  base.config.maximum_hypotheses=4096;base.config.max_residual_px=1e-6;
@@ -53,6 +62,8 @@ int main()try{
  PartialRequest square=base;square.reference={{"a","e",{1,1}},{"b","e",{-1,1}},{"c","e",{-1,-1}},{"d","e",{1,-1}}};
  square.observation=square.reference;r=SearchPartial(square);
  check(r.search_complete&&r.status=="AMBIGUOUS"&&r.candidates.size()==4,"square ambiguity");
+ auto symmetricPipeline=SearchRefinedPartial(square);
+ check(symmetricPipeline.complete&&symmetricPipeline.status=="AMBIGUOUS"&&symmetricPipeline.candidates.size()==4,"pipeline retains real symmetry");
  std::vector<double> symmetricAngles;
  for(const auto& candidate:r.candidates){
   auto fit=RefinePartial(square,candidate.supplied);
@@ -105,6 +116,43 @@ int main()try{
     <<" angle_before="<<fit.before.supplied.angle_deg<<" angle_after="<<fit.after.supplied.angle_deg
     <<" scale_before="<<fit.before.supplied.scale<<" scale_after="<<fit.after.supplied.scale<<std::endl;
   }
+  auto pipeline=SearchRefinedPartial(noisy);
+  check(pipeline.complete&&pipeline.candidates.size()==1,"same correspondence refits merged");
+  check(pipeline.raw.candidates.size()==6&&pipeline.refinements.size()==6&&
+   pipeline.candidate_sources.front().size()==6,"all raw and refit provenance retained");
+  size_t checks=pipeline.raw.pair_checks;
+  for(const auto& fit:pipeline.refinements)checks+=fit.pair_checks;
+  check(checks==pipeline.pair_checks,"shared accounting");
+  auto limited=noisy;limited.config.maximum_pair_checks=pipeline.pair_checks;
+  check(SearchRefinedPartial(limited).complete,"pipeline exact budget");
+  --limited.config.maximum_pair_checks;auto cut=SearchRefinedPartial(limited);
+  check(!cut.complete&&cut.candidates.empty()&&cut.candidate_sources.empty(),"pipeline cutoff clears output");
+  PartialSearchConfig narrow;narrow.angle_min_deg=23.3995;narrow.angle_max_deg=23.405;
+  auto windowed=SearchRefinedPartial(noisy,narrow);
+  check(windowed.complete&&!windowed.candidates.empty(),"windowed search");
+  bool rejectedWindow=false;
+  for(const auto& decision:windowed.decisions)if(decision=="refit_outside_window_keep_raw")rejectedWindow=true;
+  check(rejectedWindow,"refit window rejection traced");
+  for(const auto& c:windowed.candidates)check(PartialPoseInWindow(c.supplied,narrow),"no output outside window");
+  auto shuffledPipeline=noisy;std::reverse(shuffledPipeline.reference.begin(),shuffledPipeline.reference.end());
+  std::reverse(shuffledPipeline.observation.begin(),shuffledPipeline.observation.end());
+  auto replayPipeline=SearchRefinedPartial(shuffledPipeline);
+  check(replayPipeline.candidate_sources==pipeline.candidate_sources&&
+   replayPipeline.pair_checks==pipeline.pair_checks&&
+   replayPipeline.candidates.front().supplied.translation==pipeline.candidates.front().supplied.translation,"pipeline replay");
+  std::cout<<"PIPELINE noise="<<noise<<" raw="<<pipeline.raw.candidates.size()
+   <<" final="<<pipeline.candidates.size()<<" total_checks="<<pipeline.pair_checks<<std::endl;
+  auto pipelineReceipt=PartialPipelineReceiptV1(pipeline);
+  auto pipelineJson=nlohmann::json::parse(pipelineReceipt);
+  check(pipelineJson.at("candidates").size()==1&&pipelineJson.at("refinements").size()==6,"pipeline receipt");
+  check(pipelineReceipt==PartialPipelineReceiptV1(replayPipeline),"pipeline receipt deterministic");
+  auto failedJson=nlohmann::json::parse(PartialPipelineReceiptV1(cut));
+  check(failedJson.at("candidates").empty()&&failedJson.at("complete")==false,"incomplete receipt no final pose");
+  auto corrupt=pipeline;corrupt.candidate_sources[0].push_back(0);
+  bool rejected=false;try{(void)PartialPipelineReceiptV1(corrupt);}catch(const std::invalid_argument&){rejected=true;}
+  check(rejected,"duplicated receipt provenance rejected");
+  std::ofstream pipelineFile("polar_partial_pipeline_receipt.json");pipelineFile<<pipelineReceipt;
+  check(bool(pipelineFile),"pipeline evidence persisted");
   auto receipt=PartialSearchReceiptV1(result);auto json=nlohmann::json::parse(receipt);
   check(json.at("candidates").size()==result.candidates.size(),"receipt candidates");
   check(json.at("production_eligible")==false,"receipt audit only");
