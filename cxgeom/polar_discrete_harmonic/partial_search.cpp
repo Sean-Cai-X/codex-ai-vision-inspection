@@ -1,4 +1,5 @@
 #include "partial_search.h"
+#include "partial_refinement.h"
 #include <algorithm>
 namespace cxgeom::polar {
 PartialSearchResult SearchPartial(const PartialRequest& request,const PartialSearchConfig& cfg){
@@ -53,6 +54,36 @@ PartialSearchResult SearchPartial(const PartialRequest& request,const PartialSea
   ++out.assessed_hypotheses;out.pair_checks+=assessment.pair_checks;
   if(assessment.status=="PAIR_BUDGET_EXHAUSTED"){fail("PAIR_BUDGET_EXHAUSTED");return out;}
   if(!assessment.accepted&&assessment.status!="AMBIGUOUS_CORRESPONDENCE")continue;
+  if(cfg.refine_before_capacity&&assessment.accepted){
+   if(out.pair_checks>=request.config.maximum_pair_checks){fail("PAIR_BUDGET_EXHAUSTED");return out;}
+   auto remaining=request;remaining.config.maximum_pair_checks-=out.pair_checks;
+   auto fit=RefinePartial(remaining,assessment.supplied);
+   out.pair_checks+=fit.pair_checks;
+   out.online_refits.push_back({fit.before,fit.after,"keep_seed",fit.pair_checks});
+   auto& trace=out.online_refits.back();
+   if(fit.status=="PAIR_BUDGET_EXHAUSTED"||fit.before.status=="PAIR_BUDGET_EXHAUSTED"||
+      fit.after.status=="PAIR_BUDGET_EXHAUSTED"){
+    trace.decision="budget_exhausted";fail("PAIR_BUDGET_EXHAUSTED");return out;
+   }
+   if(fit.accepted&&fit.after.supplied.scale>=cfg.scale_min&&fit.after.supplied.scale<=cfg.scale_max&&
+      angleAllowed(fit.after.supplied.angle_deg)){
+    assessment=fit.after;trace.decision="refit_selected";
+    bool equivalent=false;
+    for(const auto& existing:out.candidates){
+     if(!existing.accepted||existing.pairs.size()!=assessment.pairs.size())continue;
+     bool same=true;
+     for(size_t k=0;k<existing.pairs.size();++k)
+      if(existing.pairs[k].reference_id!=assessment.pairs[k].reference_id||
+         existing.pairs[k].target_id!=assessment.pairs[k].target_id){same=false;break;}
+     const auto& p=existing.supplied;const auto& q=assessment.supplied;
+     if(same&&std::abs(std::remainder(p.angle_deg-q.angle_deg,360))<=cfg.merge_angle_deg&&
+        std::abs(p.scale-q.scale)<=cfg.merge_scale&&std::abs(p.translation-q.translation)<=cfg.merge_translation_px){
+      trace.decision="equivalent_to:"+p.source_id;equivalent=true;break;
+     }
+    }
+    if(equivalent)continue;
+   }else if(fit.accepted)trace.decision="outside_window_keep_seed";
+  }
   if(out.candidates.size()>=cfg.maximum_candidates){fail("CANDIDATE_CAPACITY_EXHAUSTED");return out;}
   out.candidates.push_back(std::move(assessment));
  }

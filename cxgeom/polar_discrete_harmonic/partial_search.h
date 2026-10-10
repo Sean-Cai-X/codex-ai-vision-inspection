@@ -6,6 +6,7 @@ struct PartialSearchConfig {
  double minimum_seed_length_px=1e-6;
  double merge_angle_deg=1e-8,merge_scale=1e-10,merge_translation_px=1e-7;
  size_t maximum_candidates=32;
+ bool refine_before_capacity=false;
 };
 struct PartialSearchResult {
  std::string request_id,status,reason,reference_source,observation_source;
@@ -15,6 +16,8 @@ struct PartialSearchResult {
  PartialConfig executed_assessment;
  PartialSearchConfig executed_search;
  std::vector<PartialAssessment> candidates;
+ struct OnlineRefit { PartialAssessment before,after; std::string decision; size_t pair_checks=0; };
+ std::vector<OnlineRefit> online_refits;
  size_t attempted_seeds=0,assessed_hypotheses=0,pair_checks=0;
  bool search_complete=false,production_eligible=false;
 };

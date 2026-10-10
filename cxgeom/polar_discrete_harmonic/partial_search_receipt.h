@@ -42,7 +42,24 @@ inline std::string PartialSearchReceiptV1(const PartialSearchResult& r){
  field("minimum_seed_length_px",s.minimum_seed_length_px);
  field("merge_angle_deg",s.merge_angle_deg);field("merge_scale",s.merge_scale);
  field("merge_translation_px",s.merge_translation_px);
- o<<"},\"deduplication\":[";bool first=true;
+ o<<",\"refine_before_capacity\":"<<(s.refine_before_capacity?"true":"false");
+ o<<"},\"online_refits\":[";
+ bool firstRefit=true;
+ for(const auto& trace:r.online_refits){
+  if(!firstRefit){o<<',';}firstRefit=false;
+  o<<"{\"seed\":"<<q(trace.before.supplied.source_id)<<",\"decision\":"<<q(trace.decision);
+  o<<",\"pair_checks\":"<<trace.pair_checks<<",\"before_status\":"<<q(trace.before.status);
+  o<<",\"after_status\":"<<q(trace.after.status);
+  if(trace.before.observed_rms_px)field("before_rms_px",*trace.before.observed_rms_px);
+  if(trace.after.observed_rms_px)field("after_rms_px",*trace.after.observed_rms_px);
+  if(trace.after.assessment_complete){
+   field("angle_deg",trace.after.supplied.angle_deg);field("scale",trace.after.supplied.scale);
+   field("translation_x",trace.after.supplied.translation.real());field("translation_y",trace.after.supplied.translation.imag());
+  }
+  o<<'}';
+ }
+ o<<']';
+ o<<",\"deduplication\":[";bool first=true;
  for(const auto& d:r.deduplication){
   if(!first){o<<',';}first=false;
   o<<"{\"suppressed_seed\":"<<q(d.suppressed_seed)<<",\"representative_seed\":"<<q(d.representative_seed)<<'}';

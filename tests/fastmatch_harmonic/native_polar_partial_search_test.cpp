@@ -62,6 +62,13 @@ int main()try{
  PartialRequest square=base;square.reference={{"a","e",{1,1}},{"b","e",{-1,1}},{"c","e",{-1,-1}},{"d","e",{1,-1}}};
  square.observation=square.reference;r=SearchPartial(square);
  check(r.search_complete&&r.status=="AMBIGUOUS"&&r.candidates.size()==4,"square ambiguity");
+ PartialSearchConfig online;online.refine_before_capacity=true;
+ auto onlineSquare=SearchRefinedPartial(square,online);
+ check(onlineSquare.complete&&onlineSquare.candidates.size()==4&&onlineSquare.status=="AMBIGUOUS","online real symmetry");
+ online.maximum_candidates=1;auto onlineCapped=SearchRefinedPartial(square,online);
+ check(!onlineCapped.complete&&onlineCapped.candidates.empty()&&onlineCapped.status=="CANDIDATE_CAPACITY_EXHAUSTED","online distinct capacity");
+ (void)nlohmann::json::parse(PartialPipelineReceiptV1(onlineCapped));
+ (void)nlohmann::json::parse(PartialPipelineReceiptV1(onlineSquare));
  auto symmetricPipeline=SearchRefinedPartial(square);
  check(symmetricPipeline.complete&&symmetricPipeline.status=="AMBIGUOUS"&&symmetricPipeline.candidates.size()==4,"pipeline retains real symmetry");
  std::vector<double> symmetricAngles;
