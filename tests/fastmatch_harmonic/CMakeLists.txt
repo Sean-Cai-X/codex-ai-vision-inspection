@@ -144,3 +144,7 @@ add_test(NAME polar_noise_receipt COMMAND harmonic_polar_receipt
 add_executable(harmonic_polar_boundary native_polar_boundary_test.cpp)
 target_link_libraries(harmonic_polar_boundary PRIVATE cxgeom_polar_discrete_harmonic)
 add_test(NAME polar_boundary COMMAND harmonic_polar_boundary)
+add_executable(harmonic_polar_partial_contract native_polar_partial_contract_test.cpp)
+target_link_libraries(harmonic_polar_partial_contract PRIVATE cxgeom_polar_discrete_harmonic)
+add_test(NAME polar_partial_contract COMMAND harmonic_polar_partial_contract
+  ${CMAKE_CURRENT_BINARY_DIR}/polar_partial_request_receipt.json)
