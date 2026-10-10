@@ -50,7 +50,12 @@ public:
    if(value!=0&&value!=1)throw std::invalid_argument("invalid_boolean_parameter");s.refine_before_capacity=value==1;
   }else throw std::invalid_argument("unknown_partial_parameter");
  }
+ const cxgeom::polar::PartialPipelineResult& result() const {
+  if(!ran_)throw std::runtime_error("partial_run_required");return result_;
+ }
+ std::string receipt() const {return cxgeom::polar::PartialPipelineReceiptV1(result());}
  void run(){invalidate();result_=cxgeom::polar::SearchRefinedPartial(request_,config_);ran_=true;}
+
  void expectstatus(const char* status){if(!ran_||result_.status!=text(status))throw std::runtime_error("partial_status_assertion");}
  void expectcount(int n){if(!ran_||n<0||result_.candidates.size()!=size_t(n))throw std::runtime_error("partial_count_assertion");}
  void save(const char* path){

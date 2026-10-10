@@ -7,6 +7,29 @@
 using J=nlohmann::json;
 void need(bool b){if(!b)throw std::runtime_error("partial_script_contract");}
 int main(int argc,char** argv)try{
+ if(argc==3&&std::string(argv[1])=="check-headless"){
+  std::filesystem::path root(argv[2]);
+  for(const auto& name:{"success","budget"}){
+   std::ifstream input(root/name/"partial_match_receipt_0.json");J receipt;input>>receipt;
+   need(receipt.at("schema")=="polar_partial_pipeline_receipt.v1"&&receipt.at("production_eligible")==false);
+   std::ifstream summaryFile(root/name/"result_summary.json");J summary;summaryFile>>summary;
+   need(summary.at("facts").at("partial_match_only")=="true");
+   need(summary.at("facts").at("partial_match_production_eligible")=="false");
+   need(summary.at("facts").at("has_result_box")=="false");
+   need(summary.at("facts").at("has_best_result")=="false");
+   bool success=std::string(name)=="success";
+   need(summary.at("facts").at("budget_exceeded")== (success?"false":"true"));
+   need(receipt.at("complete")==success);
+   need(receipt.at("status")== (success?"PARTIAL_AUDIT_CANDIDATE":"SEED_BUDGET_EXHAUSTED"));
+   need(receipt.at("candidates").size()==(success?1u:0u));
+   if(success){
+    const auto& pose=receipt.at("candidates").at(0).at("assessment").at("pose");
+    need(std::abs(pose.at("angle_deg").get<double>()-90)<1e-8);
+    need(std::abs(pose.at("scale").get<double>()-1.2)<1e-8);
+   }
+  }
+  std::cout<<"PARTIAL_FULL_HEADLESS_RECEIPTS_PASS"<<std::endl;return 0;
+ }
  need(argc==2);std::filesystem::path root(argv[1]);std::filesystem::create_directories(root);
  std::ostringstream script;
  script<<"PartialMatchAudit p; p.requestid(\"script-partial\"); p.parameter(4096,\"maximum_hypotheses\"); p.parameter(1,\"refine_before_capacity\");";

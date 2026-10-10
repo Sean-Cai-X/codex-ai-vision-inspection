@@ -171,3 +171,27 @@ add_executable(harmonic_partial_script native_partial_script_test.cpp)
 target_link_libraries(harmonic_partial_script PRIVATE partial_script_parser cxgeom_polar_discrete_harmonic)
 add_test(NAME polar_partial_cxscript COMMAND harmonic_partial_script
  ${CMAKE_CURRENT_BINARY_DIR}/partial_script)
+set(PARTIAL_HEADLESS_APP "" CACHE FILEPATH "Isolated full application with PartialMatchAudit")
+if(PARTIAL_HEADLESS_APP AND SO2_HEADLESS_IMAGE)
+ set_tests_properties(polar_partial_cxscript PROPERTIES FIXTURES_SETUP partial_script_generated)
+ foreach(mode success budget)
+  if(mode STREQUAL "success")
+   set(partial_script_name partial_case.cxsc)
+  else()
+   set(partial_script_name partial_budget_case.cxsc)
+  endif()
+  add_test(NAME partial_app_${mode} COMMAND ${PARTIAL_HEADLESS_APP} --cxscript-headless
+   --image ${SO2_HEADLESS_IMAGE}
+   --script ${CMAKE_CURRENT_BINARY_DIR}/partial_script/${partial_script_name}
+   --out ${CMAKE_CURRENT_BINARY_DIR}/partial_headless/${mode}
+   --unified-log ${CMAKE_CURRENT_BINARY_DIR}/partial_headless/${mode}.jsonl)
+  set_tests_properties(partial_app_${mode} PROPERTIES
+   FIXTURES_REQUIRED partial_script_generated FIXTURES_SETUP partial_app_${mode}_done
+   PASS_REGULAR_EXPRESSION "cxscript_headless_ok=true" TIMEOUT 60
+   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../..)
+ endforeach()
+ add_test(NAME partial_app_receipts COMMAND harmonic_partial_script check-headless
+  ${CMAKE_CURRENT_BINARY_DIR}/partial_headless)
+ set_tests_properties(partial_app_receipts PROPERTIES
+  FIXTURES_REQUIRED "partial_app_success_done;partial_app_budget_done")
+endif()

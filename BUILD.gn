@@ -141,3 +141,9 @@ executable("harmonic_polar_pipeline_matrix_test") {
   deps = [ ":cxgeom_polar_discrete_harmonic" ]
   configs = [ ":geometric_set_platform" ]
 }
+# Isolated acceptance binary; never relink the running GUI for audit tests.
+executable("cxvision_partial_headless_candidate") {
+  deps = [ ":cxvision_source_inventory", ":cxgeom_set_match_adapter", ":cxgeom_polar_discrete_harmonic" ]
+  configs = [ "//build/config:common", "//build/config:platform" ]
+  libs = [ "torch", "torch_cpu", "c10" ]
+}
