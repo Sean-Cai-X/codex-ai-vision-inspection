@@ -5402,6 +5402,7 @@ static bool IsCuratedAssetOnlyEvidenceQueueLocal() {
              "CURATED_ASSET_ONLY";
 }
 
+bool RunPartialMatchGuiBridgeSmoke(ManualTestContext&,std::string&);
 int RunPartialMatchEvidenceCatalogSmoke() {
  auto context=std::make_unique<ManualTestContext>();std::string reason;
  auto groupFor=[&](const std::string& name)->ScriptEvidenceGroup&{
@@ -5445,6 +5446,10 @@ int RunPartialMatchEvidenceCatalogSmoke() {
       receipt.at("raw_diagnostic").at("assessment_config").at("maximum_hypotheses")!=(budget?1:4096))
     throw std::runtime_error("partial_parameter_receipt_mismatch");
   }
+  context->editor_text=source;context->active_case_id=item.case_id;
+  context->image_file_path=item.image_path;context->loaded_script_path=item.script_path;
+  context->editor_dirty=true;
+  if(!RunPartialMatchGuiBridgeSmoke(*context,reason))throw std::runtime_error(reason);
   found.insert(item.case_id);std::cout<<"partial_evidence_case="<<item.case_id<<"\n";
  }
  }catch(const mu::Parser::exception_type& e){std::cout<<e.GetMsg()<<"\n";pass=false;}

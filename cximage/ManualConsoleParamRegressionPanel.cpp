@@ -4,6 +4,7 @@
 #include "CxHarmonicEvidenceParameters.h"
 #include "CxSetMatchEvidenceParameters.h"
 #include "CxPartialMatchUiParameters.h"
+#include "CxPartialMatchManualRun.h"
 #include "CxParameterProfileRuntime.h"
 #include "CxScriptCasePackageWriter.h"
 #include "CxUnifiedLog.h"
@@ -9130,7 +9131,7 @@ static void DrawPartialMatchControls(ManualTestContext& context) {
  ImGui::TextWrapped("Parameters below edit literal script calls. Run the script again after edits; old results are stale. No image extraction or production activation.");
  ImGui::BeginDisabled(context.has_pending_execution_snapshot);
  if(ImGui::Button("Expose missing parameters with defaults")){
-  try{cxpartialui::Expose(context.editor_text);context.editor_dirty=true;context.debug_reason.clear();}
+  try{cxpartialui::Expose(context.editor_text);context.editor_dirty=true;context.debug_reason.clear();cxpartialmanual::Invalidate(context);}
   catch(const std::exception& e){context.debug_reason=e.what();}
  }
  std::string object;
@@ -9149,6 +9150,7 @@ static void DrawPartialMatchControls(ManualTestContext& context) {
      ImGui::SetNextItemWidth(-1);
      if(ImGui::InputDouble("##value",&value.value,0,0,"%.12g")){
       cxpartialui::Set(context.editor_text,p,value.value);context.editor_dirty=true;
+      cxpartialmanual::Invalidate(context);
       context.debug_reason="Parameters changed; rerun script before reviewing results.";
      }
     }
@@ -9157,7 +9159,14 @@ static void DrawPartialMatchControls(ManualTestContext& context) {
   }
   ImGui::EndTable();
  }
+ if(ImGui::Button("Run Partial Match")){
+  std::string reason;if(!RequestPartialMatchRun(context,reason))context.debug_reason=reason;
+ }
  ImGui::EndDisabled();
+ if(!cxpartialmanual::Current(context))ImGui::TextWrapped("No current result (not run, failed, or script/case changed).");
+ if(cxpartialmanual::Current(context)||!context.partial_receipt_valid)
+  ImGui::TextWrapped("%s",context.partial_result_summary.c_str());
+ if(cxpartialmanual::Current(context)&&ImGui::TreeNode("Current Partial Match Receipt")){ImGui::TextWrapped("%s",context.partial_receipt.c_str());ImGui::TextWrapped("Output: %s",context.partial_output_path.c_str());ImGui::TreePop();}
  ImGui::TextWrapped("Angle min > max means a window crossing +/-180 degrees. Cross-parameter constraints are checked by the solver. Compare executed parameters in partial_match_receipt_0.json.");
  if(!context.debug_reason.empty())ImGui::TextWrapped("%s",context.debug_reason.c_str());
 }
