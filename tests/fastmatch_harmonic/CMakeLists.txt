@@ -195,3 +195,34 @@ if(PARTIAL_HEADLESS_APP AND SO2_HEADLESS_IMAGE)
  set_tests_properties(partial_app_receipts PROPERTIES
   FIXTURES_REQUIRED "partial_app_success_done;partial_app_budget_done")
 endif()
+add_executable(make_partial_evidence make_partial_evidence.cpp)
+target_link_libraries(make_partial_evidence PRIVATE partial_script_parser cxgeom_polar_discrete_harmonic)
+add_test(NAME partial_evidence_generate COMMAND make_partial_evidence
+ ${CMAKE_CURRENT_BINARY_DIR}/partial_evidence)
+if(PARTIAL_HEADLESS_APP)
+ set_tests_properties(partial_evidence_generate PROPERTIES FIXTURES_SETUP partial_evidence_ready)
+ add_test(NAME partial_evidence_catalog COMMAND ${PARTIAL_HEADLESS_APP} --partial-evidence-catalog-smoke)
+ set_tests_properties(partial_evidence_catalog PROPERTIES FIXTURES_REQUIRED partial_evidence_ready
+  ENVIRONMENT "CXVISION_RUN_ROOT=${CMAKE_CURRENT_BINARY_DIR}/partial_evidence"
+  PASS_REGULAR_EXPRESSION "PARTIAL_EVIDENCE_CATALOG_UI_PASS" TIMEOUT 60
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../..)
+ foreach(mode success budget)
+  if(mode STREQUAL "success")
+   set(case_id partial_match_missing_extra)
+  else()
+   set(case_id partial_match_budget_stop)
+  endif()
+  add_test(NAME partial_evidence_${mode} COMMAND ${PARTIAL_HEADLESS_APP} --cxscript-headless
+   --image ${CMAKE_CURRENT_BINARY_DIR}/partial_evidence/${case_id}/source.ppm
+   --script ${CMAKE_CURRENT_BINARY_DIR}/partial_evidence/${case_id}/run.cxsc
+   --out ${CMAKE_CURRENT_BINARY_DIR}/partial_evidence_headless/${mode}
+   --unified-log ${CMAKE_CURRENT_BINARY_DIR}/partial_evidence_headless/${mode}.jsonl)
+  set_tests_properties(partial_evidence_${mode} PROPERTIES FIXTURES_REQUIRED partial_evidence_ready
+   FIXTURES_SETUP partial_evidence_${mode}_done PASS_REGULAR_EXPRESSION "cxscript_headless_ok=true"
+   TIMEOUT 60 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../..)
+ endforeach()
+ add_test(NAME partial_evidence_receipts COMMAND harmonic_partial_script check-headless
+  ${CMAKE_CURRENT_BINARY_DIR}/partial_evidence_headless)
+ set_tests_properties(partial_evidence_receipts PROPERTIES
+  FIXTURES_REQUIRED "partial_evidence_success_done;partial_evidence_budget_done")
+endif()

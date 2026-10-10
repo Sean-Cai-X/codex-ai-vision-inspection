@@ -1,4 +1,8 @@
 #include "CxSetMatchEvidenceParameters.h"
+#include "CxPartialMatchUiParameters.h"
+#include "CxPartialMatchAudit.h"
+#include "muParser.h"
+#include "../libtorchsegmentation/src/utils/json.hpp"
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
@@ -5398,6 +5402,57 @@ static bool IsCuratedAssetOnlyEvidenceQueueLocal() {
              "CURATED_ASSET_ONLY";
 }
 
+int RunPartialMatchEvidenceCatalogSmoke() {
+ auto context=std::make_unique<ManualTestContext>();std::string reason;
+ auto groupFor=[&](const std::string& name)->ScriptEvidenceGroup&{
+  for(auto& g:context->script_evidence_groups)if(g.label==name)return g;
+  ScriptEvidenceGroup g;g.label=name;context->script_evidence_groups.push_back(g);
+  return context->script_evidence_groups.back();
+ };
+ AppendAssetDrivenEvidenceCasesLocal(*context,groupFor,reason);
+ ImGui::CreateContext();auto& io=ImGui::GetIO();io.DisplaySize=ImVec2(1200,1600);
+ io.DeltaTime=1.f/60;io.IniFilename=nullptr;
+ unsigned char* pixels=nullptr;int width=0,height=0;io.Fonts->GetTexDataAsRGBA32(&pixels,&width,&height);
+ bool pass=true;std::set<std::string> found;
+ try {
+ for(const auto& group:context->script_evidence_groups)for(const auto& item:group.thumbs){
+  if(item.tool!="PartialMatchAudit")continue;
+  std::string source;
+  if(!ReadTextFile(item.script_path,source)||cv::imread(item.image_path).empty()||
+     cv::imread(item.thumbnail_path).empty())throw std::runtime_error("partial_asset_load_failed");
+  context->editor_text=source;
+  for(const auto& p:cxpartialui::Parameters())
+   if(!cxpartialui::Read(source,"p",p).present)throw std::runtime_error("partial_parameter_missing");
+  for(int frame=0;frame<2;++frame){
+   ImGui::NewFrame();ImGui::SetNextWindowPos(ImVec2(0,0));ImGui::SetNextWindowSize(ImVec2(900,1400));
+   ImGui::Begin("Key Parameter Controls");DrawKeyParameterControlPanel(*context,nullptr);
+   ImGui::End();ImGui::Render();
+  }
+  if(!ImGui::GetDrawData()||ImGui::GetDrawData()->TotalVtxCount<=0)throw std::runtime_error("partial_panel_empty");
+  std::cout<<"partial_panel_vertices="<<ImGui::GetDrawData()->TotalVtxCount<<"\n";
+  for(int edited=0;edited<2;++edited){
+   if(edited)cxpartialui::Set(context->editor_text,cxpartialui::Parameters()[0],1);
+   mu::Parser parser;double* org=nullptr;parser.DefineOrgClass("double",org);parser.UsingClass(true);
+   RegisterPartialMatchAudit(parser);parser.SetExpr(context->editor_text);parser.Eval();
+   auto* p=static_cast<CxPartialMatchAudit*>(parser.GetClassObj("PartialMatchAudit","p"));
+   if(!p)throw std::runtime_error("partial_runtime_missing");
+   const auto& result=p->result();
+   bool budget=edited||item.case_id=="partial_match_budget_stop";
+   if(result.candidates.size()!=(budget?0u:1u))throw std::runtime_error("partial_candidate_mismatch");
+   const auto receipt=nlohmann::json::parse(p->receipt());
+   if(receipt.at("status")!=(budget?"SEED_BUDGET_EXHAUSTED":"PARTIAL_AUDIT_CANDIDATE")||
+      receipt.at("production_eligible")!=false||
+      receipt.at("raw_diagnostic").at("assessment_config").at("maximum_hypotheses")!=(budget?1:4096))
+    throw std::runtime_error("partial_parameter_receipt_mismatch");
+  }
+  found.insert(item.case_id);std::cout<<"partial_evidence_case="<<item.case_id<<"\n";
+ }
+ }catch(const mu::Parser::exception_type& e){std::cout<<e.GetMsg()<<"\n";pass=false;}
+ catch(const std::exception& e){std::cout<<e.what()<<"\n";pass=false;}
+ ImGui::DestroyContext();
+ for(const auto* id:{"partial_match_missing_extra","partial_match_budget_stop"})if(!found.count(id))pass=false;
+ std::cout<<"PARTIAL_EVIDENCE_CATALOG_UI_"<<(pass?"PASS":"FAIL")<<"\n";return pass?0:1;
+}
 bool RunHarmonicAuditGuiBridgeSmoke(ManualTestContext&, std::string&);
 
 int RunHarmonicEvidenceCatalogSmoke() {
