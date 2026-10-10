@@ -102,6 +102,10 @@ set(CXIMAGE_CORE_SOURCES
   cximage/FastMatchDiagnostic.cpp
   cximage/FindSetMatch.cpp
   cximage/CxFastMatchHarmonicAudit.cpp
+  cxgeom/polar_discrete_harmonic/encoding.cpp
+  cxgeom/polar_discrete_harmonic/matching.cpp
+  cxgeom/polar_discrete_harmonic/partial_assessment.cpp
+  cxgeom/polar_discrete_harmonic/partial_search.cpp
   cxgeom/src/CxGeoSO2Harmonic.cpp
   cxgeom/src/CxGeoSO2ReferenceAsset.cpp
   cximage/CxFastMatchRuntimeCapture.cpp

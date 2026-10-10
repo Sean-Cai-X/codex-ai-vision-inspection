@@ -158,3 +158,16 @@ add_executable(harmonic_polar_pipeline_matrix native_polar_pipeline_matrix_test.
 target_link_libraries(harmonic_polar_pipeline_matrix PRIVATE cxgeom_polar_discrete_harmonic)
 add_test(NAME polar_pipeline_matrix COMMAND harmonic_polar_pipeline_matrix
   ${CMAKE_CURRENT_BINARY_DIR}/polar_pipeline_matrix.jsonl)
+add_library(partial_script_parser STATIC
+ ../../cxparser/muParser.cpp ../../cxparser/muParserBase.cpp
+ ../../cxparser/muParserBytecode.cpp ../../cxparser/muParserCallback.cpp
+ ../../cxparser/muParserClass.cpp ../../cxparser/muParserClassFunctionReader.cpp
+ ../../cxparser/muparserClassReader.cpp ../../cxparser/muParserError.cpp
+ ../../cxparser/muparsertokenreader.cpp ../../cxparser/muParserInt.cpp
+ ../../cxparser/muParserRun.cpp)
+target_include_directories(partial_script_parser PUBLIC ../../cxparser)
+target_compile_features(partial_script_parser PUBLIC cxx_std_17)
+add_executable(harmonic_partial_script native_partial_script_test.cpp)
+target_link_libraries(harmonic_partial_script PRIVATE partial_script_parser cxgeom_polar_discrete_harmonic)
+add_test(NAME polar_partial_cxscript COMMAND harmonic_partial_script
+ ${CMAKE_CURRENT_BINARY_DIR}/partial_script)

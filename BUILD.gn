@@ -23,7 +23,7 @@ source_set("cxvision_source_inventory") {
 # Linux/Windows application link target. Third-party binaries remain external
 # inputs selected by GN args; this target contains source and build metadata only.
 executable("cxvision_imgui_acceptance") {
-  deps = [ ":cxvision_source_inventory", ":cxgeom_set_match_adapter" ]
+  deps = [ ":cxvision_source_inventory", ":cxgeom_set_match_adapter", ":cxgeom_polar_discrete_harmonic" ]
   configs = [ "//build/config:common", "//build/config:platform" ]
   libs = [ "torch", "torch_cpu", "c10" ]
 }

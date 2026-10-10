@@ -15,6 +15,7 @@
 #include "FastMatch.h"
 #include "FastMatchDiagnostic.h"
 #include "CxFastMatchHarmonicAudit.h"
+#include "CxPartialMatchAudit.h"
 #include "FindSetMatch.h"
 #include "FindCircle.h"
 #include "FindEllipse.h"
@@ -923,6 +924,7 @@ void CxParserRuntime::ParserInitialClassFunction(int iusing) {
     m_parser.DefineClassFun("FindSetMatch", set_match, "expectcount", &FindSetMatch::expectcount);
     m_parser.DefineClassFun("FindSetMatch", set_match, "save", &FindSetMatch::save);
 
+    RegisterPartialMatchAudit(m_parser);
     CxFastMatchHarmonicAudit* harmonic_audit = nullptr;
     m_parser.DefineClass("HarmonicAudit", harmonic_audit);
     m_parser.DefineClassFun("HarmonicAudit", harmonic_audit, "trustedsha", &CxFastMatchHarmonicAudit::trustedsha);
