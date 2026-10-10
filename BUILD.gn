@@ -136,3 +136,8 @@ executable("harmonic_polar_partial_search_test") {
   deps = [ ":cxgeom_polar_discrete_harmonic" ]
   configs = [ ":geometric_set_platform" ]
 }
+executable("harmonic_polar_pipeline_matrix_test") {
+  sources = [ "tests/fastmatch_harmonic/native_polar_pipeline_matrix_test.cpp" ]
+  deps = [ ":cxgeom_polar_discrete_harmonic" ]
+  configs = [ ":geometric_set_platform" ]
+}

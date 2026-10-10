@@ -13,6 +13,28 @@ inline std::string PartialPipelineReceiptV1(const PartialPipelineResult& r){
   throw std::invalid_argument("inconsistent_pipeline_accounting");
  const bool success=r.status=="PARTIAL_AUDIT_CANDIDATE"||r.status=="AMBIGUOUS";
  if(success!=!r.candidates.empty())throw std::invalid_argument("inconsistent_pipeline_status");
+ if(r.complete&&!r.raw.search_complete)throw std::invalid_argument("incomplete_raw_search");
+ for(size_t i=0;i<r.candidates.size();++i){
+  const auto& c=r.candidates[i];
+  if(!c.assessment_complete||c.production_eligible||!PartialPoseInWindow(c.supplied,r.raw.executed_search)||
+     r.candidate_sources[i].empty())throw std::invalid_argument("invalid_final_candidate");
+  const auto index=r.candidate_sources[i].front();
+  if(index>=r.refinements.size())throw std::invalid_argument("invalid_final_source");
+  const bool selected=r.decisions[index]=="refit_selected";
+  const auto& expected=selected?r.refinements[index].after:r.raw.candidates[index];
+  if((selected&&!r.refinements[index].accepted)||c.accepted!=expected.accepted||c.status!=expected.status||
+     c.supplied.source_id!=expected.supplied.source_id||c.supplied.angle_deg!=expected.supplied.angle_deg||
+     c.supplied.scale!=expected.supplied.scale||c.supplied.translation!=expected.supplied.translation||
+     c.observed_rms_px!=expected.observed_rms_px||c.observed_max_px!=expected.observed_max_px||
+     c.pairs.size()!=expected.pairs.size())
+   throw std::invalid_argument("final_candidate_source_mismatch");
+  for(size_t k=0;k<c.pairs.size();++k)
+   if(c.pairs[k].reference_id!=expected.pairs[k].reference_id||c.pairs[k].target_id!=expected.pairs[k].target_id||
+      c.pairs[k].residual_px!=expected.pairs[k].residual_px)
+    throw std::invalid_argument("final_pair_source_mismatch");
+ }
+ if(r.status=="PARTIAL_AUDIT_CANDIDATE"&&(r.candidates.size()!=1||!r.candidates.front().accepted))
+  throw std::invalid_argument("false_unique_candidate_status");
  std::ostringstream o;o.imbue(std::locale::classic());o<<std::setprecision(17);
  auto q=receipt_detail::quote;
  auto num=[&](double v){if(!std::isfinite(v))throw std::invalid_argument("nonfinite_pipeline");o<<v;};
