@@ -3,10 +3,12 @@
 #include "../../libtorch_module/torch_runtime_yolov8_seg_executor.cpp"
 #include "synthetic_materializer.h"
 #include <iostream>
+#include "mode_budget_diagnostic.h"
 
 int main(int argc,char** argv) {
     using namespace supervision_fixture;
     try {
+        if(argc>1&&std::string(argv[1])=="--mode-budget")return mode_budget::run(argc,argv);
         if(argc==2&&std::string(argv[1])=="--classification-loss-test") {
             for(int cls=0;cls<7;++cls) {
                 auto logits=torch::zeros({1,7,2,2},torch::TensorOptions().requires_grad(true));
