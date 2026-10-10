@@ -1,0 +1,64 @@
+Isolated trial delivery status - 2026-10-10
+
+NOT YET A DIRECTLY IMPORTABLE / FULLY ACCEPTED BUSINESS DELIVERY.
+State: ASSETS_READY_BRIDGE_ADMISSION_PENDING.
+Tool testing is permitted; model quality remains unaccepted. No production approval,
+automatic activation, business-project rebinding or dependency installation occurred.
+
+Prepared artifact directory
+../deliveries/ellipse_rd_trial_20261010_r1
+delivery_manifest.json SHA256:
+14d6c5e402bed312cf5a40a91a06bcf180c93bc5734c94aa9b4f805ec3464f3a
+17 copied files rehashed successfully. Manifest/checkpoint/parent attestation/lineage
+are actual immutable copies, not bare weights or placeholder identities. Source
+digests were checked before and after packaging. No images/masks/overlays included.
+PowerShell producer: tools/Build-IsolatedTrialDelivery.ps1 (no Python).
+
+Candidate identity
+business_yolov8seg_7class_trial_a9a0164b4d8eaa4d
+checkpoint SHA256 a9a0164b4d8eaa4ded3809b25bc52e16113674e931682ce6a19a5ac15705cb3d
+Runtime DLL SHA256 c52d1be1bd91d6cde888a62d16e6d65a1762ff6d55761e6f988a10dbb897f4cf
+The delivery manifest records actual candidate-manifest SHA and all parent digests,
+relative files, model ontology, loss version, BN policy, eval mode and the actual
+pre/postprocessing fields. Implementation version is bound by runtime SHA.
+Dependency closure is NOT packaged or independently accepted on a clean machine.
+No claim is made that the business installation is already compatible with this pin.
+
+Requirements progress
+1. Assets complete; actual typed broker registration PENDING.
+   The current LocalBusinessAssetBroker requires
+   visionai.business.local_trial_candidate_registration.v2, binding the real frozen
+   project SHA, canonical training request digest, dataset, parameters, parent and
+   runtime pin, and an exact isolated staging path. No synthetic ledger was forged.
+   This candidate trained on R&D synthetic data, not business test001 annotations.
+   It cannot be presented as a candidate trained from test001's frozen dataset.
+2. Actual runtime included with real C ABI evidence; typed compatibility / offline
+   dependency closure PENDING. The bundle must not be advertised as self-contained.
+3. Real C ABI training, numeric epoch callbacks/LR, receipt, single-image inference
+   and cancellation tested. Typed bridge GetCapability / cancellation / receipt
+   filtering against these exact assets remain PENDING.
+   diagnostic_summary.json includes every fixed class count per sample, role,
+   best ellipse IoU and same-class surplus candidates. Surplus count is a duplicate
+   warning, NOT a measured pairwise-overlap duplication statistic. It explicitly
+   is not an actual typed bridge receipt and cannot substitute for one.
+4. Same-budget diagnosis completed in VALIDATION_MODE_BUDGET_20261010.txt.
+   Train0 miss, Train1 class/shape errors and surplus candidates remain OPEN.
+   No corrective training-policy experiment or new default was approved in this
+   packaging step; do not claim those issues fixed because packaging succeeded.
+
+New actual cancellation acceptance
+../cxscript_runs/trial_cancellation_acceptance/9873866840900
+Runner option --cancel-after-first-epoch returns zero from the real C ABI epoch
+callback after the first completed optimizer update. Runtime reports cancelled,
+completed_iterations=1, candidate_written=false. Exactly one callback; no candidate
+or pending candidate directory; original parent and image/mask inventories unchanged.
+This verifies callback cancellation, not the separate typed-service cancellation
+operation. Runtime CTest 4/4 also passed after the runner change.
+
+Next binding decision
+Recommended: create an independently named R&D synthetic isolated project and test
+the real existing broker/transport there. Do not change business test001 or create
+fake human annotation approval. If business requires test001 binding, obtain only
+its structured opaque IDs/digests and approved import semantics; do not request
+business images, paths, masks, overlays or screenshots. Missing binding authority
+must remain explicit instead of fabricating a registry record.

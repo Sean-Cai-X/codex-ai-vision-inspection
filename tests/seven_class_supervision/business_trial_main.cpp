@@ -81,6 +81,7 @@ struct Progress {
     J epochs=J::array();
     std::ofstream stream;
     bool failed=false;
+    bool cancel_after_first_epoch=false;
     std::chrono::steady_clock::time_point start=std::chrono::steady_clock::now();
 };
 int on_epoch(void* p,unsigned percent,unsigned epoch,unsigned iterations,
@@ -93,7 +94,7 @@ int on_epoch(void* p,unsigned percent,unsigned epoch,unsigned iterations,
             {"has_validation_score",has_score!=0},{"effective_learning_rate",lr}};
         progress.epochs.push_back(row);progress.stream<<row.dump()<<'\n';progress.stream.flush();
         check(bool(progress.stream),"TRIAL_PROGRESS_WRITE_FAILED");
-        std::cout<<row.dump()<<std::endl;return 1;
+        std::cout<<row.dump()<<std::endl;return progress.cancel_after_first_epoch?0:1;
     } catch(...) {progress.failed=true;return 0;}
 }
 int cancelled(void* p) {
@@ -106,7 +107,8 @@ int main(int argc,char** argv) {
     using namespace supervision_fixture;
     fs::path run;
     try {
-        if(argc!=5&&argc!=7) throw std::runtime_error("usage: business_trial binding.json parent_root rules.json output_base [epochs iterations]");
+        const bool cancellation_test=argc==6&&std::string(argv[5])=="--cancel-after-first-epoch";
+        if(argc!=5&&argc!=7&&!cancellation_test) throw std::runtime_error("usage: business_trial binding.json parent_root rules.json output_base [epochs iterations | --cancel-after-first-epoch]");
         auto count=[](const char* value) {
             std::string s=value;check(!s.empty()&&s.find_first_not_of("0123456789")==std::string::npos,"TRIAL_COUNT_INVALID");
             auto n=std::stoul(s);check(n>0&&n<=200,"TRIAL_COUNT_OUT_OF_BOUNDS");return static_cast<unsigned>(n);
@@ -149,6 +151,7 @@ int main(int argc,char** argv) {
         TorchRuntimeConfig config{model_root.c_str(),out_root.c_str(),"cpu","info"};
         Handle handle;check(torch_runtime_create(&config,&handle.value)==0&&handle.value,"TRIAL_RUNTIME_CREATE_FAILED");
         Progress progress;progress.stream.open(run/"epoch_events.jsonl");
+        progress.cancel_after_first_epoch=cancellation_test;
         check(bool(progress.stream),"TRIAL_PROGRESS_OPEN_FAILED");
         std::string serialized=extra.dump();
         TorchTaskRequest req{};req.device="cpu";req.dataset_root=train_root.c_str();req.manifest_path=manifest.c_str();
@@ -156,6 +159,18 @@ int main(int argc,char** argv) {
         std::cout<<"Starting real CPU trial: "<<epochs<<" epochs, "<<iterations<<" optimizer updates, batch size 1. Evidence: "<<run.generic_string()<<std::endl;
         Result training;int rc=torch_runtime_run_business_trial_v1(handle.value,&req,on_epoch,cancelled,&progress,&training.value);
         auto train_result=result_json(training.value,rc);write_new(run/"training_receipt.json",train_result.dump(2));
+        if(cancellation_test) {
+            check(training.value.ok==0&&train_result.at("status")=="cancelled"&&
+                train_result.at("result").at("completed_iterations")==1&&
+                train_result.at("result").at("candidate_written")==false&&progress.epochs.size()==1,
+                "TRIAL_CANCELLATION_CONTRACT_FAILED");
+            check(!fs::exists(train_dir/"candidate")&&!fs::exists(train_dir/".business_trial_pending"),"TRIAL_CANCEL_PUBLISHED_CANDIDATE");
+            validate_parent(parent,binding);check(tree_digests(run/"ellipse")==input_inventory,"TRIAL_CANCEL_SOURCE_CHANGED");
+            write_new(run/"cancellation_acceptance.json",J({{"status","PASS"},{"trigger","epoch_callback_return_zero"},
+                {"completed_updates",1},{"callback_count",1},{"candidate_written",false},{"runtime",runtime},
+                {"parent_and_inputs_unchanged",true},{"typed_bridge_cancel_verified",false},{"production_activation",false}}).dump(2));
+            std::cout<<"PASS real C ABI cancellation: "<<run.generic_string()<<std::endl;return 0;
+        }
         check(rc==0&&training.value.ok==1,"TRIAL_TRAINING_FAILED_SEE_RECEIPT");
         check(progress.epochs.size()==epochs&&progress.epochs.back().at("completed_iterations")==iterations,"TRIAL_EPOCH_ACCOUNTING_MISMATCH");
         auto candidate=train_dir/"candidate";
