@@ -1,4 +1,5 @@
 #include "../../cxgeom/polar_discrete_harmonic/partial_search_receipt.h"
+#include "../../cxgeom/polar_discrete_harmonic/partial_refinement.h"
 #include <fstream>
 #include "../../libtorchsegmentation/src/utils/json.hpp"
 #include <algorithm>
@@ -52,6 +53,20 @@ int main()try{
  PartialRequest square=base;square.reference={{"a","e",{1,1}},{"b","e",{-1,1}},{"c","e",{-1,-1}},{"d","e",{1,-1}}};
  square.observation=square.reference;r=SearchPartial(square);
  check(r.search_complete&&r.status=="AMBIGUOUS"&&r.candidates.size()==4,"square ambiguity");
+ std::vector<double> symmetricAngles;
+ for(const auto& candidate:r.candidates){
+  auto fit=RefinePartial(square,candidate.supplied);
+  const auto& verified=fit.accepted?fit.after:fit.before;
+  check(verified.accepted,"symmetric pose retained");
+  symmetricAngles.push_back(verified.supplied.angle_deg);
+ }
+ std::sort(symmetricAngles.begin(),symmetricAngles.end());
+ for(size_t i=1;i<symmetricAngles.size();++i)
+  check(symmetricAngles[i]-symmetricAngles[i-1]>80,"real symmetry not collapsed");
+ auto invalidSeed=lastResult.candidates.front().supplied;invalidSeed.translation+=Z(1000,1000);
+ check(!RefinePartial(last,invalidSeed).accepted,"wrong seed rejected");
+ invalidSeed.source_id.clear();
+ check(!RefinePartial(last,invalidSeed).accepted,"missing provenance rejected");
  PartialSearchConfig cfg;cfg.maximum_candidates=1;r=SearchPartial(square,cfg);
  check(!r.search_complete&&r.candidates.empty()&&r.status=="CANDIDATE_CAPACITY_EXHAUSTED","capacity");
  cfg.scale_min=-1;check(SearchPartial(last,cfg).status=="INVALID_SEARCH_CONFIG","invalid search config");
@@ -68,6 +83,28 @@ int main()try{
     found=true;
   }
   check(found,"noisy true membership and bounded pose error");
+  std::optional<Hypothesis> common;
+  for(const auto& c:result.candidates){
+   auto fit=RefinePartial(noisy,c.supplied);
+   check(fit.accepted&&!fit.production_eligible,"noisy refit verified");
+   check(*fit.after.observed_rms_px<=*fit.before.observed_rms_px,"nonincreasing observed RMS");
+   if(common)check(fit.after.supplied.translation==common->translation&&
+    fit.after.supplied.angle_deg==common->angle_deg&&fit.after.supplied.scale==common->scale,"same pairs same fit");
+   common=fit.after.supplied;
+   auto exact=noisy;exact.config.maximum_pair_checks=fit.pair_checks;
+   check(RefinePartial(exact,c.supplied).accepted,"refit exact budget");
+   --exact.config.maximum_pair_checks;
+   check(!RefinePartial(exact,c.supplied).accepted,"refit cutoff budget");
+   auto shuffled=noisy;std::reverse(shuffled.reference.begin(),shuffled.reference.end());
+   std::reverse(shuffled.observation.begin(),shuffled.observation.end());
+   auto replay=RefinePartial(shuffled,c.supplied);
+   check(replay.accepted&&replay.after.supplied.translation==common->translation,"refit deterministic");
+   std::cout<<"REFIT noise="<<noise<<" rms_before="<<*fit.before.observed_rms_px
+    <<" rms_after="<<*fit.after.observed_rms_px<<" max_after="<<*fit.after.observed_max_px<<std::endl;
+   std::cout<<"REFIT_POSE source="<<fit.before.supplied.source_id
+    <<" angle_before="<<fit.before.supplied.angle_deg<<" angle_after="<<fit.after.supplied.angle_deg
+    <<" scale_before="<<fit.before.supplied.scale<<" scale_after="<<fit.after.supplied.scale<<std::endl;
+  }
   auto receipt=PartialSearchReceiptV1(result);auto json=nlohmann::json::parse(receipt);
   check(json.at("candidates").size()==result.candidates.size(),"receipt candidates");
   check(json.at("production_eligible")==false,"receipt audit only");
