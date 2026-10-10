@@ -3,6 +3,7 @@
 namespace cxgeom::polar {
 PartialSearchResult SearchPartial(const PartialRequest& request,const PartialSearchConfig& cfg){
  PartialSearchResult out;out.request_id=request.request_id;
+ out.reference_source=request.reference_source;out.observation_source=request.observation_source;
  out.executed_assessment=request.config;out.executed_search=cfg;
  auto valid=ValidatePartial(request);
  if(!valid.ready_for_solver){out.status="INVALID_REQUEST";out.reason=valid.reason;return out;}
@@ -40,7 +41,10 @@ PartialSearchResult SearchPartial(const PartialRequest& request,const PartialSea
    const auto& p=existing.supplied;
    if(std::abs(std::remainder(p.angle_deg-h.angle_deg,360))<=cfg.merge_angle_deg&&
       std::abs(p.scale-h.scale)<=cfg.merge_scale&&
-      std::abs(p.translation-h.translation)<=cfg.merge_translation_px){duplicate=true;break;}
+      std::abs(p.translation-h.translation)<=cfg.merge_translation_px){
+    out.deduplication.push_back({h.source_id,p.source_id});
+    duplicate=true;break;
+   }
   }
   if(duplicate)continue;
   if(out.pair_checks>=request.config.maximum_pair_checks){fail("PAIR_BUDGET_EXHAUSTED");return out;}

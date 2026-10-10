@@ -1,4 +1,6 @@
-#include "../../cxgeom/polar_discrete_harmonic/partial_search.h"
+#include "../../cxgeom/polar_discrete_harmonic/partial_search_receipt.h"
+#include <fstream>
+#include "../../libtorchsegmentation/src/utils/json.hpp"
 #include <algorithm>
 #include <iostream>
 using namespace cxgeom::polar;
@@ -53,6 +55,45 @@ int main()try{
  PartialSearchConfig cfg;cfg.maximum_candidates=1;r=SearchPartial(square,cfg);
  check(!r.search_complete&&r.candidates.empty()&&r.status=="CANDIDATE_CAPACITY_EXHAUSTED","capacity");
  cfg.scale_min=-1;check(SearchPartial(last,cfg).status=="INVALID_SEARCH_CONFIG","invalid search config");
+ for(double noise:{.005,.05}){
+  auto noisy=last;noisy.config.max_residual_px=.3;
+  for(size_t i=0;i<4;++i)noisy.observation[i].point+=Z(noise*std::sin(double(i+1)),noise*std::cos(double(2*i+1)));
+  auto result=SearchPartial(noisy);
+  check(result.search_complete&&result.status=="AMBIGUOUS","noise retains near-pose ambiguity");
+  bool found=false;
+  for(const auto& c:result.candidates){
+   if(c.pairs.size()==4&&c.extra_observation_ids.size()==2&&c.missing_reference_ids.size()==4&&
+      std::abs(std::remainder(c.supplied.angle_deg-23.4,360))<.2&&
+      std::abs(c.supplied.scale-1.2)<.005&&std::abs(c.supplied.translation-Z(17.25,-8.5))<.3)
+    found=true;
+  }
+  check(found,"noisy true membership and bounded pose error");
+  auto receipt=PartialSearchReceiptV1(result);auto json=nlohmann::json::parse(receipt);
+  check(json.at("candidates").size()==result.candidates.size(),"receipt candidates");
+  check(json.at("production_eligible")==false,"receipt audit only");
+  std::reverse(noisy.reference.begin(),noisy.reference.end());std::reverse(noisy.observation.begin(),noisy.observation.end());
+  check(receipt==PartialSearchReceiptV1(SearchPartial(noisy)),"byte identical noisy replay");
+  std::cout<<"NOISY_PARTIAL noise="<<noise<<" candidates="<<result.candidates.size()<<std::endl;
+ }
+ auto receipt=PartialSearchReceiptV1(lastResult);auto json=nlohmann::json::parse(receipt);
+ check(!lastResult.deduplication.empty(),"exact duplicate provenance retained");
+ check(json.at("deduplicated_seeds")==lastResult.deduplication.size(),"dedup receipt count");
+ check(json.at("deduplication").size()==lastResult.deduplication.size(),"dedup receipt records");
+ auto rejects=[&](PartialSearchResult bad){
+  bool rejected=false;try{(void)PartialSearchReceiptV1(bad);}catch(const std::invalid_argument&){rejected=true;}
+  check(rejected,"invalid receipt rejected");
+ };
+ auto bad=lastResult;bad.production_eligible=true;rejects(bad);
+ bad=lastResult;bad.search_complete=false;rejects(bad);
+ bad=lastResult;bad.candidates.clear();rejects(bad);
+ bad=lastResult;bad.candidates[0].supplied.scale=std::numeric_limits<double>::quiet_NaN();rejects(bad);
+ auto cutoff=last;cutoff.config.maximum_hypotheses=1;
+ json=nlohmann::json::parse(PartialSearchReceiptV1(SearchPartial(cutoff)));
+ bad=lastResult;bad.candidates[0].accepted=false;rejects(bad);
+ bad=lastResult;bad.assessed_hypotheses=bad.attempted_seeds+1;rejects(bad);
+ std::ofstream receiptFile("polar_partial_search_receipt.json");receiptFile<<receipt;
+ check(bool(receiptFile),"receipt evidence persisted");
+ check(json.at("candidates").empty()&&json.at("search_complete")==false,"failure receipt no pose");
  std::cout<<"PARTIAL_SEARCH_PASS cases="<<cases<<"; independent automatic seeds, not production"<<std::endl;
  return 0;
 }catch(const std::exception& e){std::cerr<<e.what()<<std::endl;return 1;}

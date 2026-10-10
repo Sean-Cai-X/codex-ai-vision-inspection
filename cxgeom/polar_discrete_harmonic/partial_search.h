@@ -8,7 +8,9 @@ struct PartialSearchConfig {
  size_t maximum_candidates=32;
 };
 struct PartialSearchResult {
- std::string request_id,status,reason;
+ std::string request_id,status,reason,reference_source,observation_source;
+ struct Deduplication { std::string suppressed_seed,representative_seed; };
+ std::vector<Deduplication> deduplication; // Bounded by maximum_hypotheses.
  std::string generator="deterministic_geometric_point_pairs";
  PartialConfig executed_assessment;
  PartialSearchConfig executed_search;
