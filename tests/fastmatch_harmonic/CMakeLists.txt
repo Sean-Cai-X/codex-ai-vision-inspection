@@ -234,3 +234,7 @@ add_test(NAME observed_boundary_input COMMAND observed_boundary_input_guards)
 add_executable(boundary_bundle_guards native_boundary_bundle_test.cpp)
 target_link_libraries(boundary_bundle_guards PRIVATE cxgeom_polar_discrete_harmonic)
 add_test(NAME boundary_bundle COMMAND boundary_bundle_guards)
+
+add_executable(boundary_order_guards native_boundary_order_test.cpp)
+target_link_libraries(boundary_order_guards PRIVATE cxgeom_polar_discrete_harmonic)
+add_test(NAME boundary_order COMMAND boundary_order_guards)
