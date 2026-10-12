@@ -1,3 +1,4 @@
+#include "../../cxgeom/polar_discrete_harmonic/boundary_candidate_gate.h"
 #include "../../cximage/CxPartialBoundaryMaskInput.h"
 #include "../../cxgeom/polar_discrete_harmonic/boundary_order_audit.h"
 #include "../../cxgeom/polar_discrete_harmonic/partial_pipeline_receipt.h"
@@ -41,6 +42,7 @@ int main(int argc,char** argv)try{
   Json entry={{"id",c.id},{"expected_pose",{{"angle_deg",c.angle},{"scale",c.scale},{"tx",tx},{"ty",ty}}},
    {"quality_pass",false},{"reference",Json::parse(ref.receipt())},{"candidates",Json::array()}};
   try{
+  entry["order_gate_quality_pass"]=false;entry["order_gate_status"]="NOT_RUN";
    auto obs=FromBinaryMask(cv::imread(path.string(),cv::IMREAD_GRAYSCALE),anchor,std::string("matrix-")+c.id,"v1","anchor");
    entry["observation"]=Json::parse(obs.receipt());ObservedBoundaryBundle ob({obs.boundary});
    PartialRequest r;r.request_id=c.id;r.reference_source=ref.boundary.source_id();r.observation_source=obs.boundary.source_id();
@@ -52,6 +54,16 @@ int main(int argc,char** argv)try{
    const auto raw=PartialPipelineReceiptV1(result);
    check(raw==PartialPipelineReceiptV1(SearchRefinedPartial(r)),"deterministic replay");
    entry["pose"]=Json::parse(raw);entry["status"]=result.status;
+   BoundaryCandidateGate gate(rb,ob,result);
+   entry["order_gate"]=Json::parse(gate.receipt());entry["order_gate_status"]=gate.status();
+   if(std::string(c.id)=="translate"){
+    check(result.candidates.size()>1&&gate.status()=="UNIQUE_ORDER_CANDIDATE","strict gate translation");
+    BoundaryOrderPolicy loose;loose.allow_reversed=true;loose.allow_gaps=true;loose.require_reference_endpoints=false;
+    BoundaryCandidateGate ambiguity(rb,ob,result,loose);
+    check(ambiguity.status()=="ORDER_AMBIGUOUS"&&ambiguity.eligible_indices().size()>1,"retain order ambiguity");
+    entry["relaxed_policy_diagnostic"]=Json::parse(ambiguity.receipt());
+   }
+   // Truth is consulted below only to evaluate the already-computed gate.
    check(result.complete||result.candidates.empty(),"incomplete exposes candidate");
    bool unique_good=false;
    for(const auto& candidate:result.candidates){
@@ -64,6 +76,9 @@ int main(int argc,char** argv)try{
     unique_good=good;
    }
    entry["quality_pass"]=result.complete&&result.candidates.size()==1&&unique_good;
+   if(gate.eligible_indices().size()==1)
+    entry["order_gate_quality_pass"]=entry["candidates"][gate.eligible_indices()[0]]["within_limits"];
+   check(raw==PartialPipelineReceiptV1(result),"gate altered raw");
    entry["quality_reason"]=entry["quality_pass"].get<bool>()?"UNIQUE_POSE_AND_ORDER_WITHIN_LIMITS":
     result.candidates.empty()?"NO_CONSUMABLE_CANDIDATE":result.candidates.size()>1?"AMBIGUOUS_CANDIDATES":"POSE_OR_ORDER_OUTSIDE_LIMITS";
   }catch(const std::invalid_argument& e){
@@ -79,10 +94,15 @@ int main(int argc,char** argv)try{
   if(entry["quality_pass"].get<bool>())++accepted;
   save(out/(std::string(c.id)+".json"),entry);
   summary["cases"].push_back({{"id",c.id},{"status",entry["status"]},{"quality_pass",entry["quality_pass"]},{"reason",entry["quality_reason"]}});
+  summary["cases"].back()["order_gate_status"]=entry["order_gate_status"];
+  summary["cases"].back()["order_gate_quality_pass"]=entry["order_gate_quality_pass"];
   std::cout<<c.id<<": "<<entry["status"]<<" quality="<<entry["quality_pass"]<<" reason="<<entry["quality_reason"]<<'\n';
  }
  summary["quality_pass_count"]=accepted;summary["case_count"]=std::size(cases);
  summary["test_pass_means"]="execution_and_evidence_contract_not_all_case_quality";
+ size_t gate_passed=0;
+ for(const auto& item:summary["cases"])if(item["order_gate_quality_pass"].get<bool>())++gate_passed;
+ summary["order_gate_quality_pass_count"]=gate_passed;
  save(out/"matrix.json",summary);
  check(summary["cases"][10]["status"]=="INPUT_REJECTED","ambiguous distractor must reject");
  std::cout<<"MASK_MATRIX_CONTRACT_PASS quality="<<accepted<<"/"<<std::size(cases)<<'\n';return 0;

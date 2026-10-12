@@ -1,3 +1,4 @@
+#include "../../cxgeom/polar_discrete_harmonic/boundary_candidate_gate.h"
 #include "../../cxgeom/polar_discrete_harmonic/boundary_order_audit.h"
 #include "../../cxgeom/polar_discrete_harmonic/partial_pipeline_receipt.h"
 #include "../../libtorchsegmentation/src/utils/json.hpp"
@@ -65,6 +66,26 @@ int main()try{
  auto real=AuditBoundaryOrder(ref,obs,raw.candidates[0].pairs);
  check(real.order_consistent&&real.segments[0].status=="FORWARD","real correspondence order");
  check(before==PartialPipelineReceiptV1(raw),"raw receipt unchanged");
+ BoundaryOrderPolicy policy;
+ check(BoundaryOrderAllowed(audit,policy)&&!BoundaryOrderAllowed(reversed,policy),"default direction");
+ policy.allow_reversed=true;check(BoundaryOrderAllowed(reversed,policy),"reverse enabled");
+ check(!BoundaryOrderAllowed(gap,policy),"gaps disabled");
+ policy.allow_gaps=true;check(BoundaryOrderAllowed(gap,policy),"gaps enabled");
+ auto no_end=forward;no_end.pop_back();
+ auto endpoint=AuditBoundaryOrder(ref,obs,no_end);
+ check(!BoundaryOrderAllowed(endpoint,policy),"endpoints required");
+ policy.require_reference_endpoints=false;check(BoundaryOrderAllowed(endpoint,policy),"endpoints optional");
+ BoundaryCandidateGate gate(ref,obs,raw);
+ check(gate.status()=="UNIQUE_ORDER_CANDIDATE"&&gate.eligible_indices().size()==1,"unique gate");
+ check(nlohmann::json::parse(gate.receipt())["raw"]==nlohmann::json::parse(before),"embedded raw unchanged");
+ policy.minimum_points=6;check(BoundaryCandidateGate(ref,obs,raw,policy).status()=="NO_ORDER_CANDIDATE","no candidate");
+ policy.minimum_points=2;
+ reject([&]{BoundaryCandidateGate bad(ref,obs,raw,policy);},"BOUNDARY_GATE_INVALID_MINIMUM");
+ reject([&]{BoundaryCandidateGate bad(obs,ref,raw);},"BOUNDARY_GATE_SOURCE_MISMATCH");
+ request.config.maximum_hypotheses=1;
+ auto incomplete=SearchRefinedPartial(request);
+ check(!incomplete.complete&&BoundaryCandidateGate(ref,obs,incomplete).status()=="RAW_INCOMPLETE","incomplete gate");
+ check(before==PartialPipelineReceiptV1(raw),"gate leaves raw unchanged");
  std::reverse(forward.begin(),forward.end());
  check(BoundaryOrderReceipt(AuditBoundaryOrder(ref,obs,forward))==BoundaryOrderReceipt(audit),"pair input order invariance");
  std::cout<<"BOUNDARY_ORDER_PASS forward/reverse/gaps/cross/ambiguous/scrambled/insufficient/raw_unchanged\n";
