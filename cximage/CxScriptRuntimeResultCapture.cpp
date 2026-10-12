@@ -8,6 +8,7 @@
 #include "FindSegmentation.h"
 #include "FastMatch.h"
 #include "FindSetMatch.h"
+#include "CxPartialMatchAudit.h"
 #include "CxTextInspect.h"
 #include "TorchTask.h"
 #include "CxTorchResultProjector.h"
@@ -2303,9 +2304,34 @@ bool CaptureRuntimeToolResults(
         }
     }
 
+    const int partial_count = runtime.GetClassObjSum("PartialMatchAudit");
+    for (int i = 0; i < partial_count; ++i)
+    {
+        auto* tool = static_cast<CxPartialMatchAudit*>(runtime.GetClassObj("PartialMatchAudit", i));
+        if (!tool || !captured_objects.insert(tool).second) continue;
+        try {
+            const auto& result = tool->result();
+            CxScriptToolResultCapture item;
+            item.type = "PartialMatchAudit";
+            item.name = runtime.GetClassObjName("PartialMatchAudit", i);
+            item.owner_ref = item.name;
+            item.algorithm_executed = result.raw.attempted_seeds > 0;
+            item.budget_exceeded = result.status.find("EXHAUSTED") != std::string::npos;
+            item.candidate_count = static_cast<int>(result.candidates.size());
+            item.reason = "PartialMatchAudit:" + result.status +
+                ";geometry_audit_only;image_extraction=false;production_eligible=false";
+            capture.partial_match_receipts.push_back(tool->receipt());
+            capture.partial_match_only = !other_tool_found;
+            MergeToolCapture(item, capture);
+            supported_object_found = true;
+        } catch (const std::exception& e) {
+            reason = std::string("PartialMatchAudit capture failed: ") + e.what();
+            return false;
+        }
+    }
     if (!supported_object_found)
     {
-        reason = "no supported cximage runtime object found; expected one of Findline, FindCircle, FindEllipse, FindObject, FindRect, FindSegmentation, Match, fastmatch, FindSetMatch or TorchTask";
+        reason = "no supported cximage runtime object found; expected one of Findline, FindCircle, FindEllipse, FindObject, FindRect, FindSegmentation, Match, fastmatch, FindSetMatch, PartialMatchAudit or TorchTask";
         return false;
     }
 

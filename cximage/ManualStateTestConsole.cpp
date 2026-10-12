@@ -2176,7 +2176,7 @@ void ViewController::drawKeyParameterControlsWindow() {
           "formfit_mode=closed_polygon_formfit_v1 max_nodes=64 "
           "minimum_node_spacing_px=4 minimum_region_pixels=32 boundary_anchor_mode=custom");
     }
-  } else if (cxharmonicui::IsCase(m_manualTest.editor_text) || cxsetmatchui::IsCase(m_manualTest.editor_text)) {
+  } else if (IsGeometryAuditKeyParameterContext(m_manualTest)) {
     DrawKeyParameterControlPanel(m_manualTest, &m_parserDebugBridge);
   } else if (IsTorchContext(m_manualTest) &&
       !IsFindLineFindCircleContext(m_manualTest)) {

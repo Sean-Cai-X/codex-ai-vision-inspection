@@ -1483,6 +1483,11 @@ struct ManualTestContext {
   std::string bound_state_script_path;
   std::string setmatch_output_path;
   std::string setmatch_receipt;
+  std::string partial_output_path, partial_receipt, partial_result_summary;
+  std::string partial_executed_script, partial_executed_case;
+  std::string partial_pending_script, partial_pending_case;
+  bool partial_receipt_valid = false;
+  bool partial_pending = false;
   std::string harmonic_audit_output_path;
   std::string harmonic_audit_result_summary;
   std::string harmonic_audit_receipt;

@@ -1,4 +1,5 @@
 #include <fstream>
+#include "CxPartialMatchManualRun.h"
 #include "../libtorchsegmentation/src/utils/json.hpp"
 #include <opencv2/imgcodecs.hpp>
 #include "CxHarmonicEvidenceParameters.h"
@@ -715,6 +716,62 @@ bool MigrateLegacyFindSegmentationPromptCallsForRun(
 }
 } // namespace
 
+bool ViewController::RunPartialMatchPendingEntrySmoke(ManualTestContext& source,std::string& reason){
+ try{
+  m_parserOwner.ConfigureStreams(&m_os,&m_createcodeos);m_parserDebugBridge.Bind(&m_parserOwner);
+  if(!m_parserOwner.Initialize(reason))return false;
+  m_manualTest=source;auto& c=m_manualTest;m_imageViewImage=cv::imread(c.image_file_path);
+  if(m_imageViewImage.empty())throw std::runtime_error("Missing partial diagram");
+  std::string original=c.editor_text,previous;
+  for(int run=0;run<3;++run){
+   c.editor_text=original;c.editor_dirty=true;
+   if(run==1)cxpartialui::Set(c.editor_text,cxpartialui::Parameters()[0],1);
+   if(run==2)c.editor_text+="\np.nonexistent_method();";
+   if(!RequestPartialMatchRun(c,reason))return false;
+   std::string duplicate;if(RequestPartialMatchRun(c,duplicate))throw std::runtime_error("Duplicate request accepted");
+   auto frozen=c.editor_text;
+   c.editor_text="later editor mutation must not run";
+   if(!ConsumePendingManualScriptRun(c,"partial_pending_smoke")||c.has_pending_execution_snapshot||
+      c.partial_pending||ConsumePendingManualScriptRun(c,"partial_duplicate"))
+    throw std::runtime_error("Pending request not consumed exactly once");
+   if(c.editor_text!=frozen)throw std::runtime_error("Button-time script not restored");
+   if(run==2){
+    if(c.run_state!="failed"||c.partial_receipt_valid||!c.partial_receipt.empty())
+     throw std::runtime_error("Failed run retained receipt");
+    continue;
+   }
+   if(!cxpartialmanual::Current(c))throw std::runtime_error("Missing current receipt: "+c.partial_result_summary);
+   auto j=nlohmann::json::parse(c.partial_receipt);
+   bool budget=run==1||c.active_case_id=="partial_match_budget_stop";
+   if(j.at("status")!=(budget?"SEED_BUDGET_EXHAUSTED":"PARTIAL_AUDIT_CANDIDATE"))
+    throw std::runtime_error("Wrong GUI run outcome");
+   if(previous==c.partial_output_path)throw std::runtime_error("Output path reused");
+   previous=c.partial_output_path;
+   std::ifstream in(std::filesystem::path(previous)/"partial_match_receipt.json");
+   if(nlohmann::json::parse(in)!=j)throw std::runtime_error("Persisted receipt differs");
+   c.editor_text+="\n";if(cxpartialmanual::Current(c))throw std::runtime_error("Edited result not stale");
+  }
+  c.editor_text=original;c.editor_dirty=true;
+  if(!RequestPartialMatchRun(c,reason))return false;
+  c.active_case_id+="changed";
+  if(!ConsumePendingManualScriptRun(c,"partial_case_changed")||c.run_state!="failed"||c.partial_receipt_valid)
+   throw std::runtime_error("Queued case change not rejected");
+  std::cout<<"PARTIAL_PENDING_ENTRY_PASS "<<source.active_case_id<<" frozen/once/budget/failure/stale/case-change\n";
+  return true;
+ }catch(const std::exception& e){reason=e.what();return false;}
+}
+bool RunPartialMatchGuiBridgeSmoke(ManualTestContext& c,std::string& reason){
+ auto controller=std::make_unique<ViewController>();return controller->RunPartialMatchPendingEntrySmoke(c,reason);
+}
+bool RequestPartialMatchRun(ManualTestContext& c,std::string& reason){
+ if(!cxpartialui::IsCase(c.editor_text)){reason="No Partial Match case selected";return false;}
+ if(c.has_pending_execution_snapshot){reason="A run is already pending";return false;}
+ cxpartialmanual::Invalidate(c);
+ c.partial_pending_script=c.editor_text;c.partial_pending_case=c.active_case_id;c.partial_pending=true;
+ c.pending_execution_gauge=c.current_gauge;c.pending_execution_globals=c.runtime_int_vars;
+ c.has_pending_execution_snapshot=true;c.debug_action="Key Parameter Controls Run Script";
+ c.debug_status="MANUAL_RUN_REQUESTED";c.run_state="running";return true;
+}
 
 
 
@@ -1020,6 +1077,7 @@ bool ViewController::ConsumePendingManualScriptRun(ManualTestContext& context,
 
   auto clearPendingSnapshot = [&context]() {
     context.has_pending_execution_snapshot = false;
+    context.partial_pending=false;context.partial_pending_script.clear();context.partial_pending_case.clear();
     context.pending_evidence_selection_rehydrate = false;
     context.pending_execution_globals.clear();
     context.pending_execution_candidate_id.clear();
@@ -1031,6 +1089,19 @@ bool ViewController::ConsumePendingManualScriptRun(ManualTestContext& context,
   // Historical Evidence snapshots are immutable and may contain an older
   // FastMatch Normal-Trace binding order.  Migration belongs to the execution
   // boundary, not Evidence loading and not a separate prerequisite button.
+  if(context.partial_pending){
+    if(context.partial_pending_case!=context.active_case_id){
+      cxpartialmanual::Invalidate(context);context.run_state="failed";context.debug_status="run_failed";
+      context.debug_reason="Partial Match case changed while run was queued";
+      clearPendingSnapshot();return true;
+    }
+    context.editor_text=context.partial_pending_script;
+    context.editor_dirty=true; // Execute button-time script, not later edits or disk refresh.
+  }
+
+
+
+
   // Only an explicit Learn action (1 or 3) may create a compatible candidate;
   // Match (2) must never hide an implicit Learn.
   const auto pendingActionIt =
@@ -1289,6 +1360,7 @@ bool ViewController::ConsumePendingManualScriptRun(ManualTestContext& context,
 
   std::string torchRequestReason;
   const bool torchRequestReady =
+      cxpartialmanual::Prepare(context,torchRequestReason) &&
       PrepareSetMatchRun(context,m_parserDebugBridge,torchRequestReason) &&
       PrepareHarmonicAuditRun(context,m_parserDebugBridge,torchRequestReason) &&
       PrepareTorchUiRequestContext(
@@ -1385,6 +1457,7 @@ bool ViewController::ConsumePendingManualScriptRun(ManualTestContext& context,
     context.runtime_int_vars = frozenGlobals;
   }
 
+  cxpartialmanual::Collect(context,m_parserDebugBridge,ran);
   CollectSetMatchReceipt(context,ran);
   CollectHarmonicAuditReceipt(context,ran);
 
@@ -1918,7 +1991,8 @@ void ViewController::DrawScriptDebugCompilerBlock(ManualTestContext& context)
       // context.  Keep this in the existing serial Parser-owner chain: the UI
       // action only requests a run, and this compiler block performs it.
       std::string torchRequestReason;
-      const bool harmonicRequestReady = PrepareSetMatchRun(context,m_parserDebugBridge,torchRequestReason) && PrepareHarmonicAuditRun(
+      const bool harmonicRequestReady = cxpartialmanual::Prepare(context,torchRequestReason) &&
+          PrepareSetMatchRun(context,m_parserDebugBridge,torchRequestReason) && PrepareHarmonicAuditRun(
           context,m_parserDebugBridge,torchRequestReason);
       const bool torchRequestReady = harmonicRequestReady && PrepareTorchUiRequestContext(
           context.editor_text,
@@ -1959,6 +2033,7 @@ void ViewController::DrawScriptDebugCompilerBlock(ManualTestContext& context)
       // it does not hide Torch status and artifact panels after a run.
 
 
+      cxpartialmanual::Collect(context,m_parserDebugBridge,ran);
       CollectSetMatchReceipt(context,ran);
       CollectHarmonicAuditReceipt(context,ran);
       if (ran)

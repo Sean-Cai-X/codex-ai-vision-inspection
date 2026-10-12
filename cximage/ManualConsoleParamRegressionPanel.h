@@ -39,6 +39,7 @@ void ExportParamRegressionManualAcceptanceChecklist(
 
 bool IsFindLineFindCircleContext(ManualTestContext& context);
 
+bool IsGeometryAuditKeyParameterContext(const ManualTestContext& context);
 bool IsTorchContext(const ManualTestContext& context);
 
 void DrawKeyParameterUnavailableNotice(const ManualTestContext& context);

@@ -130,3 +130,99 @@ add_executable(harmonic_circle_completion native_circle_completion_test.cpp)
 target_link_libraries(harmonic_circle_completion PRIVATE cx_so2)
 add_test(NAME circle_completion COMMAND harmonic_circle_completion
   ${CMAKE_CURRENT_BINARY_DIR}/circle_completion.csv)
+add_subdirectory(../../cxgeom/polar_discrete_harmonic polar_encoding)
+add_executable(harmonic_polar_encoding native_polar_encoding_test.cpp)
+target_link_libraries(harmonic_polar_encoding PRIVATE cxgeom_polar_discrete_harmonic)
+add_test(NAME polar_encoding COMMAND harmonic_polar_encoding)
+add_executable(harmonic_polar_matching native_polar_matching_test.cpp)
+target_link_libraries(harmonic_polar_matching PRIVATE cxgeom_polar_discrete_harmonic)
+add_test(NAME polar_matching COMMAND harmonic_polar_matching)
+add_executable(harmonic_polar_receipt native_polar_receipt_test.cpp)
+target_link_libraries(harmonic_polar_receipt PRIVATE cxgeom_polar_discrete_harmonic)
+add_test(NAME polar_noise_receipt COMMAND harmonic_polar_receipt
+  ${CMAKE_CURRENT_BINARY_DIR}/polar_match_receipt.json)
+add_executable(harmonic_polar_boundary native_polar_boundary_test.cpp)
+target_link_libraries(harmonic_polar_boundary PRIVATE cxgeom_polar_discrete_harmonic)
+add_test(NAME polar_boundary COMMAND harmonic_polar_boundary)
+add_executable(harmonic_polar_partial_contract native_polar_partial_contract_test.cpp)
+target_link_libraries(harmonic_polar_partial_contract PRIVATE cxgeom_polar_discrete_harmonic)
+add_test(NAME polar_partial_contract COMMAND harmonic_polar_partial_contract
+  ${CMAKE_CURRENT_BINARY_DIR}/polar_partial_request_receipt.json)
+add_executable(harmonic_polar_partial_assessment native_polar_partial_assessment_test.cpp)
+target_link_libraries(harmonic_polar_partial_assessment PRIVATE cxgeom_polar_discrete_harmonic)
+add_test(NAME polar_partial_assessment COMMAND harmonic_polar_partial_assessment)
+add_executable(harmonic_polar_partial_search native_polar_partial_search_test.cpp)
+target_link_libraries(harmonic_polar_partial_search PRIVATE cxgeom_polar_discrete_harmonic)
+add_test(NAME polar_partial_search COMMAND harmonic_polar_partial_search)
+add_executable(harmonic_polar_pipeline_matrix native_polar_pipeline_matrix_test.cpp)
+target_link_libraries(harmonic_polar_pipeline_matrix PRIVATE cxgeom_polar_discrete_harmonic)
+add_test(NAME polar_pipeline_matrix COMMAND harmonic_polar_pipeline_matrix
+  ${CMAKE_CURRENT_BINARY_DIR}/polar_pipeline_matrix.jsonl)
+add_library(partial_script_parser STATIC
+ ../../cxparser/muParser.cpp ../../cxparser/muParserBase.cpp
+ ../../cxparser/muParserBytecode.cpp ../../cxparser/muParserCallback.cpp
+ ../../cxparser/muParserClass.cpp ../../cxparser/muParserClassFunctionReader.cpp
+ ../../cxparser/muparserClassReader.cpp ../../cxparser/muParserError.cpp
+ ../../cxparser/muparsertokenreader.cpp ../../cxparser/muParserInt.cpp
+ ../../cxparser/muParserRun.cpp)
+target_include_directories(partial_script_parser PUBLIC ../../cxparser)
+target_compile_features(partial_script_parser PUBLIC cxx_std_17)
+add_executable(harmonic_partial_script native_partial_script_test.cpp)
+target_link_libraries(harmonic_partial_script PRIVATE partial_script_parser cxgeom_polar_discrete_harmonic)
+add_test(NAME polar_partial_cxscript COMMAND harmonic_partial_script
+ ${CMAKE_CURRENT_BINARY_DIR}/partial_script)
+set(PARTIAL_HEADLESS_APP "" CACHE FILEPATH "Isolated full application with PartialMatchAudit")
+if(PARTIAL_HEADLESS_APP AND SO2_HEADLESS_IMAGE)
+ set_tests_properties(polar_partial_cxscript PROPERTIES FIXTURES_SETUP partial_script_generated)
+ foreach(mode success budget)
+  if(mode STREQUAL "success")
+   set(partial_script_name partial_case.cxsc)
+  else()
+   set(partial_script_name partial_budget_case.cxsc)
+  endif()
+  add_test(NAME partial_app_${mode} COMMAND ${PARTIAL_HEADLESS_APP} --cxscript-headless
+   --image ${SO2_HEADLESS_IMAGE}
+   --script ${CMAKE_CURRENT_BINARY_DIR}/partial_script/${partial_script_name}
+   --out ${CMAKE_CURRENT_BINARY_DIR}/partial_headless/${mode}
+   --unified-log ${CMAKE_CURRENT_BINARY_DIR}/partial_headless/${mode}.jsonl)
+  set_tests_properties(partial_app_${mode} PROPERTIES
+   FIXTURES_REQUIRED partial_script_generated FIXTURES_SETUP partial_app_${mode}_done
+   PASS_REGULAR_EXPRESSION "cxscript_headless_ok=true" TIMEOUT 60
+   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../..)
+ endforeach()
+ add_test(NAME partial_app_receipts COMMAND harmonic_partial_script check-headless
+  ${CMAKE_CURRENT_BINARY_DIR}/partial_headless)
+ set_tests_properties(partial_app_receipts PROPERTIES
+  FIXTURES_REQUIRED "partial_app_success_done;partial_app_budget_done")
+endif()
+add_executable(make_partial_evidence make_partial_evidence.cpp)
+target_link_libraries(make_partial_evidence PRIVATE partial_script_parser cxgeom_polar_discrete_harmonic)
+add_test(NAME partial_evidence_generate COMMAND make_partial_evidence
+ ${CMAKE_CURRENT_BINARY_DIR}/partial_evidence)
+if(PARTIAL_HEADLESS_APP)
+ set_tests_properties(partial_evidence_generate PROPERTIES FIXTURES_SETUP partial_evidence_ready)
+ add_test(NAME partial_evidence_catalog COMMAND ${PARTIAL_HEADLESS_APP} --partial-evidence-catalog-smoke)
+ set_tests_properties(partial_evidence_catalog PROPERTIES FIXTURES_REQUIRED partial_evidence_ready
+  ENVIRONMENT "CXVISION_RUN_ROOT=${CMAKE_CURRENT_BINARY_DIR}/partial_evidence"
+  PASS_REGULAR_EXPRESSION "PARTIAL_EVIDENCE_CATALOG_UI_PASS" TIMEOUT 60
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../..)
+ foreach(mode success budget)
+  if(mode STREQUAL "success")
+   set(case_id partial_match_missing_extra)
+  else()
+   set(case_id partial_match_budget_stop)
+  endif()
+  add_test(NAME partial_evidence_${mode} COMMAND ${PARTIAL_HEADLESS_APP} --cxscript-headless
+   --image ${CMAKE_CURRENT_BINARY_DIR}/partial_evidence/${case_id}/source.ppm
+   --script ${CMAKE_CURRENT_BINARY_DIR}/partial_evidence/${case_id}/run.cxsc
+   --out ${CMAKE_CURRENT_BINARY_DIR}/partial_evidence_headless/${mode}
+   --unified-log ${CMAKE_CURRENT_BINARY_DIR}/partial_evidence_headless/${mode}.jsonl)
+  set_tests_properties(partial_evidence_${mode} PROPERTIES FIXTURES_REQUIRED partial_evidence_ready
+   FIXTURES_SETUP partial_evidence_${mode}_done PASS_REGULAR_EXPRESSION "cxscript_headless_ok=true"
+   TIMEOUT 60 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../..)
+ endforeach()
+ add_test(NAME partial_evidence_receipts COMMAND harmonic_partial_script check-headless
+  ${CMAKE_CURRENT_BINARY_DIR}/partial_evidence_headless)
+ set_tests_properties(partial_evidence_receipts PROPERTIES
+  FIXTURES_REQUIRED "partial_evidence_success_done;partial_evidence_budget_done")
+endif()

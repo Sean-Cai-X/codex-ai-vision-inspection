@@ -24,7 +24,7 @@ source_set("cxvision_source_inventory") {
 # Linux/Windows application link target. Third-party binaries remain external
 # inputs selected by GN args; this target contains source and build metadata only.
 executable("cxvision_imgui_acceptance") {
-  deps = [ ":cxvision_source_inventory", ":cxgeom_set_match_adapter" ]
+  deps = [ ":cxvision_source_inventory", ":cxgeom_set_match_adapter", ":cxgeom_polar_discrete_harmonic" ]
   configs = [ "//build/config:common", "//build/config:platform" ]
   libs = [ "torch", "torch_cpu", "c10" ]
 }
@@ -92,4 +92,59 @@ executable("harmonic_staged_test") {
   include_dirs = [ "cxgeom/include" ]
   deps = [ ":cxgeom_set_match_adapter" ]
   configs = [ ":geometric_set_platform" ]
+}
+
+# Opt-in polar audit core; not connected to production matching.
+static_library("cxgeom_polar_discrete_harmonic") {
+  sources = [ "cxgeom/polar_discrete_harmonic/encoding.cpp" ]
+  sources += [ "cxgeom/polar_discrete_harmonic/matching.cpp" ]
+  sources += [ "cxgeom/polar_discrete_harmonic/partial_assessment.cpp" ]
+  sources += [ "cxgeom/polar_discrete_harmonic/partial_search.cpp" ]
+  configs = [ ":geometric_set_platform" ]
+}
+executable("harmonic_polar_encoding_test") {
+  sources = [ "tests/fastmatch_harmonic/native_polar_encoding_test.cpp" ]
+  deps = [ ":cxgeom_polar_discrete_harmonic" ]
+  configs = [ ":geometric_set_platform" ]
+}
+executable("harmonic_polar_matching_test") {
+  sources = [ "tests/fastmatch_harmonic/native_polar_matching_test.cpp" ]
+  deps = [ ":cxgeom_polar_discrete_harmonic" ]
+  configs = [ ":geometric_set_platform" ]
+}
+executable("harmonic_polar_receipt_test") {
+  sources = [ "tests/fastmatch_harmonic/native_polar_receipt_test.cpp" ]
+  deps = [ ":cxgeom_polar_discrete_harmonic" ]
+  configs = [ ":geometric_set_platform" ]
+}
+executable("harmonic_polar_boundary_test") {
+  sources = [ "tests/fastmatch_harmonic/native_polar_boundary_test.cpp" ]
+  deps = [ ":cxgeom_polar_discrete_harmonic" ]
+  configs = [ ":geometric_set_platform" ]
+}
+executable("harmonic_polar_partial_contract_test") {
+  sources = [ "tests/fastmatch_harmonic/native_polar_partial_contract_test.cpp" ]
+  deps = [ ":cxgeom_polar_discrete_harmonic" ]
+  configs = [ ":geometric_set_platform" ]
+}
+executable("harmonic_polar_partial_assessment_test") {
+  sources = [ "tests/fastmatch_harmonic/native_polar_partial_assessment_test.cpp" ]
+  deps = [ ":cxgeom_polar_discrete_harmonic" ]
+  configs = [ ":geometric_set_platform" ]
+}
+executable("harmonic_polar_partial_search_test") {
+  sources = [ "tests/fastmatch_harmonic/native_polar_partial_search_test.cpp" ]
+  deps = [ ":cxgeom_polar_discrete_harmonic" ]
+  configs = [ ":geometric_set_platform" ]
+}
+executable("harmonic_polar_pipeline_matrix_test") {
+  sources = [ "tests/fastmatch_harmonic/native_polar_pipeline_matrix_test.cpp" ]
+  deps = [ ":cxgeom_polar_discrete_harmonic" ]
+  configs = [ ":geometric_set_platform" ]
+}
+# Isolated acceptance binary; never relink the running GUI for audit tests.
+executable("cxvision_partial_headless_candidate") {
+  deps = [ ":cxvision_source_inventory", ":cxgeom_set_match_adapter", ":cxgeom_polar_discrete_harmonic" ]
+  configs = [ "//build/config:common", "//build/config:platform" ]
+  libs = [ "torch", "torch_cpu", "c10" ]
 }
