@@ -7,7 +7,7 @@ inline torch::Tensor overlap(const torch::Tensor& a,const torch::Tensor& b) {
 }
 // Each anchor receives at most one GT. Ties retain the first GT deterministically.
 inline torch::Tensor assign(const SegTaskAlignedAnchorTable& t,const torch::Tensor& boxes,
-                            const std::vector<int64_t>& classes,int topk=10,bool per_level=false) {
+                            const std::vector<int64_t>& classes,int topk=10,bool per_level=false,bool geometry_only=false) {
     torch::NoGradGuard guard;
     const auto centers=t.centers_xy.index({0});const auto predicted=t.decoded_boxes.index({0});
     const auto scores=t.class_logits.index({0}).sigmoid();const auto n=centers.size(0);
@@ -17,7 +17,7 @@ inline torch::Tensor assign(const SegTaskAlignedAnchorTable& t,const torch::Tens
         auto box=boxes.index({static_cast<int64_t>(g)}).unsqueeze(0).expand({n,4});
         auto inside=(centers.select(1,0)>box.select(1,0))&(centers.select(1,0)<box.select(1,2))&
             (centers.select(1,1)>box.select(1,1))&(centers.select(1,1)<box.select(1,3));
-        auto iou=overlap(predicted,box);auto metric=scores.select(1,classes[g])*iou.pow(6);
+        auto iou=overlap(predicted,box);auto metric=geometry_only?iou.pow(6):scores.select(1,classes[g])*iou.pow(6);
         metric=torch::where(inside&(iou>0),metric,torch::full_like(metric,-1));
         auto select=[&](int64_t begin,int64_t end,int quota){
             auto best=metric.slice(0,begin,end).topk(std::min<int64_t>(quota,end-begin));
@@ -39,14 +39,14 @@ inline torch::Tensor assign(const SegTaskAlignedAnchorTable& t,const torch::Tens
 inline BusinessLossTensors loss(YoloV8Segment& model,const YoloV8SegRawOutput& raw,
     const YoloV8SegDatasetSample& sample,const torch::Tensor& input,const SegLetterbox& lb,
     const TorchModelManifest& manifest,int64_t* positive_count=nullptr,bool per_level=false,
-    bool per_level_hard_negative=false) {
+    bool per_level_hard_negative=false,bool geometry_only=false) {
     auto t=BuildSegTaskAlignedAnchorTable(raw,model,manifest.input_width,manifest.input_height);
     std::vector<float> coords;
     for(const auto& b:sample.boxes_xyxy_norm)coords.insert(coords.end(),{
         float((lb.pad_x+b[0]*lb.resized_width)/manifest.input_width),float((lb.pad_y+b[1]*lb.resized_height)/manifest.input_height),
         float((lb.pad_x+b[2]*lb.resized_width)/manifest.input_width),float((lb.pad_y+b[3]*lb.resized_height)/manifest.input_height)});
     auto boxes=torch::tensor(coords,input.options()).view({-1,4});
-    auto owners=assign(t,boxes,sample.classes,10,per_level);auto positive=owners>=0;auto indices=torch::nonzero(positive).squeeze(1);
+    auto owners=assign(t,boxes,sample.classes,10,per_level,geometry_only);auto positive=owners>=0;auto indices=torch::nonzero(positive).squeeze(1);
     TORCH_CHECK(indices.numel()>0,"UNIFIED_NO_POSITIVE_ASSIGNMENT");
     if(positive_count)*positive_count=indices.numel();
     auto gt=owners.index_select(0,indices);auto logits=t.class_logits.index({0});auto target=torch::zeros_like(logits);

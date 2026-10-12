@@ -16,7 +16,7 @@ int main(int argc,char** argv) {
         if(argc==2&&std::string(argv[1])=="--ownership-gradient-test") {
             ownership_audit::self_test();std::cout<<"PASS unified output gradients: seven classes, competing GT, class sign and geometry owner support\n";return 0;
         }
-        if(argc>1&&std::string(argv[1])=="--coverage-budget")return coverage_budget::run(argc,argv);
+        if(argc>1&&(std::string(argv[1])=="--coverage-budget"||std::string(argv[1])=="--coverage-geometry-budget"))return coverage_budget::run(argc,argv);
         if(argc==2&&std::string(argv[1])=="--coverage-test") {
             coverage_augmentation::self_test();std::cout<<"PASS paired augmentation: 80 deterministic plans, image/polygon/box alignment, no clipping or mutation\n";return 0;
         }
@@ -55,6 +55,13 @@ int main(int argc,char** argv) {
             auto scaled=unified_experiment::assign(table,one,{1},1,true);
             check((global>=0).sum().item<int64_t>()==1&&
                 (scaled>=0).sum().item<int64_t>()==2,"UNIFIED_PER_LEVEL_QUOTA_INVALID");
+            // Equal center eligibility, high-IoU anchor has an incorrect class prior.
+            table.class_logits=torch::zeros({1,2,7});table.class_logits.index_put_({0,0,1},-20.0);
+            table.decoded_boxes=torch::tensor({{{.10f,.10f,.90f,.90f},{.20f,.20f,.80f,.80f}}});
+            auto class_ranked=unified_experiment::assign(table,one,{1},1);
+            auto geometry_ranked=unified_experiment::assign(table,one,{1},1,false,true);
+            check(class_ranked[0].item<int64_t>()==-1&&class_ranked[1].item<int64_t>()==0&&
+                geometry_ranked[0].item<int64_t>()==0&&geometry_ranked[1].item<int64_t>()==-1,"UNIFIED_GEOMETRY_RANKING_INVALID");
             std::cout<<"PASS real grid, per-GT top K, empty GT, deterministic single owner\n";return 0;
         }
         if(argc==2&&std::string(argv[1])=="--nms-count-test") {
