@@ -8,6 +8,22 @@
 int main(int argc,char** argv) {
     using namespace supervision_fixture;
     try {
+        if(argc==2&&std::string(argv[1])=="--nms-count-test") {
+            TorchModelManifest manifest;manifest.max_detections=2;manifest.iou_threshold=.45;manifest.class_agnostic_nms=true;
+            auto point=[](int cls,float score,float x){SegCandidate c;c.class_id=cls;c.score=score;c.x0=x;c.y0=0;c.x1=x+10;c.y1=10;return c;};
+            SegNmsDiagnostics d;
+            auto r=SelectSegCandidates({point(2,.9,0),point(2,.8,0),point(2,.7,30),point(2,.6,60)},manifest,d);
+            check(r.size()==2&&d.above_threshold==4&&d.examined==3&&d.suppressed==1&&d.cap_reached,"NMS_TRUNCATED_COUNTS");
+            check(r[0].score==.9f&&r[1].score==.7f,"NMS_SELECTION_CHANGED");
+            manifest.max_detections=20;
+            r=SelectSegCandidates({point(2,.9,0),point(1,.8,0)},manifest,d);
+            check(r.size()==1&&d.examined==2&&d.suppressed==1&&!d.cap_reached,"NMS_CROSS_CLASS_COUNTS");
+            manifest.class_agnostic_nms=false;
+            r=SelectSegCandidates({point(2,.9,0),point(1,.8,0)},manifest,d);
+            check(r.size()==2&&d.suppressed==0,"NMS_CLASS_AWARE_CHANGED");
+            r=SelectSegCandidates({},manifest,d);check(r.empty()&&d.examined==0&&!d.cap_reached,"NMS_EMPTY_COUNTS");
+            std::cout<<"PASS NMS accounting and preserved selection\n";return 0;
+        }
         if(argc>1&&std::string(argv[1])=="--mode-budget")return mode_budget::run(argc,argv);
         if(argc==2&&std::string(argv[1])=="--classification-loss-test") {
             for(int cls=0;cls<7;++cls) {

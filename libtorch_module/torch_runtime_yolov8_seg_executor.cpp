@@ -984,18 +984,69 @@ float BoxIou(const SegCandidate& lhs, const SegCandidate& rhs)
         std::max(1.0e-6f, lhs_area + rhs_area - intersection);
 }
 
+struct SegNmsDiagnostics {
+    std::size_t anchors = 0, above_threshold = 0, examined = 0, suppressed = 0;
+    bool cap_reached = false;
+};
+
+std::vector<SegCandidate> SelectSegCandidates(
+    std::vector<SegCandidate> candidates, const TorchModelManifest& manifest,
+    SegNmsDiagnostics& diagnostics)
+{
+    diagnostics.above_threshold = candidates.size();
+    diagnostics.examined = diagnostics.suppressed = 0;
+    diagnostics.cap_reached = false;
+    std::sort(
+        candidates.begin(),
+        candidates.end(),
+        [](const SegCandidate& lhs, const SegCandidate& rhs)
+        {
+            return lhs.score > rhs.score;
+        });
+    std::vector<SegCandidate> selected;
+    for (const auto& candidate : candidates)
+    {
+        ++diagnostics.examined;
+        bool suppressed = false;
+        for (const auto& kept : selected)
+        {
+            if ((manifest.class_agnostic_nms ||
+                 candidate.class_id == kept.class_id) &&
+                BoxIou(candidate, kept) > manifest.iou_threshold)
+            {
+                suppressed = true;
+                break;
+            }
+        }
+        if (!suppressed)
+        {
+            selected.push_back(candidate);
+            if (selected.size() >=
+                static_cast<std::size_t>(manifest.max_detections))
+            {
+                diagnostics.cap_reached = true;
+                break;
+            }
+        }
+        else ++diagnostics.suppressed;
+    }
+    return selected;
+}
+
 std::vector<SegCandidate> DecodeCandidates(
     const YoloV8SegRawOutput& raw,
     const YoloV8SegmentHead& head,
-    const TorchModelManifest& manifest)
+    const TorchModelManifest& manifest, SegNmsDiagnostics* output_diagnostics = nullptr)
 {
     const std::vector<float> strides{8.0f, 16.0f, 32.0f};
     std::vector<SegCandidate> candidates;
+    SegNmsDiagnostics diagnostics;
     for (std::size_t level = 0; level < 3; ++level)
     {
         const int64_t height = raw.box_logits[level].size(2);
         const int64_t width = raw.box_logits[level].size(3);
         const int64_t anchors = height * width;
+        diagnostics.anchors += static_cast<std::size_t>(anchors);
         const torch::Tensor boxes = raw.box_logits[level]
             .view({1, 64, anchors});
         const torch::Tensor distances =
@@ -1046,37 +1097,8 @@ std::vector<SegCandidate> DecodeCandidates(
         }
     }
 
-    std::sort(
-        candidates.begin(),
-        candidates.end(),
-        [](const SegCandidate& lhs, const SegCandidate& rhs)
-        {
-            return lhs.score > rhs.score;
-        });
-    std::vector<SegCandidate> selected;
-    for (const auto& candidate : candidates)
-    {
-        bool suppressed = false;
-        for (const auto& kept : selected)
-        {
-            if ((manifest.class_agnostic_nms ||
-                 candidate.class_id == kept.class_id) &&
-                BoxIou(candidate, kept) > manifest.iou_threshold)
-            {
-                suppressed = true;
-                break;
-            }
-        }
-        if (!suppressed)
-        {
-            selected.push_back(candidate);
-            if (selected.size() >=
-                static_cast<std::size_t>(manifest.max_detections))
-            {
-                break;
-            }
-        }
-    }
+    auto selected = SelectSegCandidates(std::move(candidates), manifest, diagnostics);
+    if (output_diagnostics) *output_diagnostics = diagnostics;
     return selected;
 }
 
@@ -1273,8 +1295,9 @@ TorchTaskResultCpp ExecuteTorchYoloV8SegTask(
         for (auto& tensor : raw.class_logits) tensor = tensor.to(torch::kCPU);
         for (auto& tensor : raw.mask_coefficients) tensor = tensor.to(torch::kCPU);
         raw.prototypes = raw.prototypes.to(torch::kCPU);
+        SegNmsDiagnostics nms_diagnostics;
         const std::vector<SegCandidate> candidates =
-            DecodeCandidates(raw, model->head(), manifest);
+            DecodeCandidates(raw, model->head(), manifest, &nms_diagnostics);
         const auto finished = std::chrono::steady_clock::now();
 
         const std::filesystem::path output_dir(request.output_dir);
@@ -1543,6 +1566,17 @@ TorchTaskResultCpp ExecuteTorchYoloV8SegTask(
             << "{\"schema\":\"cxvision.segmentation_metrics.v1\","
             << "\"candidate_count\":" << candidates.size()
             << ",\"instance_count\":" << accepted_instances
+            << ",\"diagnostic_version\":\"bounded_nms_counts_v1\""
+            << ",\"anchor_count\":" << nms_diagnostics.anchors
+            << ",\"pre_nms_above_threshold_count\":" << nms_diagnostics.above_threshold
+            << ",\"nms_examined_count\":" << nms_diagnostics.examined
+            << ",\"nms_suppressed_examined_count\":" << nms_diagnostics.suppressed
+            << ",\"nms_unexamined_count\":" << (nms_diagnostics.above_threshold - nms_diagnostics.examined)
+            << ",\"max_detections\":" << manifest.max_detections
+            << ",\"output_cap_reached\":" << (nms_diagnostics.cap_reached ? "true" : "false")
+            << ",\"full_post_nms_count\":" << (nms_diagnostics.examined == nms_diagnostics.above_threshold ? std::to_string(candidates.size()) : "null")
+            << ",\"returned_post_nms_count\":" << candidates.size()
+            << ",\"mask_contour_rejected_count\":" << (candidates.size() - accepted_instances)
             << ",\"elapsed_ms\":" << elapsed_ms
             << ",\"semantic_quality\":\"pending_human_review\"}\n";
         std::ofstream(evidence_ref)

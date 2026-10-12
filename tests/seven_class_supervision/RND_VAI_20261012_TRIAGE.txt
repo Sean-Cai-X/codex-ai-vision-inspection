@@ -1,0 +1,76 @@
+RND-VAI-BUSINESS-TRIAL-20261012 / RND-VAI-TESTCIRCLE-20261012
+R&D response, stage 1: bounded NMS accounting and unchanged-output regression
+
+Read both numerical issue tickets and both evaluation documents. No business
+image, frozen mask, overlay or screenshot was read, requested or modified.
+Business GUI issues remain owned by the business thread. No default model,
+runtime pin, frozen dataset, human annotation, review or historical receipt changed.
+
+Important version boundary
+Both issue tickets name runtime SHA256
+9b852eabc6e1fc54d3a5b771db50bfb9b7cf5b19b37bd2dd539b67048047a9d0.
+The prior R&D dense-v2 preview used
+c52d1be1bd91d6cde888a62d16e6d65a1762ff6d55761e6f988a10dbb897f4cf.
+Do not identify those as the same execution or infer the business loss version
+from the R&D branch. Both tickets remain EFFECT_ACCEPTANCE_NOT_PASSED.
+The null VERIFY IoUs remain missing. Ellipse VERIFY5 is not automatically called
+a miss; six circle VERIFY records are not independent unlabelled validation.
+
+Implemented (no prediction policy change)
+The prior metrics candidate_count was already post-NMS and capped, not the count
+entering NMS. Added diagnostic_version=bounded_nms_counts_v1 and:
+ anchor_count; pre_nms_above_threshold_count;
+ nms_examined_count; nms_suppressed_examined_count; nms_unexamined_count;
+ max_detections; output_cap_reached; returned_post_nms_count;
+ full_post_nms_count; mask_contour_rejected_count.
+The complete post-NMS count is NULL if candidates remain unexamined. Reaching
+the cap proves saturation of the returned list, NOT that all remaining candidates
+would survive uncapped NMS. Accounting identities:
+ pre = examined + unexamined; examined = suppressed + returned;
+ returned = accepted instances + contour-rejected masks.
+No threshold, class map, class-aware mode, sort order, max_detections, mask decode,
+training loss, BN policy or UI filtering was altered. Original metric fields kept.
+Internal metrics are local evidence, not automatically added to typed receipts.
+
+R&D reproduction (NOT the business datasets)
+../cxscript_runs/nms_diagnostics_20261012/18174859827000
+Same registered parent and prior dense-v2 40-update candidate, four existing
+R&D synthetic ellipse samples. No retraining occurred in this step.
+Candidate sample    pre-NMS    examined    suppressed    unexamined    returned/accepted
+Train0             8384       79          59            8305          20/19
+Train1             8397       155         135           8242          20/14
+Valid2             8398       221         201           8177          20/19
+VERIFY3            8400       254         234           8146          20/14
+All four parent samples have 8400 threshold-passing candidates and hit the cap.
+Thus the R&D symptom is not merely overlapping masks after a correct single
+detection: almost all anchor locations pass classification threshold. This supports
+investigating foreground/background and assignment; it is not proof of the sole
+business-data root cause. Box clipping of untrained candidate mask coefficients
+can contribute rectangular fragments; do not remove clipping without checking
+the coupled box/mask/positive-assignment training contract.
+
+Verification
+Release build PASS (existing LibTorch C4267 warning remains).
+Runtime tests 5/5 PASS including new tests for suppression counts, early cap,
+class-agnostic vs class-aware behavior, empty candidates and selection order.
+All eight new observation objects match the prior comparison exactly (classes,
+scores, per-instance mask IoU, boundary metrics and aggregate values). Original-
+coordinate mask files are compared bytewise by SHA against the prior run.
+Input inventory and strict tensor loading checks in the native runner also pass.
+New diagnostic runtime SHA256:
+308a1a8d045266004471908ecb9b896870e603f86a6d80649fd4b05b3fe03428
+This runtime has NOT replaced business/runtime defaults or the immutable preview.
+
+Remaining work (tickets are NOT closed)
+1. Coherent positive assignment across classification/box/DFL/mask, with explicit
+   foreground/background counts and gradients. Dense-v2 alone was not accepted.
+2. Synthetic ellipse AND circle controls under the business budget 40 epochs,
+   40 updates, batch 2, three Train / one Valid; defect/blur/gap/shape variants.
+3. Pairwise mask-overlap duplicate metrics and wrong-class counts; best/union IoU
+   alone are insufficient. Avoid suppressing genuinely distinct nearby instances.
+4. New isolated candidate and typed-runtime compatibility/dependency acceptance;
+   only then business repeats its own frozen revisions through existing workflow.
+   Do not claim R&D synthetic runs equal the business frozen revision.
+5. If business reruns with this diagnostic version through an explicitly pinned
+   isolated runtime, return only numeric pre/post counts, class counts, runtime
+   SHA and opaque task IDs. No business images or paths are needed.
