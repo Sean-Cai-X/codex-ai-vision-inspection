@@ -1,6 +1,7 @@
 #include "CxSetMatchEvidenceParameters.h"
 #include "CxPartialMatchUiParameters.h"
 #include "CxPartialMatchAudit.h"
+#include "CxGrayBoundaryAudit.h"
 #include "muParser.h"
 #include "../libtorchsegmentation/src/utils/json.hpp"
 #ifndef WIN32_LEAN_AND_MEAN
@@ -5402,6 +5403,37 @@ static bool IsCuratedAssetOnlyEvidenceQueueLocal() {
              "CURATED_ASSET_ONLY";
 }
 
+
+int RunGrayBoundaryEvidenceCatalogSmoke() {
+ auto context=std::make_unique<ManualTestContext>();std::string reason;
+ auto groupFor=[&](const std::string& name)->ScriptEvidenceGroup&{
+  for(auto& g:context->script_evidence_groups)if(g.label==name)return g;
+  ScriptEvidenceGroup g;g.label=name;context->script_evidence_groups.push_back(g);
+  return context->script_evidence_groups.back();
+ };
+ AppendAssetDrivenEvidenceCasesLocal(*context,groupFor,reason);
+ std::set<std::string> found;
+ try {
+  for(const auto& group:context->script_evidence_groups)for(const auto& item:group.thumbs){
+   if(item.tool!="GrayBoundaryAudit")continue;
+   std::string source;
+   if(!ReadTextFile(item.script_path,source)||cv::imread(item.image_path).empty()||
+      cv::imread(item.thumbnail_path).empty())throw std::runtime_error("gray_evidence_asset_load_failed");
+   mu::Parser parser;double* org=nullptr;parser.DefineOrgClass("double",org);parser.UsingClass(true);
+   RegisterGrayBoundaryAudit(parser);parser.SetExpr(source);parser.Eval();
+   auto* tool=static_cast<CxGrayBoundaryAudit*>(parser.GetClassObj("GrayBoundaryAudit","g"));
+   if(!tool)throw std::runtime_error("gray_evidence_script_object_missing");
+   const auto receipt=nlohmann::json::parse(tool->receipt());
+   if(receipt.at("case_id")!=item.case_id||receipt.at("production_eligible")!=false)
+    throw std::runtime_error("gray_evidence_identity_mismatch");
+   found.insert(item.case_id);std::cout<<"gray_evidence_case="<<item.case_id<<"\n";
+  }
+  for(const auto* id:{"gray_boundary_straight","gray_boundary_corner","gray_boundary_no_refined"})
+   if(!found.count(id))throw std::runtime_error(std::string("gray_evidence_case_missing:")+id);
+ }catch(const mu::Parser::exception_type& e){std::cerr<<e.GetMsg()<<"\n";return 1;}
+ catch(const std::exception& e){std::cerr<<e.what()<<"\n";return 1;}
+ std::cout<<"GRAY_EVIDENCE_CATALOG_PASS (index, assets and CxScript replay; not desktop click acceptance)\n";return 0;
+}
 bool RunPartialMatchGuiBridgeSmoke(ManualTestContext&,std::string&);
 int RunPartialMatchEvidenceCatalogSmoke() {
  auto context=std::make_unique<ManualTestContext>();std::string reason;

@@ -267,8 +267,46 @@ if(PARTIAL_MASK_OPENCV_TEST)
  target_include_directories(observed_gray_guards PRIVATE ${OpenCV_INCLUDE_DIRS})
  target_link_libraries(observed_gray_guards PRIVATE cx_so2 cxgeom_polar_discrete_harmonic ${OpenCV_LIBS})
  add_test(NAME observed_gray_normals COMMAND observed_gray_guards ${CMAKE_CURRENT_BINARY_DIR}/observed_gray_normals)
+ add_executable(bound_gray_guards native_bound_gray_test.cpp)
+ target_include_directories(bound_gray_guards PRIVATE ${OpenCV_INCLUDE_DIRS})
+ target_link_libraries(bound_gray_guards PRIVATE cx_so2 cxgeom_polar_discrete_harmonic ${OpenCV_LIBS})
+ add_test(NAME bound_gray_frame COMMAND bound_gray_guards ${CMAKE_CURRENT_BINARY_DIR}/bound_gray_frame)
 endif()
 
 add_executable(boundary_arc_guards native_boundary_arc_test.cpp)
 target_link_libraries(boundary_arc_guards PRIVATE cxgeom_polar_discrete_harmonic)
 add_test(NAME boundary_arc COMMAND boundary_arc_guards)
+if(PARTIAL_MASK_OPENCV_TEST)
+ add_executable(make_gray_boundary_evidence make_gray_boundary_evidence.cpp)
+ target_include_directories(make_gray_boundary_evidence PRIVATE ${OpenCV_INCLUDE_DIRS})
+ target_link_libraries(make_gray_boundary_evidence PRIVATE partial_script_parser cx_so2 cxgeom_polar_discrete_harmonic ${OpenCV_LIBS})
+ set(GRAY_EVIDENCE_ROOT ${CMAKE_CURRENT_BINARY_DIR}/gray_boundary_evidence)
+ add_test(NAME gray_cxscript_evidence COMMAND make_gray_boundary_evidence ${GRAY_EVIDENCE_ROOT})
+ set_tests_properties(gray_cxscript_evidence PROPERTIES FIXTURES_SETUP gray_evidence_ready)
+ if(PARTIAL_HEADLESS_APP)
+  foreach(mode straight corner no_refined)
+   add_test(NAME gray_app_${mode} COMMAND ${PARTIAL_HEADLESS_APP} --cxscript-headless
+    --image ${GRAY_EVIDENCE_ROOT}/${mode}/source.pgm --script ${GRAY_EVIDENCE_ROOT}/${mode}/run.cxsc
+    --out ${GRAY_EVIDENCE_ROOT}/headless/${mode} --unified-log ${GRAY_EVIDENCE_ROOT}/headless/${mode}.jsonl)
+   set_tests_properties(gray_app_${mode} PROPERTIES FIXTURES_REQUIRED gray_evidence_ready
+    FIXTURES_SETUP gray_app_${mode}_done ENVIRONMENT "CXVISION_RUN_ROOT=${GRAY_EVIDENCE_ROOT}"
+    PASS_REGULAR_EXPRESSION "cxscript_headless_ok=true" TIMEOUT 60
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../..)
+  endforeach()
+  add_test(NAME gray_app_receipts COMMAND make_gray_boundary_evidence ${GRAY_EVIDENCE_ROOT} verify-headless)
+  set_tests_properties(gray_app_receipts PROPERTIES FIXTURES_REQUIRED "gray_app_straight_done;gray_app_corner_done;gray_app_no_refined_done")
+  add_test(NAME gray_app_wrong_image COMMAND ${PARTIAL_HEADLESS_APP} --cxscript-headless
+   --image ${GRAY_EVIDENCE_ROOT}/corner/source.pgm --script ${GRAY_EVIDENCE_ROOT}/straight/run.cxsc
+   --out ${GRAY_EVIDENCE_ROOT}/headless/wrong_image --unified-log ${GRAY_EVIDENCE_ROOT}/headless/wrong_image.jsonl)
+  set_tests_properties(gray_app_wrong_image PROPERTIES FIXTURES_REQUIRED gray_evidence_ready
+   ENVIRONMENT "CXVISION_RUN_ROOT=${GRAY_EVIDENCE_ROOT}" WILL_FAIL TRUE TIMEOUT 60
+   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../..)
+ endif()
+endif()
+if(PARTIAL_MASK_OPENCV_TEST AND PARTIAL_HEADLESS_APP)
+ add_test(NAME gray_evidence_catalog COMMAND ${PARTIAL_HEADLESS_APP} --gray-evidence-catalog-smoke)
+ set_tests_properties(gray_evidence_catalog PROPERTIES FIXTURES_REQUIRED gray_evidence_ready
+  ENVIRONMENT "CXVISION_RUN_ROOT=${GRAY_EVIDENCE_ROOT}"
+  PASS_REGULAR_EXPRESSION "GRAY_EVIDENCE_CATALOG_PASS" TIMEOUT 60
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../..)
+endif()
