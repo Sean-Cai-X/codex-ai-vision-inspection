@@ -226,3 +226,7 @@ if(PARTIAL_HEADLESS_APP)
  set_tests_properties(partial_evidence_receipts PROPERTIES
   FIXTURES_REQUIRED "partial_evidence_success_done;partial_evidence_budget_done")
 endif()
+
+add_executable(observed_boundary_input_guards native_observed_boundary_test.cpp)
+target_link_libraries(observed_boundary_input_guards PRIVATE cxgeom_polar_discrete_harmonic)
+add_test(NAME observed_boundary_input COMMAND observed_boundary_input_guards)
