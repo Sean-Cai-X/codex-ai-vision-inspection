@@ -1,0 +1,76 @@
+Unified assignment multiscale investigation, local R&D, 2026-10-12
+
+This continues VALIDATION_UNIFIED_ASSIGNMENT_20261012.txt. Only the registered
+development parent and generated 64x64 circle/ellipse samples were read. The
+native C++ probe loads strict checkpoints and uses the production class-max,
+NMS, mask and contour decode. Business data, runtime ABI and defaults did not
+change. These runs are not business validation or production admission.
+
+Read-only logit/assignment diagnostics for the original v5 checkpoints:
+  circle: ../cxscript_runs/unified_logits_20261012/24489100075700/logit_diagnostic.json
+  ellipse: ../cxscript_runs/unified_logits_20261012/24513243747800/logit_diagnostic.json
+The diagnostic compares each FPN anchor's decoded box to the synthetic GT
+bbox, counts class argmax above the registered 0.25 threshold, and reports
+class scores inside/outside that bbox. It does not alter source files or masks.
+
+Finding: on all 5 circle and all 5 ellipse samples, the global top-10
+assignment chooses 0/0/10 anchors in the 80x80/40x40/20x20 levels. On the
+synthetic VERIFY images the best eligible decoded-box IoU is:
+                     80x80    40x40    20x20
+  circle              0.073    0.270    0.963
+  ellipse             0.121    0.456    0.975
+The top-10 means are respectively 0.071/0.263/0.955 for circle and
+0.113/0.426/0.966 for ellipse. This directly explains why treating 10
+fine-scale anchors as equally reliable box/mask targets is hazardous.
+
+The production decoder takes the maximum of seven sigmoid class scores for
+each anchor. On synthetic VERIFY, 8,291/8,400 circle anchors and 8,292/8,400
+ellipse anchors clear confidence 0.25. All 1,600 anchors of the 40x40 level
+and all 400 of the 20x20 level clear it; the rest are mostly 80x80 anchors.
+The 80x80 target-class mean score inside/outside the GT bbox is 0.441/0.442
+for circle and 0.336/0.302 for ellipse. These statistics establish weak
+spatial discrimination under this parent and budget. They do not prove a
+single root cause for the business images.
+
+Two controlled alternatives, each at seed 20261012 and 40 epochs/40 updates,
+batch 2, the same synthetic 3 Train/1 Valid/1 held-out VERIFY split:
+- v7: top-10 for each scale, one GT owner per anchor, with class/box/DFL/mask
+  sharing that owner. Evidence:
+  ../cxscript_runs/unified_budget_20261012/23958808705500/comparison.json
+- v8: top-1 at 80x80 and 40x40, top-10 at 20x20; box/DFL/mask losses are
+  weighted by the detached current box IoU (floor 0.05). Classification still
+  uses the same positive owner. Evidence with the exact v5 baseline restored:
+  ../cxscript_runs/unified_budget_20261012/24980294592200/comparison.json
+
+Results aggregated across 5 images per shape:
+                     circle: target/wrong/zero/meanBestIoU  ellipse: target/wrong/zero/meanBestIoU
+  legacy v1                 55/16/0/0.957                     51/30/0/0.575
+  unified v5                 7/62/0/0.989                      5/62/0/0.992
+  unified v7                12/72/0/0.660                      1/94/4/0.000
+  unified v8                18/49/0/0.974                      5/80/0/0.989
+
+Target/wrong are accepted post-mask candidates, zero means no target-class
+candidate in an image, and meanBestIoU is per-image best target-mask IoU against
+the synthetic oracle. One true object exists per image. V7 and v8 both fail
+the joint target count, wrong-class and mask quality test. V8 circle wrong
+classes fall relative to v5, but extra target candidates and lower IoU remain;
+ellipse wrong classes rise. Every arm still reaches max20 and has more than
+8,000 pre-NMS class-score candidates. No result was hidden with a lower cap,
+class filter or threshold change.
+
+The exact restored v5 checkpoint SHA256 values in the final v8 comparison are:
+  circle: sha256:43bd814795d3b0480a00264c5f2fb591340edaa16f12a48e808ff6d6f6c25ca0
+  ellipse: sha256:49324fbeb5637aa39defef22d97856dafadba7074f1536338de7d9af761bb0fc
+They match the earlier v5 run. The isolated v8 checkpoints are:
+  circle: sha256:a303ee7bd1bbff78cccbae94ea60573713e42361a5d20b5eafbae439884317c6
+  ellipse: sha256:cabb6fe723fc48957124ce52dc9a8d1c08b07ddd6e071646bd465233928d6ce5
+
+Decision: retain v5 as the stronger geometry-only R&D baseline, reject v7/v8
+for candidate promotion, and keep their test-only implementation for repeatable
+diagnosis. The next model experiment must explicitly address broad high class
+scores and low 80x80/40x40 box quality. It must be evaluated with the same
+per-image seven-class counts, unique-instance count, mask geometry and output
+cap diagnostics. The business tickets remain NOT_PASSED.
+
+Verification: native runtime probe build passed; CTest runtime regression 6/6.
+No new business runtime package, model manifest or handoff was issued.

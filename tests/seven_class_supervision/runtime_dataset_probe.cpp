@@ -5,16 +5,20 @@
 #include <iostream>
 #include "mode_budget_diagnostic.h"
 #include "unified_budget_runner.h"
+#include "unified_logits_diagnostic.h"
 
 int main(int argc,char** argv) {
     using namespace supervision_fixture;
     try {
         if(argc>1&&std::string(argv[1])=="--unified-budget")return unified_budget::run(argc,argv);
+        if(argc>1&&std::string(argv[1])=="--unified-logits")return unified_logits::run(argc,argv);
         if(argc==2&&std::string(argv[1])=="--unified-assignment-test") {
             auto scores=torch::zeros({1,3,7});
             scores.index_put_({0,0,1},4.0);scores.index_put_({0,1,2},4.0);
             SegTaskAlignedAnchorTable table;
             table.class_logits=scores;
+            table.grid_widths=torch::full({1,3},2.0f);
+            table.grid_heights=torch::full({1,3},2.0f);
             table.centers_xy=torch::tensor({{{.25f,.25f},{.70f,.70f},{.95f,.95f}}});
             table.decoded_boxes=torch::tensor({{{.10f,.10f,.50f,.50f},{.50f,.50f,.90f,.90f},{.10f,.10f,.50f,.50f}}});
             auto boxes=torch::tensor({{.10f,.10f,.50f,.50f},{.50f,.50f,.90f,.90f}});
@@ -25,10 +29,22 @@ int main(int argc,char** argv) {
             check((empty==-1).all().item<bool>(),"UNIFIED_EMPTY_GT_INVALID");
             table.centers_xy=torch::tensor({{{.50f,.50f}}});
             table.decoded_boxes=torch::tensor({{{.40f,.40f,.60f,.60f}}});
+            table.grid_widths=torch::full({1,1},1.0f);
+            table.grid_heights=torch::full({1,1},1.0f);
             table.class_logits=torch::zeros({1,1,7});table.class_logits.index_put_({0,0,2},4.0);
             boxes=torch::tensor({{.10f,.10f,.65f,.65f},{.35f,.35f,.90f,.90f}});
             owner=unified_experiment::assign(table,boxes,{1,2},1);
             check(owner.numel()==1&&owner.item<int64_t>()==1,"UNIFIED_COMPETING_GT_INVALID");
+            table.class_logits=torch::zeros({1,2,7});
+            table.centers_xy=torch::tensor({{{.50f,.50f},{.50f,.50f}}});
+            table.decoded_boxes=torch::tensor({{{.40f,.40f,.60f,.60f},{.40f,.40f,.60f,.60f}}});
+            table.grid_widths=torch::tensor({{2.0f,1.0f}});
+            table.grid_heights=torch::tensor({{2.0f,1.0f}});
+            auto one=torch::tensor({{.10f,.10f,.90f,.90f}});
+            auto global=unified_experiment::assign(table,one,{1},1);
+            auto scaled=unified_experiment::assign(table,one,{1},1,true);
+            check((global>=0).sum().item<int64_t>()==1&&
+                (scaled>=0).sum().item<int64_t>()==2,"UNIFIED_PER_LEVEL_QUOTA_INVALID");
             std::cout<<"PASS real grid, per-GT top K, empty GT, deterministic single owner\n";return 0;
         }
         if(argc==2&&std::string(argv[1])=="--nms-count-test") {
