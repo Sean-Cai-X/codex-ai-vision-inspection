@@ -7,10 +7,15 @@
 #include "unified_budget_runner.h"
 #include "unified_logits_diagnostic.h"
 #include "coverage_budget_runner.h"
+#include "ownership_gradient_audit.h"
 
 int main(int argc,char** argv) {
     using namespace supervision_fixture;
     try {
+        if(argc>1&&std::string(argv[1])=="--ownership-audit")return ownership_audit::run(argc,argv);
+        if(argc==2&&std::string(argv[1])=="--ownership-gradient-test") {
+            ownership_audit::self_test();std::cout<<"PASS unified output gradients: seven classes, competing GT, class sign and geometry owner support\n";return 0;
+        }
         if(argc>1&&std::string(argv[1])=="--coverage-budget")return coverage_budget::run(argc,argv);
         if(argc==2&&std::string(argv[1])=="--coverage-test") {
             coverage_augmentation::self_test();std::cout<<"PASS paired augmentation: 80 deterministic plans, image/polygon/box alignment, no clipping or mutation\n";return 0;

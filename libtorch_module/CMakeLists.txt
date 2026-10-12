@@ -403,6 +403,9 @@ if(LIBTORCH_MODULE_BUILD_RUNTIME_DLL)
                 "${CMAKE_CURRENT_SOURCE_DIR}/../cxgeom/include")
             configure_libtorch_module_target(libtorch_module_business_dataset_probe)
             configure_libtorch_module_full_definitions(libtorch_module_business_dataset_probe)
+            add_test(NAME libtorch_module_business_ownership_gradient
+                COMMAND libtorch_module_business_dataset_probe --ownership-gradient-test)
+            configure_libtorch_module_test_environment(libtorch_module_business_ownership_gradient)
             add_test(NAME libtorch_module_business_coverage_augmentation
                 COMMAND libtorch_module_business_dataset_probe --coverage-test)
             configure_libtorch_module_test_environment(libtorch_module_business_coverage_augmentation)
