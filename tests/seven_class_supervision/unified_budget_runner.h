@@ -18,13 +18,15 @@ inline int run(int argc,char** argv){
         settings.dataset_manifest_sha256=binding.at("dataset_manifest_sha256");settings.project_geometry_class=shape;settings.project_geometry_class_id=shape=="circle"?1:2;
         BusinessMaterializedDataset data;check(LoadBusinessMaterializedDataset(binding.at("training_root"),settings,data,reason),"UNIFIED_LOADER");
         check(data.train_samples.size()==3&&data.validation_samples.size()==1,"UNIFIED_SPLIT");
-        for(int version=0;version<3;++version){
-            const char* label=version==0?"legacy_v1":version==1?"unified_v5_hard_negative_experimental":"unified_v8_quality_weighted_multiscale_experimental";
+        for(int version=0;version<4;++version){
+            const char* label=version==0?"legacy_v1":version==1?"unified_v5_hard_negative_experimental":
+                version==2?"unified_v8_quality_weighted_multiscale_experimental":"unified_v9_level_balanced_hard_negative_experimental";
             torch::manual_seed(20261012);YoloV8Segment model(7);
             check(model->load_state_dict_strict(weights.string()).complete(),"UNIFIED_LOAD");model->train();
             torch::optim::Adam optimizer(model->parameters(),torch::optim::AdamOptions(1e-4).weight_decay(0));
             auto compute=[&](const YoloV8SegDatasetSample& s,int64_t& positives){auto image=cv::imread(s.image_ref);SegLetterbox lb;auto in=MakeSegInput(image,manifest,lb);auto raw=model->forward(in);
-                return version?unified_experiment::loss(model,raw,s,in,lb,manifest,&positives,version==2):LegacyBusinessYoloV8SegLoss(model,raw,s,in,lb,manifest);};
+                return version?unified_experiment::loss(model,raw,s,in,lb,manifest,&positives,version==2,version==3):
+                    LegacyBusinessYoloV8SegLoss(model,raw,s,in,lb,manifest);};
             J trace=J::array();unsigned cursor=0;
             for(unsigned epoch=0;epoch<40;++epoch){
                 check(std::chrono::steady_clock::now()-start<std::chrono::minutes(15),"UNIFIED_TIME_BUDGET");

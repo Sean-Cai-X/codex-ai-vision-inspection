@@ -38,7 +38,8 @@ inline torch::Tensor assign(const SegTaskAlignedAnchorTable& t,const torch::Tens
 }
 inline BusinessLossTensors loss(YoloV8Segment& model,const YoloV8SegRawOutput& raw,
     const YoloV8SegDatasetSample& sample,const torch::Tensor& input,const SegLetterbox& lb,
-    const TorchModelManifest& manifest,int64_t* positive_count=nullptr,bool per_level=false) {
+    const TorchModelManifest& manifest,int64_t* positive_count=nullptr,bool per_level=false,
+    bool per_level_hard_negative=false) {
     auto t=BuildSegTaskAlignedAnchorTable(raw,model,manifest.input_width,manifest.input_height);
     std::vector<float> coords;
     for(const auto& b:sample.boxes_xyxy_norm)coords.insert(coords.end(),{
@@ -61,6 +62,17 @@ inline BusinessLossTensors loss(YoloV8Segment& model,const YoloV8SegRawOutput& r
     const auto hard_count=std::min<int64_t>(negatives.numel()-target.sum().item<int64_t>(),
         std::max<int64_t>(1,indices.numel()*20));
     auto hard_negative=std::get<0>(negatives.topk(hard_count)).mean();
+    if(per_level_hard_negative) {
+        std::vector<torch::Tensor> level_hard;int64_t begin=0;
+        for(const auto& level:raw.class_logits) {
+            const int64_t count=level.size(2)*level.size(3),end=begin+count;
+            auto chunk=negatives.slice(0,begin*manifest.num_classes,end*manifest.num_classes);
+            const int64_t positives_in_level=target.slice(0,begin,end).sum().item<int64_t>();
+            const int64_t quota=std::min<int64_t>(hard_count,chunk.numel()-positives_in_level);
+            level_hard.push_back(std::get<0>(chunk.topk(quota)).mean());begin=end;
+        }
+        hard_negative=torch::stack(level_hard).mean();
+    }
     BusinessLossTensors r;r.class_loss=(weighted*target).sum()/target.sum().clamp_min(1)+
         (weighted*(1-target)).sum()/(1-target).sum().clamp_min(1)+2*hard_negative;
     auto target_boxes=boxes.index_select(0,gt);auto predicted=t.decoded_boxes.index({0}).index_select(0,indices);

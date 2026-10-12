@@ -74,3 +74,24 @@ cap diagnostics. The business tickets remain NOT_PASSED.
 
 Verification: native runtime probe build passed; CTest runtime regression 6/6.
 No new business runtime package, model manifest or handoff was issued.
+
+Follow-up v9 (same local date, same fixed budget)
+- Reason for exclusion of 80x80 positives: for a centered anchor, the DFL
+  head has bins 0..15. At stride 8, a 640-pixel input can represent less than
+  240 pixels of total width from one 80x80 anchor. These synthetic circle and
+  ellipse boxes are about 360 input pixels wide after 64-to-640 letterbox.
+  This geometric limit is consistent with the measured 80x80 IoU below 0.21.
+- V9 kept v5's global positive owners and shared class/box/DFL/mask targets.
+  It changed only hard-negative mining from global top-200 logits to the mean
+  of top-200 per scale. No score threshold, class filter or output cap changed.
+- Same-run evidence with legacy, exact v5 and v8 baselines:
+  ../cxscript_runs/unified_budget_20261012/25793873387600/comparison.json
+  Circle v9: target 5, wrong class 88, zero-target images 0, mean best IoU
+  0.984, mean pre-NMS above-threshold anchors 8,334. Checkpoint SHA256:
+  47a6fa92e8648d7bc30c6242903299ccdf79f7078724fac10ced4af9d403564a.
+  Ellipse v9: target 5, wrong class 94, zero-target images 0, mean best IoU
+  0.981, mean pre-NMS above-threshold anchors 8,352. Checkpoint SHA256:
+  5168a1ef11038be97b8274aa0b55c2bf6e61cd903d5b0ebcf2ced286caccd73f.
+- V9 is rejected: target count alone improves for circle, while class errors
+  rise sharply and the broad foreground activation persists. Further weight
+  tuning on this tiny synthetic split is not sufficient evidence of a fix.
