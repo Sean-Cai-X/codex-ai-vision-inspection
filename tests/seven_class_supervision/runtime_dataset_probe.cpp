@@ -6,10 +6,15 @@
 #include "mode_budget_diagnostic.h"
 #include "unified_budget_runner.h"
 #include "unified_logits_diagnostic.h"
+#include "coverage_budget_runner.h"
 
 int main(int argc,char** argv) {
     using namespace supervision_fixture;
     try {
+        if(argc>1&&std::string(argv[1])=="--coverage-budget")return coverage_budget::run(argc,argv);
+        if(argc==2&&std::string(argv[1])=="--coverage-test") {
+            coverage_augmentation::self_test();std::cout<<"PASS paired augmentation: 80 deterministic plans, image/polygon/box alignment, no clipping or mutation\n";return 0;
+        }
         if(argc>1&&std::string(argv[1])=="--unified-budget")return unified_budget::run(argc,argv);
         if(argc>1&&std::string(argv[1])=="--unified-logits")return unified_logits::run(argc,argv);
         if(argc==2&&std::string(argv[1])=="--unified-assignment-test") {

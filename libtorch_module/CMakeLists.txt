@@ -397,11 +397,15 @@ if(LIBTORCH_MODULE_BUILD_RUNTIME_DLL)
             list(REMOVE_ITEM _dataset_probe_sources torch_runtime_yolov8_seg_executor.cpp)
             add_executable(libtorch_module_business_dataset_probe
                 ../tests/seven_class_supervision/runtime_dataset_probe.cpp
+                ../cximage/CxInstanceMaskErrorAnalysis.cpp
                 ${_dataset_probe_sources})
             target_include_directories(libtorch_module_business_dataset_probe PRIVATE
                 "${CMAKE_CURRENT_SOURCE_DIR}/../cxgeom/include")
             configure_libtorch_module_target(libtorch_module_business_dataset_probe)
             configure_libtorch_module_full_definitions(libtorch_module_business_dataset_probe)
+            add_test(NAME libtorch_module_business_coverage_augmentation
+                COMMAND libtorch_module_business_dataset_probe --coverage-test)
+            configure_libtorch_module_test_environment(libtorch_module_business_coverage_augmentation)
             add_test(NAME libtorch_module_business_nms_counts
                 COMMAND libtorch_module_business_dataset_probe --nms-count-test)
             add_test(NAME libtorch_module_business_unified_assignment
