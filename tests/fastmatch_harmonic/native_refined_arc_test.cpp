@@ -1,4 +1,4 @@
-#include "../../cximage/CxRefinedBoundaryArc.h"
+#include "../../cximage/CxCommonRefinedArc.h"
 #include <opencv2/imgcodecs.hpp>
 #include <filesystem>
 #include <fstream>
@@ -29,7 +29,9 @@ int main(int argc,char** argv)try{
   {"test_pass_means","provenance_and_diagnostic_contract_not_all_pose_quality"},
   {"quality_limits",{{"angle_deg",1.},{"scale_absolute",.05},{"translation_px",.5}}},
   {"cases",J::array()}};
- int quality=0,rawquality=0;
+ int quality=0,rawquality=0,commonquality=0,commonrawquality=0;
+ J common_summary=summary;common_summary["schema"]="common_refined_arc_matrix.v1";
+ common_summary["anchor_contract"]="caller_asserted_full_raw_endpoint_correspondence_oracle_fixture_only";
  for(double angle:{0.,37.,90.,-60.})for(double scale:{.75,1.,1.5}){
   const auto factor=std::polar(scale,angle*std::acos(-1.)/180.);
   const std::complex<double> target_center(70.3,65.1),translation=target_center-factor*center;
@@ -66,6 +68,25 @@ int main(int argc,char** argv)try{
    return J{{"quality_pass",pass},{"angle_error_deg",ae},{"scale_error_absolute",se},{"translation_error_px",te},
     {"status",r.status},{"reason",c.reason}};
   };
+  CommonRefinedArcConfig common;common.correspondence_id="oracle_full_raw_endpoints:"+id;
+  auto paired=MatchCommonRefinedArc(spans[0],os[0],common);
+  auto pj=J::parse(paired.receipt());
+  check(pj["common_support"]["status"]=="COMMON_ARC_DOMAIN_AVAILABLE","common intersection");
+  check(pj["anchor_correspondence_verified"]==false,"caller anchors not verified");
+  auto cm=metric(paired.refined),crm=metric(paired.matched_raw);
+  commonquality+=cm["quality_pass"].get<bool>();commonrawquality+=crm["quality_pass"].get<bool>();
+  common_summary["cases"].push_back({{"id",id},{"refined",cm},{"matched_raw",crm},{"common_support",pj["common_support"]}});
+  pj["diagnostic_expected_pose"]={{"angle_deg",angle},{"scale",scale},{"translation",{translation.real(),translation.imag()}}};
+  pj["refined_quality"]=cm;pj["matched_raw_quality"]=crm;
+  save(out/("common_"+id+".json"),pj);
+  for(const auto& v:pj["reference"]["sampling"]){
+   auto edge=v["source_run_edge"].get<std::vector<size_t>>();
+   check(edge[0]>=spans[0].source_begin()&&edge[1]<=spans[0].source_end(),"common no gap");
+   double fraction=v["fraction"].get<double>();size_t k=edge[0]-spans[0].source_begin();
+   auto q=spans[0].refined_points()[k]+fraction*(spans[0].refined_points()[k+1]-spans[0].refined_points()[k]);
+   check(std::abs(q-std::complex<double>(v["point"][0].get<double>(),v["point"][1].get<double>()))<1e-12,"common provenance reconstructs");
+  }
+  check(paired.receipt()==MatchCommonRefinedArc(spans[0],os[0],common).receipt(),"common deterministic");
   auto refined_metric=metric(comparison.refined),raw_metric=metric(comparison.matched_raw);
   if(!j["support_interval_aligned"].get<bool>()){
    check(comparison.refined.accepted_indices.empty(),"different support cannot silently rescale");
@@ -102,6 +123,9 @@ int main(int argc,char** argv)try{
  check(frame.raw().receipt()==before&&spans[0].receipt()==span_before,"raw and span immutable");
  summary["refined_quality_pass"]=quality;summary["matched_raw_quality_pass"]=rawquality;
  summary["total"]=12;save(out/"matrix.json",summary);
+ common_summary["total"]=12;common_summary["refined_quality_pass"]=commonquality;
+ common_summary["matched_raw_quality_pass"]=commonrawquality;save(out/"common_matrix.json",common_summary);
+ std::cout<<"COMMON_REFINED_ARC quality refined="<<commonquality<<"/12 matched_raw="<<commonrawquality<<"/12; caller anchors do not prove correspondence\n";
  std::cout<<"REFINED_ARC_PASS 12 paired transforms; quality refined="<<quality<<"/12 matched_raw="<<rawquality<<"/12; gap/identity/coverage/scale/ambiguity guards\n";
  return 0;
 }catch(const std::exception& e){std::cerr<<e.what()<<'\n';return 1;}

@@ -131,19 +131,51 @@ struct ArcCorrespondenceResult {
  }
 };
 namespace arc_detail {
-inline ArcCorrespondenceResult MatchArcPoints(
- const std::vector<std::complex<double>>& reference_points,
- const std::vector<std::complex<double>>& observation_points,
- const std::string& reference_receipt,const std::string& observation_receipt,
- const ArcCorrespondenceConfig& cfg){
+inline void ValidateArcConfig(const ArcCorrespondenceConfig& cfg){
  auto positive=[](double d){return std::isfinite(d)&&d>0;};
  if(cfg.samples<3||cfg.samples>128||!positive(cfg.minimum_scale)||!positive(cfg.maximum_scale)||
     cfg.maximum_scale<cfg.minimum_scale||!positive(cfg.maximum_fit_rms_px)||!positive(cfg.maximum_observed_error_px)||
     !positive(cfg.support_distance_px)||!positive(cfg.minimum_weighted_support)||cfg.minimum_weighted_support>1||
     !positive(cfg.maximum_endpoint_error_px))throw std::invalid_argument("ARC_INVALID_CONFIG");
+}
+inline ArcCorrespondenceResult MatchArcPoints(
+ const std::vector<std::complex<double>>& reference_points,
+ const std::vector<std::complex<double>>& observation_points,
+ const std::string& reference_receipt,const std::string& observation_receipt,
+ const ArcCorrespondenceConfig& cfg,
+ const ArcSamples* reference_sampling=nullptr,const ArcSamples* observation_sampling=nullptr){
+ ValidateArcConfig(cfg);
+ auto positive=[](double d){return std::isfinite(d)&&d>0;};
  ArcCorrespondenceResult out;out.config=cfg;out.reference_receipt=reference_receipt;out.observation_receipt=observation_receipt;
- out.reference_samples=SampleArcPoints(reference_points,cfg.samples);out.observation_samples=SampleArcPoints(observation_points,cfg.samples);
+ // Optional internal samples retain a caller-established common raw-arc
+ // coordinate. Do not independently normalize the two refined lengths again.
+ auto sample=[&](const auto& points,const ArcSamples* supplied){
+  auto checked=SampleArcPoints(points,cfg.samples);
+  if(!supplied)return checked;
+  if(supplied->values.size()!=cfg.samples||!positive(supplied->length))
+   throw std::invalid_argument("ARC_INVALID_SUPPLIED_SAMPLES");
+  double previous=-1;
+  for(const auto& v:supplied->values){
+   if(!std::isfinite(std::abs(v.point))||!std::isfinite(v.normalized_length)||
+      !std::isfinite(v.fraction)||v.fraction<0||v.fraction>1||
+      v.normalized_length<0||v.normalized_length>1||v.normalized_length<=previous)
+    throw std::invalid_argument("ARC_INVALID_SUPPLIED_SAMPLES");
+   previous=v.normalized_length;
+  }
+  return *supplied;
+ };
+ if(bool(reference_sampling)!=bool(observation_sampling))
+  throw std::invalid_argument("ARC_PAIRED_SAMPLING_REQUIRED");
+ out.reference_samples=sample(reference_points,reference_sampling);
+ out.observation_samples=sample(observation_points,observation_sampling);
  const auto& a=out.reference_samples.values;const auto& b=out.observation_samples.values;
+ if(reference_sampling){
+  if(a.front().normalized_length!=0||a.back().normalized_length!=1||
+     b.front().normalized_length!=0||b.back().normalized_length!=1)
+   throw std::invalid_argument("ARC_INVALID_SUPPLIED_SAMPLES");
+  for(size_t i=0;i<a.size();++i)if(std::abs(a[i].normalized_length-b[i].normalized_length)>1e-12)
+   throw std::invalid_argument("ARC_SAMPLE_COORDINATE_MISMATCH");
+ }
  for(int reverse=0;reverse<=(cfg.allow_reversed?1:0);++reverse){
   ArcPoseAssessment c;c.reversed=reverse!=0;
   auto at=[&](size_t i){return b[reverse?b.size()-1-i:i].point;};

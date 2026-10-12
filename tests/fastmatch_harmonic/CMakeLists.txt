@@ -283,6 +283,21 @@ if(PARTIAL_MASK_OPENCV_TEST)
   add_test(NAME refined_arc_headless_parity COMMAND refined_arc_script_guards ${REFINED_ARC_ROOT} verify-headless)
   set_tests_properties(refined_arc_headless_parity PROPERTIES FIXTURES_REQUIRED refined_arc_executed)
  endif()
+ foreach(mode common common-reject)
+  set(COMMON_ARC_ROOT ${CMAKE_CURRENT_BINARY_DIR}/refined_arc_${mode})
+  add_test(NAME refined_arc_${mode}_cxscript COMMAND refined_arc_script_guards ${COMMON_ARC_ROOT} ${mode})
+  set_tests_properties(refined_arc_${mode}_cxscript PROPERTIES FIXTURES_SETUP refined_arc_${mode}_ready)
+  if(PARTIAL_HEADLESS_APP)
+   add_test(NAME refined_arc_${mode}_headless COMMAND ${PARTIAL_HEADLESS_APP} --cxscript-headless
+    --image ${COMMON_ARC_ROOT}/source.pgm --script ${COMMON_ARC_ROOT}/run.cxsc
+    --out ${COMMON_ARC_ROOT}/headless --unified-log ${COMMON_ARC_ROOT}/headless.jsonl)
+   set_tests_properties(refined_arc_${mode}_headless PROPERTIES FIXTURES_REQUIRED refined_arc_${mode}_ready
+    FIXTURES_SETUP refined_arc_${mode}_executed PASS_REGULAR_EXPRESSION "cxscript_headless_ok=true" TIMEOUT 60
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../..)
+   add_test(NAME refined_arc_${mode}_parity COMMAND refined_arc_script_guards ${COMMON_ARC_ROOT} verify-headless)
+   set_tests_properties(refined_arc_${mode}_parity PROPERTIES FIXTURES_REQUIRED refined_arc_${mode}_executed)
+  endif()
+ endforeach()
  add_executable(refined_arc_guards native_refined_arc_test.cpp)
  target_include_directories(refined_arc_guards PRIVATE ${OpenCV_INCLUDE_DIRS})
  target_link_libraries(refined_arc_guards PRIVATE cx_so2 cxgeom_polar_discrete_harmonic ${OpenCV_LIBS})
@@ -292,6 +307,10 @@ if(PARTIAL_MASK_OPENCV_TEST)
  target_link_libraries(bound_gray_guards PRIVATE cx_so2 cxgeom_polar_discrete_harmonic ${OpenCV_LIBS})
  add_test(NAME bound_gray_frame COMMAND bound_gray_guards ${CMAKE_CURRENT_BINARY_DIR}/bound_gray_frame)
 endif()
+
+add_executable(common_arc_guards native_common_arc_test.cpp)
+target_link_libraries(common_arc_guards PRIVATE cxgeom_polar_discrete_harmonic)
+add_test(NAME common_arc_support COMMAND common_arc_guards)
 
 add_executable(boundary_arc_guards native_boundary_arc_test.cpp)
 target_link_libraries(boundary_arc_guards PRIVATE cxgeom_polar_discrete_harmonic)
