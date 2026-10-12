@@ -14,19 +14,20 @@ struct GrayBoundaryPoint {
  std::string source_id,status;
  std::complex<double> raw,normal,refined;
  std::vector<double> profile;
- bool accepted=false;
+ bool accepted=false,normal_available=true;
  double contrast=0,shift_px=0,slope_dn_per_px=0,sensitivity_px=0;
 };
 struct GrayBoundaryResult {
  std::string raw_receipt,image_id,revision,gray_sha256;
  int width=0,height=0;
+ std::string normals_basis="caller_supplied",normal_receipt_json="null";
  GrayBoundaryConfig config;
  std::vector<GrayBoundaryPoint> points;
  std::string receipt()const{
   using cxgeom::polar::receipt_detail::quote;
   std::ostringstream o;o.imbue(std::locale::classic());o<<std::setprecision(17);
   o<<"{\"schema\":\"gray_boundary_refinement.v1\",\"production_eligible\":false,\"raw_modified\":false";
-  o<<",\"method\":\"bilinear_profile_endpoint_midpoint_crossing\",\"normals_basis\":\"caller_supplied\"";
+  o<<",\"method\":\"bilinear_profile_endpoint_midpoint_crossing\",\"normals_basis\":"<<quote(normals_basis)<<",\"normal_estimation\":"<<normal_receipt_json;
   o<<",\"uncertainty_calibrated\":false,\"sensitivity_semantics\":\"noise_floor_plus_half_DN_divided_by_local_slope_not_confidence_interval\"";
   o<<",\"image_id\":"<<quote(image_id)<<",\"dataset_revision\":"<<quote(revision)<<",\"gray_sha256\":"<<quote(gray_sha256);
   o<<",\"width\":"<<width<<",\"height\":"<<height;
@@ -37,7 +38,9 @@ struct GrayBoundaryResult {
    if(i)o<<',';
    const auto& p=points[i];
    o<<"{\"source_id\":"<<quote(p.source_id)<<",\"status\":"<<quote(p.status)<<",\"accepted\":"<<(p.accepted?"true":"false");
-   o<<",\"raw\":["<<p.raw.real()<<','<<p.raw.imag()<<"],\"normal\":["<<p.normal.real()<<','<<p.normal.imag()<<"],\"contrast\":"<<p.contrast;
+   o<<",\"raw\":["<<p.raw.real()<<','<<p.raw.imag()<<"],\"normal\":";
+   if(p.normal_available)o<<'['<<p.normal.real()<<','<<p.normal.imag()<<']';else o<<"null";
+   o<<",\"contrast\":"<<p.contrast;
    o<<",\"refined\":";
    if(p.accepted)o<<"{\"derived\":true,\"observed_pixel\":false,\"point\":["<<p.refined.real()<<','<<p.refined.imag()<<"],\"shift_px\":"<<p.shift_px<<",\"slope_dn_per_px\":"<<p.slope_dn_per_px<<",\"sensitivity_px\":"<<p.sensitivity_px<<'}';
    else o<<"null";
@@ -47,12 +50,14 @@ struct GrayBoundaryResult {
 };
 inline GrayBoundaryResult RefineGrayBoundary(const cv::Mat& gray,
  const cxgeom::polar::ObservedBoundaryInput& raw,const std::vector<std::complex<double>>& normals,
- const std::string& image_id,const std::string& revision,const GrayBoundaryConfig& cfg={}){
+ const std::string& image_id,const std::string& revision,const GrayBoundaryConfig& cfg={},
+ const std::vector<std::string>* excluded_points=nullptr){
  auto need=[](bool b,const char* why){if(!b)throw std::invalid_argument(why);};
  auto positive=[](double v){return std::isfinite(v)&&v>0;};
  need(!gray.empty()&&gray.type()==CV_8UC1&&gray.total()<=16777216,"GRAY_BOUNDARY_IMAGE");
  need(!image_id.empty()&&revision==raw.revision_id(),"GRAY_BOUNDARY_PROVENANCE");
  need(normals.size()==raw.features().size(),"GRAY_BOUNDARY_NORMAL_COUNT");
+ need(!excluded_points||excluded_points->size()==raw.features().size(),"GRAY_BOUNDARY_EXCLUSION_COUNT");
  need(positive(cfg.radius_px)&&cfg.radius_px<=16&&positive(cfg.step_px)&&cfg.step_px<=1&&
   2*cfg.radius_px/cfg.step_px>=8&&2*cfg.radius_px/cfg.step_px<=256&&std::abs(2*cfg.radius_px/cfg.step_px-std::round(2*cfg.radius_px/cfg.step_px))<1e-8&&
   positive(cfg.minimum_contrast)&&cfg.minimum_contrast<=255&&positive(cfg.maximum_shift_px)&&cfg.maximum_shift_px<=cfg.radius_px&&
@@ -66,6 +71,9 @@ inline GrayBoundaryResult RefineGrayBoundary(const cv::Mat& gray,
  const size_t count=size_t(std::llround(2*cfg.radius_px/cfg.step_px))+1;
  for(size_t i=0;i<raw.features().size();++i){
   GrayBoundaryPoint p;p.raw=raw.features()[i].point;p.source_id=raw.features()[i].stable_id;p.normal=normals[i];
+  if(excluded_points&&!(*excluded_points)[i].empty()){
+   p.normal_available=false;p.status=(*excluded_points)[i];out.points.push_back(p);continue;
+  }
   std::set<int> native_levels;
   for(size_t j=0;j<count;++j){
    auto q=p.raw+(-cfg.radius_px+double(j)*cfg.step_px)*p.normal;
