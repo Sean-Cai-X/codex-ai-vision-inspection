@@ -353,6 +353,19 @@ if(LIBTORCH_MODULE_BUILD_RUNTIME_DLL)
         configure_libtorch_module_test_environment(
             libtorch_module_business_c_api_smoke)
         if(LIBTORCH_MODULE_BUILD_DATASET_PROBE)
+            add_executable(libtorch_module_image_error_probe
+                ../tests/seven_class_supervision/image_error_probe.cpp
+                ../cximage/CxInstanceMaskErrorAnalysis.cpp
+                ../cximage/CxSevenClassSupervision.cpp
+                ../cxgeom/src/CxGeoSO2ReferenceAsset.cpp
+                ../cxgeom/src/CxGeoSO2Harmonic.cpp)
+            target_include_directories(libtorch_module_image_error_probe PRIVATE
+                "${CMAKE_CURRENT_SOURCE_DIR}/../cxgeom/include" ${OpenCV_INCLUDE_DIRS})
+            configure_libtorch_module_target(libtorch_module_image_error_probe)
+            target_link_libraries(libtorch_module_image_error_probe PRIVATE libtorch_module_runtime)
+            add_test(NAME libtorch_module_image_error_metrics
+                COMMAND libtorch_module_image_error_probe --self-test)
+            configure_libtorch_module_test_environment(libtorch_module_image_error_metrics)
             add_executable(libtorch_module_parent_candidate_compare
                 ../tests/seven_class_supervision/model_compare_main.cpp
                 ../cximage/CxSevenClassSupervision.cpp
