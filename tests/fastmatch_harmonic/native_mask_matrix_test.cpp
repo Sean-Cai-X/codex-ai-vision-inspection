@@ -1,3 +1,4 @@
+#include "../../cxgeom/polar_discrete_harmonic/boundary_arc_correspondence.h"
 #include "../../cxgeom/polar_discrete_harmonic/boundary_candidate_gate.h"
 #include "../../cximage/CxPartialBoundaryMaskInput.h"
 #include "../../cxgeom/polar_discrete_harmonic/boundary_order_audit.h"
@@ -46,6 +47,7 @@ int main(int argc,char** argv)try{
    {"quality_pass",false},{"reference",Json::parse(ref.receipt())},{"candidates",Json::array()}};
   try{
   entry["order_gate_quality_pass"]=false;entry["order_gate_status"]="NOT_RUN";
+  entry["arc_quality_pass"]=false;entry["arc_status"]="NOT_RUN";
    const auto& reference_run=ref.boundary.ordered_run();
    auto transform=[&](std::complex<double> p){return std::complex<double>(co,si)*p+std::complex<double>(tx,ty);};
    BoundaryEndpointAnchors endpoints{transform(reference_run.points.front()),transform(reference_run.points.back()),
@@ -55,6 +57,18 @@ int main(int argc,char** argv)try{
    check(obs.boundary.ordered_run().points.size()<obs.boundary.parent_points().size(),"must remain open");
    check(!endpoint_mode||Json::parse(obs.receipt())["endpoint_selection"].is_object(),"endpoint evidence missing");
    entry["observation"]=Json::parse(obs.receipt());ObservedBoundaryBundle ob({obs.boundary});
+   if(endpoint_mode){
+    const auto arc=MatchObservedArc(ref.boundary,obs.boundary);
+    entry["arc"]=Json::parse(arc.receipt());entry["arc_status"]=arc.status;
+    entry["arc_diagnostic_errors"]=Json::array();
+    for(const auto& candidate:arc.candidates){
+     double ae=std::abs(std::remainder(std::arg(candidate.factor)*180/std::acos(-1.)-c.angle,360.));
+     double se=std::abs(std::abs(candidate.factor)-c.scale),te=std::abs(candidate.translation-std::complex<double>(tx,ty));
+     entry["arc_diagnostic_errors"].push_back({{"angle_error_deg",ae},{"scale_error",se},{"translation_error_px",te},{"within_limits",ae<=1&&se<=.05&&te<=.5}});
+    }
+    if(arc.accepted_indices.size()==1)
+     entry["arc_quality_pass"]=entry["arc_diagnostic_errors"][arc.accepted_indices[0]]["within_limits"];
+   }
    PartialRequest r;r.request_id=c.id;r.reference_source=ref.boundary.source_id();r.observation_source=obs.boundary.source_id();
    r.reference=rb.features();r.observation=ob.features();
    // One fixed operating configuration for ALL cases; no case-specific threshold search.
@@ -108,12 +122,18 @@ int main(int argc,char** argv)try{
    check(entry["order_gate_quality_pass"].get<bool>(),"90 degree endpoint control regressed");
   if(endpoint_mode&&std::string(c.id)=="scale200")
    check(entry.value("solver_reason",std::string())=="PARTIAL_COVERAGE_IMPOSSIBLE","scale density diagnostic changed");
+  if(endpoint_mode&&std::string(c.id)=="scale200")
+   check(entry.contains("arc")&&entry["arc"]["candidates"].size()>0,"arc must evaluate density-limited input");
+  if(endpoint_mode&&(std::string(c.id)=="translate"||std::string(c.id)=="rotate90"))
+   check(entry["arc_quality_pass"].get<bool>(),"arc control regressed");
   if(entry["quality_pass"].get<bool>())++accepted;
   save(out/(std::string(c.id)+".json"),entry);
   summary["cases"].push_back({{"id",c.id},{"status",entry["status"]},{"quality_pass",entry["quality_pass"]},{"reason",entry["quality_reason"]}});
   summary["cases"].back()["order_gate_status"]=entry["order_gate_status"];
   summary["cases"].back()["order_gate_quality_pass"]=entry["order_gate_quality_pass"];
   summary["cases"].back()["solver_reason"]=entry.value("solver_reason",std::string());
+  summary["cases"].back()["arc_status"]=entry["arc_status"];
+  summary["cases"].back()["arc_quality_pass"]=entry["arc_quality_pass"];
   std::cout<<c.id<<": "<<entry["status"]<<" quality="<<entry["quality_pass"]<<" reason="<<entry["quality_reason"]<<'\n';
  }
  summary["quality_pass_count"]=accepted;summary["case_count"]=std::size(cases);
@@ -121,6 +141,9 @@ int main(int argc,char** argv)try{
  size_t gate_passed=0;
  for(const auto& item:summary["cases"])if(item["order_gate_quality_pass"].get<bool>())++gate_passed;
  summary["order_gate_quality_pass_count"]=gate_passed;
+ size_t arc_passed=0;
+ for(const auto& item:summary["cases"])if(item["arc_quality_pass"].get<bool>())++arc_passed;
+ summary["arc_quality_pass_count"]=arc_passed;
  save(out/"matrix.json",summary);
  check(summary["cases"][10]["status"]=="INPUT_REJECTED","ambiguous distractor must reject");
  std::cout<<"MASK_MATRIX_CONTRACT_PASS quality="<<accepted<<"/"<<std::size(cases)<<'\n';return 0;
