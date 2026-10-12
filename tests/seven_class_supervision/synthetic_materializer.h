@@ -37,16 +37,18 @@ inline J points(const std::string& name,int seed) {
     return p;
 }
 inline J make_case(const fs::path& root,const J& rules,const std::string& name,
-                   const std::string& fault="none") {
+                   const std::string& fault="none",int train_count=2) {
+    check(train_count==2||train_count==3,"FIXTURE_TRAIN_COUNT_INVALID");
+    const int verify_seed=train_count+1;
     check(fs::create_directory(root),"FIXTURE_NEW_CASE_REQUIRED");
     fs::create_directory(root/"training");fs::create_directory(root/"verify");
     J project={{"project_class",name},{"samples",J::array()}};
     J assets=J::array();
-    for(int seed=0;seed<4;++seed) {
+    for(int seed=0;seed<=verify_seed;++seed) {
         bool closed=name!="arc"&&name!="line"&&name!="open_curve";
         J annotation={{"id","a"},{"class_name",name},{"closed",closed},{"points",points(name,seed)}};
         J source={{"asset_ref","sample-"+std::to_string(seed)},{"source_group",name+"-draw-"+std::to_string(seed)},
-            {"split",seed<2?"train":"valid"},{"width",64},{"height",64},
+            {"split",seed<train_count?"train":"valid"},{"width",64},{"height",64},
             {"image_sha256",std::string(64,'0')},{"annotation_receipt_digest",Sha256Bytes(annotation.dump())},
             {"annotations",J::array({annotation})}};
         auto conversion=cxvision::supervision::Convert(source,rules);
@@ -55,11 +57,11 @@ inline J make_case(const fs::path& root,const J& rules,const std::string& name,
             image[y*64+x]=conversion.mask[y*64+x]==255?static_cast<unsigned char>(20+(x*(seed+1)+y*3)%7):210;
         std::string image_bytes=pgm(image);
         source["image_sha256"]=Sha256Bytes(image_bytes);
-        if(seed==3) {source["split"]="verify";source.erase("annotation_receipt_digest");source["annotations"]=J::array();}
+        if(seed==verify_seed) {source["split"]="verify";source.erase("annotation_receipt_digest");source["annotations"]=J::array();}
         project["samples"].push_back(source);
-        std::string image_name=(seed==3?"verify/":"training/")+std::string("sample-")+std::to_string(seed)+".pgm";
+        std::string image_name=(seed==verify_seed?"verify/":"training/")+std::string("sample-")+std::to_string(seed)+".pgm";
         write_new(root/image_name,image_bytes);
-        if(seed!=3) {
+        if(seed!=verify_seed) {
             auto mask=conversion.mask;
             // Deliberately bad fixture created once, never mutate an original.
             if(fault=="wrong_mask_pixels" && seed==0) {
@@ -69,7 +71,7 @@ inline J make_case(const fs::path& root,const J& rules,const std::string& name,
             }
             std::string mask_name="training/sample-"+std::to_string(seed)+"-mask.pgm";
             std::string mask_bytes=pgm(mask);write_new(root/mask_name,mask_bytes);
-            assets.push_back({{"id",source["asset_ref"]},{"split",seed<2?"train":"val"},
+            assets.push_back({{"id",source["asset_ref"]},{"split",seed<train_count?"train":"val"},
                 {"image_path",image_name},{"image_sha256",Sha256Bytes(image_bytes)},
                 {"mask_path",mask_name},{"mask_sha256",Sha256Bytes(mask_bytes)}});
         }
@@ -78,7 +80,7 @@ inline J make_case(const fs::path& root,const J& rules,const std::string& name,
     const std::string sidecar=frozen.dump();
     write_new(root/"training"/"supervision.v1.json",sidecar);
     write_new(root/"project.json",project.dump(2));
-    write_new(root/"verify"/"asset_binding.json",project["samples"][3].dump(2));
+    write_new(root/"verify"/"asset_binding.json",project["samples"][verify_seed].dump(2));
     const std::string case_id="native-"+name;
     std::ostringstream manifest;
     manifest<<"schema=visionai.geometry-segmentation-materializer."<<(fault=="v1_with_binding"?"v1":"v2")<<'\n'

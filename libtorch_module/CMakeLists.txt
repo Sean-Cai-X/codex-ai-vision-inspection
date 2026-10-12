@@ -391,6 +391,9 @@ if(LIBTORCH_MODULE_BUILD_RUNTIME_DLL)
             configure_libtorch_module_full_definitions(libtorch_module_business_dataset_probe)
             add_test(NAME libtorch_module_business_nms_counts
                 COMMAND libtorch_module_business_dataset_probe --nms-count-test)
+            add_test(NAME libtorch_module_business_unified_assignment
+                COMMAND libtorch_module_business_dataset_probe --unified-assignment-test)
+            configure_libtorch_module_test_environment(libtorch_module_business_unified_assignment)
             configure_libtorch_module_test_environment(libtorch_module_business_nms_counts)
             add_test(NAME libtorch_module_business_classification_loss
                 COMMAND libtorch_module_business_dataset_probe --classification-loss-test)

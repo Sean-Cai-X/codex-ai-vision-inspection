@@ -1,0 +1,77 @@
+Unified assignment, local R&D experiment, 2026-10-12
+
+Scope
+- Registered development parent: dev_parent_yolov8seg_7class_warmup_20260915.
+- Binding: contracts/development_parent_test001_20261009.json. The runner verifies
+  the parent manifest, checkpoint, attestation and lineage SHA256 before training,
+  and verifies the parent/source asset inventories after training.
+- Native C++/LibTorch only. No Python training, business image, or business
+  frozen dataset was used. The parent is loaded strictly, 417/417 keys.
+- Fixed order: arc, circle, ellipse, line, open_curve, polygon, closed_curve.
+- Synthetic circle and ellipse each have 3 Train, 1 Valid, 1 held-out VERIFY.
+  VERIFY has a synthetic oracle annotation only during offline evaluation; the
+  model does not see that annotation during training or model selection.
+- Each arm: seed 20261012, 40 epochs, 40 optimizer updates, batch size 2,
+  Adam, cosine effective LR 1e-4 to 1e-6, BN train statistics in training,
+  eval mode for validation and inference. The production score/NMS/max20 and
+  mask decoder are used unchanged during evaluation.
+
+Algorithm under test
+- Anchor assignment uses real grid centers inside GT, top-10 score*IoU^6
+  per GT, and one deterministic GT owner per anchor.
+- The same owner index drives class, box IoU, DFL and mask targets. Unassigned
+  anchors provide background classification supervision.
+- The retained v5 experiment balances positive and negative class logits and
+  adds 2x loss for the 20 highest-loss negative logits per positive anchor.
+- This is a test-only loss implementation. It does not change the runtime DLL,
+  C ABI, business training defaults, current parent or deployed candidate.
+
+Evidence locations (sibling cxscript_runs, immutable run directories)
+- v3: ../cxscript_runs/unified_budget_20261012/19942176511300/comparison.json
+- v4: ../cxscript_runs/unified_budget_20261012/20610704625800/comparison.json
+- v5: ../cxscript_runs/unified_budget_20261012/21480677971000/comparison.json
+- v6: ../cxscript_runs/unified_budget_20261012/21996172797400/comparison.json
+Each run also contains per-arm trace.json, result.json and isolated weights.pt.
+The v5 checkpoints are:
+  circle: sha256:43bd814795d3b0480a00264c5f2fb591340edaa16f12a48e808ff6d6f6c25ca0
+  ellipse: sha256:49324fbeb5637aa39defef22d97856dafadba7074f1536338de7d9af761bb0fc
+
+Aggregate outcomes over 5 synthetic images per shape (same decoding budget):
+                     circle: target/wrong/zero/bestIoU  ellipse: target/wrong/zero/bestIoU
+  legacy v1            55 /16 /0 /0.957              51 /30 /0 /0.575
+  unified v3           11 /80 /1 /0.783               7 /84 /3 /0.236
+  unified v4           16 /65 /0 /0.836               0 /90 /5 /0.000
+  unified v5            7 /62 /0 /0.989               5 /62 /0 /0.992
+  unified v6            3 /82 /2 /0.198               5 /73 /0 /0.987
+
+Target/wrong are counts of accepted post-mask candidates summed over images;
+zero is images with no target-class candidate; bestIoU is the mean of each
+image's best target-class mask IoU against the synthetic oracle. An image has
+one true object, so multiple target candidates represent count errors. V5 has
+zero target-target mask pairs above IoU 0.5; this does not prove all other
+duplicate or fragment errors are gone. All arms still have roughly 8,200-8,400
+class-score candidates before NMS and reach the max20 output cap. The recorded
+full-post-NMS count is unknown when the cap stops examination.
+
+Decision
+- V5 improves synthetic target localization and target count, but its wrong
+  class counts (62/shape) exceed legacy v1 (16 circle, 30 ellipse). It fails
+  joint count/class/mask acceptance and is NOT an upgrade candidate for the
+  typed business bridge. V6 regresses further and is not retained in code.
+- The business tickets RND-VAI-BUSINESS-TRIAL-20261012 and
+  RND-VAI-TESTCIRCLE-20261012 remain NOT_PASSED. This synthetic experiment is
+  not a result on their frozen business revisions and is not independent
+  business validation.
+- Next experiment should diagnose per-class raw logit distributions and
+  task-aligned positive/negative ownership against wrong-class NMS survivors,
+  then compare under the same fixed budget. Do not use max20, score threshold,
+  or class filtering as a substitute for correcting the raw classification.
+
+Reproduction
+  cmake --build ../build_supervision_runtime --config Release --target libtorch_module_business_dataset_probe --parallel 4
+  ctest --test-dir ../build_supervision_runtime -C Release --output-on-failure -R "libtorch_module_(business_|comparison_metrics)"
+  # Add D:/libtorch/lib and D:/opencv/build/x64/vc16/bin to PATH for direct EXE execution.
+  ../build_supervision_runtime/Release/libtorch_module_business_dataset_probe.exe --unified-budget contracts/development_parent_test001_20261009.json D:/Codex-WorkDir/Sean_WorkDir/Vision-AI/business_trials/test001-ellipse-trial-r1/parent_model contracts/seven_class_supervision_rules.v1.json ../cxscript_runs/unified_budget_20261012
+
+Acceptance at this stage: experimental execution and regression tests only.
+No production admission, no automatic activation, no business default change.
