@@ -18,25 +18,51 @@ inline int run(int argc,char** argv){
         settings.dataset_manifest_sha256=binding.at("dataset_manifest_sha256");settings.project_geometry_class=shape;settings.project_geometry_class_id=shape=="circle"?1:2;
         BusinessMaterializedDataset data;check(LoadBusinessMaterializedDataset(binding.at("training_root"),settings,data,reason),"UNIFIED_LOADER");
         check(data.train_samples.size()==3&&data.validation_samples.size()==1,"UNIFIED_SPLIT");
-        for(int version=0;version<4;++version){
+        for(int version=0;version<3;++version){
             const char* label=version==0?"legacy_v1":version==1?"unified_v5_hard_negative_experimental":
-                version==2?"unified_v8_quality_weighted_multiscale_experimental":"unified_v9_level_balanced_hard_negative_experimental";
+                "unified_v10_class_head_lr5_experimental";
             torch::manual_seed(20261012);YoloV8Segment model(7);
             check(model->load_state_dict_strict(weights.string()).complete(),"UNIFIED_LOAD");model->train();
             torch::optim::Adam optimizer(model->parameters(),torch::optim::AdamOptions(1e-4).weight_decay(0));
+            std::unique_ptr<torch::optim::Adam> classifier_optimizer,other_optimizer;
+            int64_t class_parameter_tensors=0,other_parameter_tensors=0;
+            if(version==2) {
+                std::vector<torch::Tensor> classifier_parameters,other_parameters;
+                for(const auto& named:model->named_parameters(true)) {
+                    const auto& name=named.key();
+                    if(name.find("m22.cv3")!=std::string::npos||name.find("model.22.cv3")!=std::string::npos)
+                        classifier_parameters.push_back(named.value());
+                    else other_parameters.push_back(named.value());
+                }
+                class_parameter_tensors=classifier_parameters.size();other_parameter_tensors=other_parameters.size();
+                check(class_parameter_tensors>0&&other_parameter_tensors>0&&
+                    class_parameter_tensors+other_parameter_tensors==model->named_parameters(true).size(),
+                    "UNIFIED_CLASS_HEAD_GROUP_INVALID");
+                classifier_optimizer=std::make_unique<torch::optim::Adam>(classifier_parameters,
+                    torch::optim::AdamOptions(5e-4).weight_decay(0));
+                other_optimizer=std::make_unique<torch::optim::Adam>(other_parameters,
+                    torch::optim::AdamOptions(1e-4).weight_decay(0));
+            }
             auto compute=[&](const YoloV8SegDatasetSample& s,int64_t& positives){auto image=cv::imread(s.image_ref);SegLetterbox lb;auto in=MakeSegInput(image,manifest,lb);auto raw=model->forward(in);
-                return version?unified_experiment::loss(model,raw,s,in,lb,manifest,&positives,version==2,version==3):
+                return version?unified_experiment::loss(model,raw,s,in,lb,manifest,&positives):
                     LegacyBusinessYoloV8SegLoss(model,raw,s,in,lb,manifest);};
             J trace=J::array();unsigned cursor=0;
             for(unsigned epoch=0;epoch<40;++epoch){
                 check(std::chrono::steady_clock::now()-start<std::chrono::minutes(15),"UNIFIED_TIME_BUDGET");
                 double lr=1e-6+(1e-4-1e-6)*.5*(1+std::cos(std::acos(-1.)*epoch/39.));
-                for(auto& group:optimizer.param_groups())static_cast<torch::optim::AdamOptions&>(group.options()).lr(lr);
-                optimizer.zero_grad();double train_loss=0;int64_t positives=0;
+                if(version==2) {
+                    for(auto& group:classifier_optimizer->param_groups())static_cast<torch::optim::AdamOptions&>(group.options()).lr(5*lr);
+                    for(auto& group:other_optimizer->param_groups())static_cast<torch::optim::AdamOptions&>(group.options()).lr(lr);
+                    classifier_optimizer->zero_grad();other_optimizer->zero_grad();
+                } else {for(auto& group:optimizer.param_groups())static_cast<torch::optim::AdamOptions&>(group.options()).lr(lr);optimizer.zero_grad();}
+                double train_loss=0;int64_t positives=0;
                 for(int batch=0;batch<2;++batch){int64_t count=0;auto loss=compute(data.train_samples[cursor++%3],count).total_loss;
                     check(torch::isfinite(loss).item<bool>(),"UNIFIED_NONFINITE");train_loss+=loss.item<double>();positives+=count;(loss/2).backward();}
-                optimizer.step();model->eval();double valid=0;{torch::NoGradGuard guard;int64_t ignored=0;valid=compute(data.validation_samples[0],ignored).total_loss.item<double>();}model->train();
-                trace.push_back({{"epoch",epoch+1},{"updates",epoch+1},{"batch_size",2},{"lr",lr},{"training_loss",train_loss/2},{"validation_loss",valid},{"positive_assignments",version?J(positives):J(nullptr)}});
+                if(version==2){classifier_optimizer->step();other_optimizer->step();}else optimizer.step();
+                model->eval();double valid=0;{torch::NoGradGuard guard;int64_t ignored=0;valid=compute(data.validation_samples[0],ignored).total_loss.item<double>();}model->train();
+                trace.push_back({{"epoch",epoch+1},{"updates",epoch+1},{"batch_size",2},{"lr",lr},
+                    {"classifier_lr",version==2?5*lr:lr},{"training_loss",train_loss/2},{"validation_loss",valid},
+                    {"positive_assignments",version?J(positives):J(nullptr)}});
                 if(epoch%10==9)std::cout<<shape<<' '<<label<<" updates="<<epoch+1<<" loss="<<train_loss/2<<std::endl;
             }
             auto dir=root/(shape+"-"+label);fs::create_directory(dir);check(WriteBusinessCheckpoint(model,dir/"weights.pt"),"UNIFIED_CHECKPOINT");
@@ -63,6 +89,9 @@ inline int run(int argc,char** argv){
             }
             J result={{"shape",shape},{"loss",label},{"parent_sha256",b.at("checkpoint_sha256")},{"dataset_revision",binding.at("dataset_revision_id")},
                 {"checkpoint_sha256",mode_budget::hash(dir/"weights.pt")},{"seed",20261012},{"epochs",40},{"updates",40},{"batch_size",2},
+                {"class_parameter_tensors",version==2?J(class_parameter_tensors):J(nullptr)},
+                {"other_parameter_tensors",version==2?J(other_parameter_tensors):J(nullptr)},
+                {"classifier_lr_multiplier",version==2?5:1},
                 {"bn_policy","train statistics; eval validation and inference"},{"observations",observations},{"production_allowed",false},{"model_quality_accepted",false}};
             write_new(dir/"result.json",result.dump(2));results.push_back(result);
         }
