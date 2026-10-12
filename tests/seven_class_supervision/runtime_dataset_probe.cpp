@@ -8,10 +8,15 @@
 #include "unified_logits_diagnostic.h"
 #include "coverage_budget_runner.h"
 #include "ownership_gradient_audit.h"
+#include "candidate_provenance_audit.h"
 
 int main(int argc,char** argv) {
     using namespace supervision_fixture;
     try {
+        if(argc>1&&std::string(argv[1])=="--candidate-audit")return candidate_audit::run(argc,argv);
+        if(argc==2&&std::string(argv[1])=="--candidate-provenance-test") {
+            candidate_audit::self_test();std::cout<<"PASS candidate identity, suppression parent, cap state and unchanged selection\n";return 0;
+        }
         if(argc>1&&std::string(argv[1])=="--ownership-audit")return ownership_audit::run(argc,argv);
         if(argc==2&&std::string(argv[1])=="--ownership-gradient-test") {
             ownership_audit::self_test();std::cout<<"PASS unified output gradients: seven classes, competing GT, class sign and geometry owner support\n";return 0;

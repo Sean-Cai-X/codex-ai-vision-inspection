@@ -47,6 +47,10 @@ struct SegCandidate
     float x1 = 0.0f;
     float y1 = 0.0f;
     torch::Tensor coefficients;
+    // Private diagnostic identity, not part of the exported runtime ABI.
+    int64_t source_anchor = -1;
+    int source_level = -1;
+    int64_t source_row = -1, source_column = -1;
 };
 
 struct YoloV8SegDatasetSample
@@ -989,9 +993,21 @@ struct SegNmsDiagnostics {
     bool cap_reached = false;
 };
 
+struct SegNmsTraceEntry {
+    SegCandidate candidate;
+    // unexamined means the detection cap was reached, NOT suppression.
+    std::string decision = "unexamined_detection_cap";
+    int64_t suppressor_anchor = -1;
+    float suppressor_box_iou = 0;
+};
+
+struct SegCandidateAudit {
+    std::vector<SegNmsTraceEntry> ranked;
+};
+
 std::vector<SegCandidate> SelectSegCandidates(
     std::vector<SegCandidate> candidates, const TorchModelManifest& manifest,
-    SegNmsDiagnostics& diagnostics)
+    SegNmsDiagnostics& diagnostics, SegCandidateAudit* audit = nullptr)
 {
     diagnostics.above_threshold = candidates.size();
     diagnostics.examined = diagnostics.suppressed = 0;
@@ -1004,6 +1020,11 @@ std::vector<SegCandidate> SelectSegCandidates(
             return lhs.score > rhs.score;
         });
     std::vector<SegCandidate> selected;
+    if (audit) {
+        audit->ranked.clear();
+        for (const auto& candidate : candidates)
+            audit->ranked.push_back({candidate});
+    }
     for (const auto& candidate : candidates)
     {
         ++diagnostics.examined;
@@ -1015,11 +1036,18 @@ std::vector<SegCandidate> SelectSegCandidates(
                 BoxIou(candidate, kept) > manifest.iou_threshold)
             {
                 suppressed = true;
+                if (audit) {
+                    auto& entry = audit->ranked[diagnostics.examined - 1];
+                    entry.decision = "suppressed_box_nms";
+                    entry.suppressor_anchor = kept.source_anchor;
+                    entry.suppressor_box_iou = BoxIou(candidate, kept);
+                }
                 break;
             }
         }
         if (!suppressed)
         {
+            if (audit) audit->ranked[diagnostics.examined - 1].decision = "selected";
             selected.push_back(candidate);
             if (selected.size() >=
                 static_cast<std::size_t>(manifest.max_detections))
@@ -1036,11 +1064,13 @@ std::vector<SegCandidate> SelectSegCandidates(
 std::vector<SegCandidate> DecodeCandidates(
     const YoloV8SegRawOutput& raw,
     const YoloV8SegmentHead& head,
-    const TorchModelManifest& manifest, SegNmsDiagnostics* output_diagnostics = nullptr)
+    const TorchModelManifest& manifest, SegNmsDiagnostics* output_diagnostics = nullptr,
+    SegCandidateAudit* audit = nullptr)
 {
     const std::vector<float> strides{8.0f, 16.0f, 32.0f};
     std::vector<SegCandidate> candidates;
     SegNmsDiagnostics diagnostics;
+    int64_t source_offset = 0;
     for (std::size_t level = 0; level < 3; ++level)
     {
         const int64_t height = raw.box_logits[level].size(2);
@@ -1080,6 +1110,10 @@ std::vector<SegCandidate> DecodeCandidates(
             const float center_y =
                 (static_cast<float>(row) + 0.5f) * strides[level];
             SegCandidate candidate;
+            candidate.source_anchor = source_offset + anchor;
+            candidate.source_level = static_cast<int>(level);
+            candidate.source_row = row;
+            candidate.source_column = column;
             candidate.class_id =
                 class_ids[anchor].item<int64_t>();
             candidate.score = score;
@@ -1095,9 +1129,10 @@ std::vector<SegCandidate> DecodeCandidates(
                 coefficients[anchor].clone();
             candidates.push_back(std::move(candidate));
         }
+        source_offset += anchors;
     }
 
-    auto selected = SelectSegCandidates(std::move(candidates), manifest, diagnostics);
+    auto selected = SelectSegCandidates(std::move(candidates), manifest, diagnostics, audit);
     if (output_diagnostics) *output_diagnostics = diagnostics;
     return selected;
 }
