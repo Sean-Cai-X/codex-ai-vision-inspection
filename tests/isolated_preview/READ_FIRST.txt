@@ -1,0 +1,62 @@
+Circle / Ellipse unified-v5 isolated inference preview
+=====================================================
+Purpose: compare predicted class, count and contour in the existing typed bridge.
+This is NOT a new business training executor or an accuracy/production approval.
+Each package contains one seven-class candidate specialized by a single-class
+R&D synthetic experiment. Circle and ellipse are separate candidates, NOT one
+jointly trained two-class model. Keep the fixed seven-class order unchanged.
+
+Training provenance: native R&D unified_v5_hard_negative_experimental,
+40 epochs / 40 optimizer updates / batch 2, BN train statistics, validation and
+inference eval. One optimizer update per epoch; effective LR in training_trace.
+The shipped DLL still trains with center_dense_balanced_bce_v2. Do not claim
+v5 business training support. External preview MUST reject training and must
+not become a parent or fabricate a local training receipt.
+
+Known model failures: wrong-class fragments, capped candidate search, imperfect
+count. Best IoU alone is not acceptance. Raw seven-class predictions must stay
+available for analysis. Keep confidence .25, NMS .45, mask .5, cap 20 unchanged.
+The NMS cap means full post-NMS count is UNKNOWN, not zero and not exactly 20.
+Synthetic source variants are not independent business validation evidence.
+
+Business import (session-only; never rewrite the default bootstrap):
+1. Obtain handoff.lock.json SHA independently from the R&D handoff message.
+2. Run Verify-Handoff.ps1 -Root <package> -ExpectedLockSha256 <independent SHA>.
+3. Check the supplied installed-dependency compatibility evidence/lock. This
+   package does NOT contain third-party DLLs. Missing/mismatched dependencies
+   must block the session; do not silently fall back to another runtime.
+   Test-Preview.ps1 -Root <package> -ExpectedLockSha256 <independent SHA>
+     -DependencyDirectories <libtorch-lib>,<opencv-bin> -ValidateOnly
+4. Create a SESSION-ONLY bootstrap from your existing frozen project binding.
+   Pin runtime_library to runtime/libtorch_module_runtime.dll and its supplied
+   SHA; set external_preview_root, external_preview_lock_sha256, and
+   external_preview_target_manifest_sha256 (computed locally by business).
+   Do not replace your target dataset revision with the R&D training revision.
+   Create the session output root <normal-output>/preview/<first16-lock-hex>
+   and its isolated_business_validation subdirectory before bootstrap validation.
+   The bootstrap controlled_trial_output_root must point to that session root.
+5. GetCapability, then infer registered Train / Valid / unlabelled VERIFY images.
+   Compare raw class counts, extra/wrong candidates and contour with annotations.
+   VERIFY without a ground-truth annotation can only receive human review,
+   not a fabricated IoU, missed-target count or automatic quality pass.
+6. Keep execution failure, no project target detected and review-required distinct.
+   Roll back by closing this session and reopening the untouched default config.
+
+Offline R&D compatibility replay (generates NEW synthetic files only):
+Test-Preview.ps1 -Root <package> -ExpectedLockSha256 <independent SHA>
+  -DependencyDirectories <libtorch-lib>,<opencv-bin> -OutputBase <new-evidence-base>
+This checks dependency pins before invoking:
+tools/rd_isolated_preview.exe <package> <independent lock SHA>
+  <package>/rules/seven_class_supervision_rules.v1.json <new-evidence-base>
+  <installed-libtorch-lib-directory> <installed-opencv-bin-directory>
+The tool uses the actual business broker/typed transport, not mocks or Python.
+It tests five images, role preservation, receipt identities, normalized bounds,
+negative pins, training rejection and default-session isolation. Geometry quality
+is separately reported by the frozen R&D experiment; this is integration proof.
+The current business broker understands v1 inventories. The replay generates a
+separate v1 inference inventory with byte-identical image/mask copies; it keeps
+the original v2 training manifest/sidecar untouched. This view never trains.
+
+Feedback must be structured and image-free: package/model/runtime SHA, task ID,
+source role, error code/stage, class counts, review outcome and diagnostic metrics.
+Do not send business images, paths, masks, overlays or screenshots.
