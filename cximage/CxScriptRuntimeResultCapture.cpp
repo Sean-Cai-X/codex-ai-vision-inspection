@@ -10,6 +10,7 @@
 #include "FindSetMatch.h"
 #include "CxPartialMatchAudit.h"
 #include "CxGrayBoundaryAudit.h"
+#include "CxRefinedArcAudit.h"
 #include "CxTextInspect.h"
 #include "TorchTask.h"
 #include "CxTorchResultProjector.h"
@@ -2367,9 +2368,32 @@ bool CaptureRuntimeToolResults(
             reason=std::string("GrayBoundaryAudit capture failed: ")+e.what();return false;
         }
     }
+    const bool before_refined_arc = supported_object_found;
+    const int refined_arc_count = runtime.GetClassObjSum("RefinedArcAudit");
+    for (int i = 0; i < refined_arc_count; ++i) {
+        auto* tool = static_cast<CxRefinedArcAudit*>(runtime.GetClassObj("RefinedArcAudit", i));
+        if (!tool || !captured_objects.insert(tool).second) continue;
+        try {
+            const auto& text = tool->receipt();
+            const auto receipt = nlohmann::json::parse(text);
+            CxScriptToolResultCapture item;
+            item.type = "RefinedArcAudit";
+            item.name = runtime.GetClassObjName("RefinedArcAudit", i);
+            item.owner_ref = item.name;item.algorithm_executed = true;
+            item.candidate_count = static_cast<int>(receipt.at("refined").at("accepted_indices").size());
+            item.reason = "RefinedArcAudit:" + receipt.at("status").get<std::string>() +
+                ";paired_bound_gray_inputs;carrier_image_not_comparison_source;production_eligible=false";
+            capture.refined_arc_receipts.push_back(text);
+            capture.refined_arc_only = !before_refined_arc;
+            // No synthetic fitted shape or overlay on the unrelated CLI carrier.
+            MergeToolCapture(item,capture);supported_object_found = true;
+        } catch(const std::exception& e) {
+            reason=std::string("RefinedArcAudit capture failed: ")+e.what();return false;
+        }
+    }
     if (!supported_object_found)
     {
-        reason = "no supported cximage runtime object found; expected one of Findline, FindCircle, FindEllipse, FindObject, FindRect, FindSegmentation, Match, fastmatch, FindSetMatch, PartialMatchAudit, GrayBoundaryAudit or TorchTask";
+        reason = "no supported cximage runtime object found; expected one of Findline, FindCircle, FindEllipse, FindObject, FindRect, FindSegmentation, Match, fastmatch, FindSetMatch, PartialMatchAudit, GrayBoundaryAudit, RefinedArcAudit or TorchTask";
         return false;
     }
 

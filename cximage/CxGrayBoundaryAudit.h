@@ -13,8 +13,9 @@ class CxGrayBoundaryAudit {
  cxgeom::polar::BoundaryNormalConfig normal_;
  cxpartialimage::GrayBoundaryConfig gray_;
  cxpartialimage::GrayBoundaryResult result_;
+ std::vector<cxpartialimage::BoundRefinedSpan> spans_;
  cv::Mat image_;bool ran_=false;
- void invalidate(){ran_=false;receipt_.clear();result_={};image_.release();}
+ void invalidate(){ran_=false;receipt_.clear();result_={};spans_.clear();image_.release();}
  static std::string text(const char* s){if(!s||!*s)throw std::invalid_argument("GRAY_SCRIPT_MISSING_TEXT");return s;}
 public:
  CxGrayBoundaryAudit(){for(const auto& p:cxgrayparams::Parameters())parameter(p.initial,p.key);}
@@ -57,8 +58,8 @@ public:
   cv::cvtColor(color,image_,cv::COLOR_BGR2GRAY);
   auto frame=cxpartialimage::BoundGrayFrame::Capture(image_,case_id_,revision_,threshold_,anchor_);
   result_=frame.refine(normal_,gray_);
-  auto spans=frame.refined_spans(normal_,gray_);
-  J serialized=J::array();for(const auto& span:spans)serialized.push_back(J::parse(span.receipt()));
+  spans_=frame.refined_spans(normal_,gray_);
+  J serialized=J::array();for(const auto& span:spans_)serialized.push_back(J::parse(span.receipt()));
   size_t accepted=0;for(const auto& p:result_.points)accepted+=p.accepted?1:0;
   J params={{"threshold",threshold_},{"anchor_x",anchor_.x},{"anchor_y",anchor_.y},{"anchor_width",anchor_.width},{"anchor_height",anchor_.height},
    {"normal_half_window",normal_.half_window},{"normal_minimum_span_px",normal_.minimum_side_span_px},{"normal_maximum_turn_deg",normal_.maximum_turn_deg},
@@ -73,6 +74,7 @@ public:
   ran_=true;
  }
  const cxpartialimage::GrayBoundaryResult& result()const{if(!ran_)throw std::runtime_error("GRAY_SCRIPT_RUN_REQUIRED");return result_;}
+ const std::vector<cxpartialimage::BoundRefinedSpan>& spans()const{result();return spans_;}
  const std::string& receipt()const{result();return receipt_;}
  cv::Mat overlay()const{
   result();cv::Mat overlay;cv::cvtColor(image_,overlay,cv::COLOR_GRAY2BGR);

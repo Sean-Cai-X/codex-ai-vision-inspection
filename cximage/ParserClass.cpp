@@ -17,6 +17,7 @@
 #include "CxFastMatchHarmonicAudit.h"
 #include "CxPartialMatchAudit.h"
 #include "CxGrayBoundaryAudit.h"
+#include "CxRefinedArcAudit.h"
 #include "FindSetMatch.h"
 #include "CxSevenClassSupervisionBinding.h"
 #include "FindCircle.h"
@@ -929,6 +930,7 @@ void CxParserRuntime::ParserInitialClassFunction(int iusing) {
 
     RegisterPartialMatchAudit(m_parser);
     RegisterGrayBoundaryAudit(m_parser);
+    RegisterRefinedArcAudit(m_parser);
     CxFastMatchHarmonicAudit* harmonic_audit = nullptr;
     m_parser.DefineClass("HarmonicAudit", harmonic_audit);
     m_parser.DefineClassFun("HarmonicAudit", harmonic_audit, "trustedsha", &CxFastMatchHarmonicAudit::trustedsha);

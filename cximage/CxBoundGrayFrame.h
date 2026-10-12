@@ -9,8 +9,10 @@ class BoundRefinedSpan {
  std::vector<std::string> source_ids_;
  size_t begin_=0,end_=0;
  std::string evidence_;
- BoundRefinedSpan(const GrayBoundaryResult& result,const std::vector<size_t>& indices,const std::string& binding):
-  begin_(indices.front()),end_(indices.back()){
+ cxgeom::polar::ObservedBoundaryInput source_raw_;
+ BoundRefinedSpan(const GrayBoundaryResult& result,const std::vector<size_t>& indices,const std::string& binding,
+  const cxgeom::polar::ObservedBoundaryInput& raw):
+  begin_(indices.front()),end_(indices.back()),source_raw_(raw){
   std::ostringstream o;o.imbue(std::locale::classic());o<<std::setprecision(17);
   o<<"{\"schema\":\"bound_refined_span.v1\",\"representation\":\"gray_derived_not_raw\",\"closed\":false,\"production_eligible\":false";
   o<<",\"source_run_begin\":"<<begin_<<",\"source_run_end\":"<<end_<<",\"binding\":"<<binding;
@@ -26,6 +28,7 @@ class BoundRefinedSpan {
  }
  friend class BoundGrayFrame;
 public:
+ const cxgeom::polar::ObservedBoundaryInput& source_raw()const{return source_raw_;}
  size_t source_begin()const{return begin_;}
  size_t source_end()const{return end_;}
  const std::vector<std::complex<double>>& raw_points()const{return raw_;}
@@ -72,7 +75,7 @@ public:
  std::vector<BoundRefinedSpan> refined_spans(const cxgeom::polar::BoundaryNormalConfig& normal={},
   const GrayBoundaryConfig& gray={},size_t minimum=3)const{
   auto result=refine(normal,gray);std::vector<BoundRefinedSpan> spans;
-  for(const auto& indices:AcceptedGrayRuns(result,minimum))spans.push_back(BoundRefinedSpan(result,indices,binding_));
+  for(const auto& indices:AcceptedGrayRuns(result,minimum))spans.push_back(BoundRefinedSpan(result,indices,binding_,raw()));
   return spans;
  }
 };

@@ -21,9 +21,15 @@ struct ArcSamples {
  double length=0;
  std::vector<ArcSample> values;
 };
-inline ArcSamples SampleObservedArc(const ObservedBoundaryInput& input,size_t count){
+namespace arc_detail {
+// Internal coordinate kernel. Public adapters retain Raw/Refined type and evidence.
+inline ArcSamples SampleArcPoints(const std::vector<std::complex<double>>& p,size_t count){
  if(count<3||count>128)throw std::invalid_argument("ARC_SAMPLE_BUDGET");
- const auto& p=input.ordered_run().points;
+ if(p.size()<2||p.size()>128)throw std::invalid_argument("ARC_POINT_BUDGET");
+ for(size_t i=0;i<p.size();++i){
+  if(!std::isfinite(std::abs(p[i])))throw std::invalid_argument("ARC_NONFINITE_POINT");
+  if(i&&std::abs(p[i]-p[i-1])<=1e-9)throw std::invalid_argument("ARC_ZERO_LENGTH_EDGE");
+ }
  std::vector<double> lengths(p.size(),0);
  for(size_t i=1;i<p.size();++i)lengths[i]=lengths[i-1]+std::abs(p[i]-p[i-1]);
  if(!std::isfinite(lengths.back())||lengths.back()<=1e-9)throw std::invalid_argument("ARC_INVALID_LENGTH");
@@ -37,6 +43,10 @@ inline ArcSamples SampleObservedArc(const ObservedBoundaryInput& input,size_t co
   out.values.push_back({p[edge]+t*(p[edge+1]-p[edge]),edge,t,u});
  }
  return out;
+}
+}
+inline ArcSamples SampleObservedArc(const ObservedBoundaryInput& input,size_t count){
+ return arc_detail::SampleArcPoints(input.ordered_run().points,count);
 }
 struct ArcObservedAudit {
  double weighted_rms_px=0,maximum_error_px=0,weighted_vertex_support=0;
@@ -120,15 +130,19 @@ struct ArcCorrespondenceResult {
   }o<<"]}";return o.str();
  }
 };
-inline ArcCorrespondenceResult MatchObservedArc(const ObservedBoundaryInput& reference,
- const ObservedBoundaryInput& observation,const ArcCorrespondenceConfig& cfg={}){
+namespace arc_detail {
+inline ArcCorrespondenceResult MatchArcPoints(
+ const std::vector<std::complex<double>>& reference_points,
+ const std::vector<std::complex<double>>& observation_points,
+ const std::string& reference_receipt,const std::string& observation_receipt,
+ const ArcCorrespondenceConfig& cfg){
  auto positive=[](double d){return std::isfinite(d)&&d>0;};
  if(cfg.samples<3||cfg.samples>128||!positive(cfg.minimum_scale)||!positive(cfg.maximum_scale)||
     cfg.maximum_scale<cfg.minimum_scale||!positive(cfg.maximum_fit_rms_px)||!positive(cfg.maximum_observed_error_px)||
     !positive(cfg.support_distance_px)||!positive(cfg.minimum_weighted_support)||cfg.minimum_weighted_support>1||
     !positive(cfg.maximum_endpoint_error_px))throw std::invalid_argument("ARC_INVALID_CONFIG");
- ArcCorrespondenceResult out;out.config=cfg;out.reference_receipt=reference.receipt();out.observation_receipt=observation.receipt();
- out.reference_samples=SampleObservedArc(reference,cfg.samples);out.observation_samples=SampleObservedArc(observation,cfg.samples);
+ ArcCorrespondenceResult out;out.config=cfg;out.reference_receipt=reference_receipt;out.observation_receipt=observation_receipt;
+ out.reference_samples=SampleArcPoints(reference_points,cfg.samples);out.observation_samples=SampleArcPoints(observation_points,cfg.samples);
  const auto& a=out.reference_samples.values;const auto& b=out.observation_samples.values;
  for(int reverse=0;reverse<=(cfg.allow_reversed?1:0);++reverse){
   ArcPoseAssessment c;c.reversed=reverse!=0;
@@ -142,7 +156,7 @@ inline ArcCorrespondenceResult MatchObservedArc(const ObservedBoundaryInput& ref
   if(!std::isfinite(std::abs(c.factor))||!std::isfinite(std::abs(c.translation)))throw std::invalid_argument("ARC_NONFINITE_FIT");
   double sum=0;for(size_t i=0;i<a.size();++i)sum+=std::norm(c.factor*a[i].point+c.translation-at(i));
   c.fit_rms_px=std::sqrt(sum/double(a.size()));
-  auto rp=reference.ordered_run().points,op=observation.ordered_run().points;
+  auto rp=reference_points,op=observation_points;
   for(auto& p:rp)p=c.factor*p+c.translation;
   if(reverse)std::reverse(op.begin(),op.end());
   c.endpoint_error_px=std::max(std::abs(rp.front()-op.front()),std::abs(rp.back()-op.back()));
@@ -165,5 +179,11 @@ inline ArcCorrespondenceResult MatchObservedArc(const ObservedBoundaryInput& ref
  }
  out.status=out.accepted_indices.empty()?"NO_ARC_CANDIDATE":out.accepted_indices.size()==1?"UNIQUE_ARC_CANDIDATE":"ARC_AMBIGUOUS";
  return out;
+}
+}
+inline ArcCorrespondenceResult MatchObservedArc(const ObservedBoundaryInput& reference,
+ const ObservedBoundaryInput& observation,const ArcCorrespondenceConfig& cfg={}){
+ return arc_detail::MatchArcPoints(reference.ordered_run().points,observation.ordered_run().points,
+  reference.receipt(),observation.receipt(),cfg);
 }
 }

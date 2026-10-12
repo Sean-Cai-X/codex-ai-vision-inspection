@@ -961,7 +961,8 @@ static bool WriteHeadlessManualReviewHandoff(
     const std::string target_id = !options.target_id.empty()
         ? options.target_id
         : (!options.stage25_target_id.empty() ? options.stage25_target_id : "headless_target");
-    const std::string tool = capture.partial_match_only ? "PartialMatchAudit" :
+    const std::string tool = capture.refined_arc_only ? "RefinedArcAudit" :
+        capture.partial_match_only ? "PartialMatchAudit" :
         (capture.geometric_set_only ? "FindSetMatch" :
          (!capture.gray_boundary_receipts.empty() ? "GrayBoundaryAudit" : InferHeadlessManualReviewTool(options)));
 
@@ -984,6 +985,9 @@ static bool WriteHeadlessManualReviewHandoff(
     for (std::size_t index = 0; index < capture.gray_boundary_receipts.size(); ++index)
         append_artifact("gray_boundary_receipt_" + std::to_string(index),
             output_dir / ("gray_boundary_receipt_" + std::to_string(index) + ".json"));
+    for (std::size_t index = 0; index < capture.refined_arc_receipts.size(); ++index)
+        append_artifact("refined_arc_receipt_" + std::to_string(index),
+            output_dir / ("refined_arc_receipt_" + std::to_string(index) + ".json"));
     append_artifact("segmentation_trace",
         output_dir / "segmentation_artifact_persist_trace.json");
     append_artifact("yolov8seg_evidence",
@@ -2079,6 +2083,12 @@ CxScriptResultPackage BuildCxScriptResultPackage(
         pkg.facts["gray_boundary_mode"] = "DEVELOPMENT_BOUND_GRAY_AUDIT";
         pkg.facts["gray_boundary_production_eligible"] = "false";
         pkg.metrics["gray_boundary_receipt_count"] = static_cast<double>(capture.gray_boundary_receipts.size());
+    }
+    if (!capture.refined_arc_receipts.empty()) {
+        pkg.facts["refined_arc_mode"] = "DEVELOPMENT_PAIRED_BOUND_GRAY_AUDIT";
+        pkg.facts["refined_arc_image_binding"] = "two_owned_gray_snapshots_not_cli_carrier";
+        pkg.facts["refined_arc_production_eligible"] = "false";
+        pkg.metrics["refined_arc_receipt_count"] = static_cast<double>(capture.refined_arc_receipts.size());
     }
     if (!capture.partial_match_receipts.empty()) {
         pkg.facts["partial_match_only"] = capture.partial_match_only ? "true" : "false";
@@ -4349,6 +4359,16 @@ bool RunCxScriptHeadless(const CxScriptHeadlessOptions& options, CxScriptHeadles
         log_file.close();
     }
 
+    bool refined_arc_receipts_ok = !capture.refined_arc_receipts.empty();
+    for (std::size_t index = 0; index < capture.refined_arc_receipts.size(); ++index) {
+        const auto path = output_dir / ("refined_arc_receipt_" + std::to_string(index) + ".json");
+        std::ofstream file(path, std::ios::binary | std::ios::trunc);
+        file << capture.refined_arc_receipts[index];file.close();
+        if (!file) {
+            refined_arc_receipts_ok = false;result.runtime_ok = false;
+            result.reason = "refined arc receipt export failed: " + path.string();
+        }
+    }
     bool gray_receipts_ok = !capture.gray_boundary_receipts.empty();
     for (std::size_t index = 0; index < capture.gray_boundary_receipts.size(); ++index) {
         try {
@@ -4422,7 +4442,8 @@ bool RunCxScriptHeadless(const CxScriptHeadlessOptions& options, CxScriptHeadles
     // Mixed image-tool runs retain all existing visual asset requirements.
     const bool structured_geometry_assets =
         ((capture.geometric_set_only && geometric_receipts_ok) ||
-         (capture.partial_match_only && partial_receipts_ok)) &&
+         (capture.partial_match_only && partial_receipts_ok) ||
+         (capture.refined_arc_only && refined_arc_receipts_ok)) &&
         snapshot_ok && summary_ok && manual_review_handoff_asset_ok;
 
     result.assets_complete = options.contract_context_enabled
@@ -4430,6 +4451,7 @@ bool RunCxScriptHeadless(const CxScriptHeadlessOptions& options, CxScriptHeadles
         : ((capture.geometric_set_receipts.empty() || geometric_receipts_ok) &&
            (capture.partial_match_receipts.empty() || partial_receipts_ok) &&
            (capture.gray_boundary_receipts.empty() || gray_receipts_ok) &&
+           (capture.refined_arc_receipts.empty() || refined_arc_receipts_ok) &&
            (structured_geometry_assets ||
             (snapshot_ok && summary_ok && evidence_ok && result_ok &&
              tool_display_ok && manual_review_handoff_asset_ok)));
