@@ -9,6 +9,7 @@ namespace cxgeom::polar {
 // Stable parent indexing and revision identity are the caller's responsibility.
 class ObservedBoundaryInput {
  std::string source_,revision_,contour_,segment_;
+ std::vector<std::complex<double>> parent_;
  cxgeom::OpenBoundaryRun run_;
  std::vector<Feature> features_;
  static std::string token(const std::string& s){return std::to_string(s.size())+":"+s;}
@@ -16,7 +17,7 @@ public:
  ObservedBoundaryInput(const std::string& source,const std::string& revision,
   const std::string& contour,const std::string& segment,
   const std::vector<std::complex<double>>& parent,const cxgeom::OpenBoundaryRun& run,
-  size_t maximum_features=128):source_(source),revision_(revision),contour_(contour),segment_(segment),run_(run){
+  size_t maximum_features=128):source_(source),revision_(revision),contour_(contour),segment_(segment),parent_(parent),run_(run){
   auto need=[](bool b,const char* why){if(!b)throw std::invalid_argument(why);};
   need(!source.empty()&&!revision.empty()&&!contour.empty()&&!segment.empty(),"BOUNDARY_MISSING_PROVENANCE");
   need(maximum_features>=2&&maximum_features<=128,"BOUNDARY_INVALID_FEATURE_BUDGET");
@@ -41,6 +42,11 @@ public:
   need(std::abs(run.points.front()-run.points.back())>1e-9,"BOUNDARY_COINCIDENT_ENDPOINTS");
  }
  const std::vector<Feature>& features()const{return features_;}
+ const std::string& source_id()const{return source_;}
+ const std::string& revision_id()const{return revision_;}
+ const std::string& contour_id()const{return contour_;}
+ const std::string& segment_id()const{return segment_;}
+ const std::vector<std::complex<double>>& parent_points()const{return parent_;}
  const cxgeom::OpenBoundaryRun& ordered_run()const{return run_;}
  std::string receipt()const{
   using receipt_detail::quote;
