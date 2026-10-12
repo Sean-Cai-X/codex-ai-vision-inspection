@@ -1,5 +1,6 @@
 #pragma once
 #include "CxBoundGrayFrame.h"
+#include "CxGrayBoundaryParameters.h"
 #include "../libtorchsegmentation/src/utils/json.hpp"
 #include <opencv2/imgcodecs.hpp>
 #include <filesystem>
@@ -16,11 +17,12 @@ class CxGrayBoundaryAudit {
  void invalidate(){ran_=false;receipt_.clear();result_={};image_.release();}
  static std::string text(const char* s){if(!s||!*s)throw std::invalid_argument("GRAY_SCRIPT_MISSING_TEXT");return s;}
 public:
+ CxGrayBoundaryAudit(){for(const auto& p:cxgrayparams::Parameters())parameter(p.initial,p.key);}
  void image(const char* path){invalidate();path_=text(path);}
  void caseid(const char* id){invalidate();case_id_=text(id);}
  void revision(const char* value){invalidate();revision_=text(value);}
  void parameter(double value,const char* name){
-  invalidate();const auto key=text(name);if(!std::isfinite(value))throw std::invalid_argument("GRAY_SCRIPT_NONFINITE_PARAMETER");
+  invalidate();const auto key=text(name);cxgrayparams::Validate(cxgrayparams::Find(key),value);
   auto integer=[&](int lo,int hi){if(value<lo||value>hi||std::floor(value)!=value)throw std::invalid_argument("GRAY_SCRIPT_INTEGER_RANGE");return int(value);};
   if(key=="threshold")threshold_=integer(0,254);
   else if(key=="anchor_x")anchor_.x=integer(0,100000);

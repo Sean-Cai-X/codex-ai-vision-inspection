@@ -5,6 +5,7 @@
 #include "CxSetMatchEvidenceParameters.h"
 #include "CxPartialMatchUiParameters.h"
 #include "CxPartialMatchManualRun.h"
+#include "CxGrayBoundaryManualRun.h"
 #include "CxParameterProfileRuntime.h"
 #include "CxScriptCasePackageWriter.h"
 #include "CxUnifiedLog.h"
@@ -9127,9 +9128,73 @@ static void DrawHarmonicAuditControls(ManualTestContext& context) {
 }
 
 bool IsGeometryAuditKeyParameterContext(const ManualTestContext& context) {
- return cxpartialui::IsCase(context.editor_text)||cxharmonicui::IsCase(context.editor_text)||
+ return cxgrayui::IsCase(context.editor_text)||cxpartialui::IsCase(context.editor_text)||cxharmonicui::IsCase(context.editor_text)||
         cxsetmatchui::IsCase(context.editor_text);
 }
+
+static void DrawGrayBoundaryControls(ManualTestContext& context) {
+ ImGui::TextUnformatted("Gray Boundary / DEVELOPMENT AUDIT");
+ ImGui::TextWrapped("Current Image View + script must match. Raw: cyan; Refined: green; rejected: red. Open spans are never closed. Not production approval.");
+ ImGui::BeginDisabled(context.has_pending_execution_snapshot);
+ if(ImGui::Button("Expose gray defaults")){
+  try{cxgrayui::Expose(context.editor_text);context.editor_dirty=true;cxgraymanual::Invalidate(context);context.debug_reason.clear();}
+  catch(const std::exception& e){context.debug_reason=e.what();}
+ }
+ try{
+  const auto obj=cxgrayui::Object(context.editor_text);
+  for(const auto* group:{"Image / anchor","Observed normals","Gray profile"}){
+   if(!ImGui::CollapsingHeader(group,ImGuiTreeNodeFlags_DefaultOpen))continue;
+   ImGui::PushID(group);
+   if(ImGui::BeginTable("gray_parameters",2,ImGuiTableFlags_SizingStretchProp|ImGuiTableFlags_RowBg)){
+    ImGui::TableSetupColumn("Parameter");ImGui::TableSetupColumn("Script value");ImGui::TableHeadersRow();
+    for(const auto& p:cxgrayui::Parameters()){
+     if(std::string(p.group)!=group)continue;
+     ImGui::TableNextRow();ImGui::TableNextColumn();ImGui::TextUnformatted(p.key);
+     if(ImGui::IsItemHovered())ImGui::SetTooltip("%s\nDefault %.9g | %.9g .. %.9g | %s",p.description,p.initial,p.minimum,p.maximum,p.integer?"integer":"real");
+     ImGui::TableNextColumn();ImGui::PushID(p.key);
+     try{
+      auto v=cxgrayui::Read(context.editor_text,obj,p);
+      if(!v.present)ImGui::TextUnformatted("Missing: expose defaults");
+      else {ImGui::SetNextItemWidth(-1);
+       if(ImGui::InputDouble("##value",&v.value,0,0,"%.12g")){
+        cxgrayui::Set(context.editor_text,p,v.value);context.editor_dirty=true;cxgraymanual::Invalidate(context);
+        context.debug_reason="Gray parameters changed; rerun to obtain a new receipt.";
+       }
+      }
+     }catch(const std::exception& e){ImGui::TextWrapped("%s",e.what());}
+     ImGui::PopID();
+    }
+    ImGui::EndTable();
+   }
+   ImGui::PopID();
+  }
+ }catch(const std::exception& e){ImGui::TextWrapped("%s",e.what());}
+ if(ImGui::Button("Run Gray Boundary")){
+  std::string reason;if(!RequestGrayBoundaryRun(context,reason))context.debug_reason=reason;
+ }
+ ImGui::EndDisabled();
+ const bool current=cxgraymanual::Current(context);
+ ImGui::TextWrapped("%s",current?context.gray_boundary.summary.c_str():"No current result: run the current image and script.");
+ if(!current&&!context.gray_boundary.valid)ImGui::TextWrapped("%s",context.gray_boundary.summary.c_str());
+ if(current){
+  ImGui::TextWrapped("Output: %s",context.gray_boundary.output_path.c_str());
+  if(ImGui::TreeNode("Executed parameters / rejected points")){
+   try{
+    auto j=nlohmann::json::parse(context.gray_boundary.receipt);
+    ImGui::BeginChild("gray_receipt_details",ImVec2(0,220),true,ImGuiWindowFlags_HorizontalScrollbar);
+    ImGui::TextUnformatted(j.at("parameters").dump(2).c_str());
+    for(const auto& p:j.at("refinement").at("points"))if(!p.at("accepted").get<bool>())
+     ImGui::TextWrapped("%s: %s",p.at("source_id").get<std::string>().c_str(),p.at("status").get<std::string>().c_str());
+    ImGui::EndChild();
+   }catch(const std::exception& e){ImGui::TextWrapped("%s",e.what());}
+   ImGui::TreePop();
+  }
+  if(ImGui::Button("Copy gray receipt JSON"))ImGui::SetClipboardText(context.gray_boundary.receipt.c_str());
+ }
+ ImGui::TextWrapped("Profile requires shift <= radius and integer 2*radius/step in [8,256]. Sensitivity is not calibrated uncertainty.");
+ if(!context.debug_reason.empty())ImGui::TextWrapped("%s",context.debug_reason.c_str());
+}
+
 static void DrawPartialMatchControls(ManualTestContext& context) {
  ImGui::TextUnformatted("Partial Match / GEOMETRY AUDIT ONLY");
  ImGui::TextWrapped("Parameters below edit literal script calls. Run the script again after edits; old results are stale. No image extraction or production activation.");
@@ -9176,6 +9241,7 @@ static void DrawPartialMatchControls(ManualTestContext& context) {
 }
 void DrawKeyParameterControlPanel(
     ManualTestContext &context, const ParserDebugBridge *parserDebugBridge) {
+  if(cxgrayui::IsCase(context.editor_text)){DrawGrayBoundaryControls(context);return;}
   if(cxpartialui::IsCase(context.editor_text)){
     DrawPartialMatchControls(context);return;
   }

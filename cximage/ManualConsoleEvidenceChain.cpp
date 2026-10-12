@@ -2,6 +2,7 @@
 #include "CxPartialMatchUiParameters.h"
 #include "CxPartialMatchAudit.h"
 #include "CxGrayBoundaryAudit.h"
+#include "CxGrayBoundaryManualRun.h"
 #include "muParser.h"
 #include "../libtorchsegmentation/src/utils/json.hpp"
 #ifndef WIN32_LEAN_AND_MEAN
@@ -5404,7 +5405,11 @@ static bool IsCuratedAssetOnlyEvidenceQueueLocal() {
 }
 
 
+bool RunGrayBoundaryGuiBridgeSmoke(ManualTestContext&,std::string&);
 int RunGrayBoundaryEvidenceCatalogSmoke() {
+ struct ImGuiScope{ImGuiScope(){ImGui::CreateContext();}~ImGuiScope(){ImGui::DestroyContext();}} scope;
+ auto& io=ImGui::GetIO();io.DisplaySize=ImVec2(1400,1800);io.DeltaTime=1.f/60;io.IniFilename=nullptr;
+ unsigned char* pixels=nullptr;int width=0,height=0;io.Fonts->GetTexDataAsRGBA32(&pixels,&width,&height);
  auto context=std::make_unique<ManualTestContext>();std::string reason;
  auto groupFor=[&](const std::string& name)->ScriptEvidenceGroup&{
   for(auto& g:context->script_evidence_groups)if(g.label==name)return g;
@@ -5426,6 +5431,21 @@ int RunGrayBoundaryEvidenceCatalogSmoke() {
    const auto receipt=nlohmann::json::parse(tool->receipt());
    if(receipt.at("case_id")!=item.case_id||receipt.at("production_eligible")!=false)
     throw std::runtime_error("gray_evidence_identity_mismatch");
+
+   context->editor_text=source;context->active_case_id=item.case_id;
+   context->image_file_path=item.image_path;context->loaded_script_path=item.script_path;context->editor_dirty=true;
+   if(!IsGeometryAuditKeyParameterContext(*context))throw std::runtime_error("Gray outer parameter gate rejected");
+   if(cxgrayui::Values(source).size()!=14)throw std::runtime_error("Gray parameters missing");
+   for(int frame=0;frame<2;++frame){
+    ImGui::NewFrame();ImGui::SetNextWindowPos(ImVec2(0,0));ImGui::SetNextWindowSize(ImVec2(900,1500));
+    ImGui::Begin("Key Parameter Controls");DrawKeyParameterControlPanel(*context,nullptr);ImGui::End();ImGui::Render();
+   }
+   if(!ImGui::GetDrawData()||ImGui::GetDrawData()->TotalVtxCount<=0)throw std::runtime_error("Gray panel empty");
+   std::cout<<"gray_panel_vertices="<<ImGui::GetDrawData()->TotalVtxCount<<"\n";
+   ImGui::NewFrame();ImGui::Begin("Gray Image View test");
+   const bool bridge_ok=RunGrayBoundaryGuiBridgeSmoke(*context,reason);
+   ImGui::End();ImGui::Render();
+   if(!bridge_ok)throw std::runtime_error(reason);
    found.insert(item.case_id);std::cout<<"gray_evidence_case="<<item.case_id<<"\n";
   }
   for(const auto* id:{"gray_boundary_straight","gray_boundary_corner","gray_boundary_no_refined"})
