@@ -1,5 +1,6 @@
 #pragma once
 #include "../cxgeom/polar_discrete_harmonic/observed_boundary_bundle.h"
+#include "../cxgeom/polar_discrete_harmonic/boundary_endpoint_selection.h"
 #include "../cxgeom/include/CxGeoSO2ReferenceAsset.h"
 #include <opencv2/imgproc.hpp>
 #include <algorithm>
@@ -12,6 +13,7 @@ struct MaskBoundaryInput {
  cv::Rect anchor;
  size_t maximum_features=128;
  int minimum_points=3;
+ std::string endpoint_selection_json="null";
  std::string receipt()const{
   std::ostringstream o;o.imbue(std::locale::classic());
   o<<"{\"schema\":\"mask_boundary_input.v1\",\"extraction\":\"RETR_TREE_CHAIN_APPROX_NONE\"";
@@ -20,6 +22,7 @@ struct MaskBoundaryInput {
   o<<",\"contour_index\":"<<contour_index<<",\"outer_count\":"<<outer_count<<",\"hole_count\":"<<hole_count;
   o<<",\"anchor_half_open\":["<<anchor.x<<','<<anchor.y<<','<<anchor.width<<','<<anchor.height<<']';
   o<<",\"maximum_features\":"<<maximum_features<<",\"minimum_points\":"<<minimum_points;
+  o<<",\"endpoint_selection\":"<<endpoint_selection_json;
   o<<",\"model_inference_performed\":false,\"production_eligible\":false,\"boundary\":"<<boundary.receipt()<<'}';
   // SHA describes decoded mask bytes, not a signature or original photograph.
   return o.str();
@@ -29,7 +32,8 @@ struct MaskBoundaryInput {
 // selection, contour compression, or sampling is hidden in this bridge.
 inline MaskBoundaryInput FromBinaryMask(const cv::Mat& mask,const cv::Rect& anchor,
  const std::string& image_id,const std::string& dataset_revision,const std::string& segment_id,
- size_t maximum_features=128,int minimum_points=3){
+ size_t maximum_features=128,int minimum_points=3,
+ const cxgeom::polar::BoundaryEndpointAnchors* endpoints=nullptr){
  auto need=[](bool b,const char* why){if(!b)throw std::invalid_argument(why);};
  need(!mask.empty()&&mask.type()==CV_8UC1&&mask.total()<=16777216,"MASK_BOUNDARY_INVALID_IMAGE");
  need(maximum_features>=3&&maximum_features<=128&&minimum_points>=3&&size_t(minimum_points)<=maximum_features,"MASK_BOUNDARY_INVALID_POINT_LIMITS");
@@ -63,10 +67,17 @@ inline MaskBoundaryInput FromBinaryMask(const cv::Mat& mask,const cv::Rect& anch
  need(candidates==1,"MASK_BOUNDARY_AMBIGUOUS_CONTOURS");
  std::vector<std::complex<double>> parent;
  for(const auto& p:contours[size_t(chosen)])parent.emplace_back(p.x,p.y);
- const auto run=cxgeom::ExtractOpenBoundaryRun(parent,anchor.x,anchor.y,anchor.width,anchor.height,minimum_points);
+ cxgeom::OpenBoundaryRun run;std::string selection="null";
+ if(endpoints){
+  // In endpoint mode the rectangle selects a component, not the segment extent.
+  auto selected=cxgeom::polar::SelectBoundaryEndpoints(parent,*endpoints,size_t(minimum_points));
+  run=std::move(selected.run);selection=selected.receipt();
+ }else{
+  run=cxgeom::ExtractOpenBoundaryRun(parent,anchor.x,anchor.y,anchor.width,anchor.height,minimum_points);
+ }
  const auto source=image_id+":mask_sha256="+sha;
  cxgeom::polar::ObservedBoundaryInput input(source,dataset_revision,"outer:"+std::to_string(chosen),segment_id,parent,run,maximum_features);
  need(!image_id.empty(),"MASK_BOUNDARY_MISSING_IMAGE_ID");
- return {std::move(input),sha,mask.cols,mask.rows,chosen,outer,holes,anchor,maximum_features,minimum_points};
+ return {std::move(input),sha,mask.cols,mask.rows,chosen,outer,holes,anchor,maximum_features,minimum_points,selection};
 }
 }

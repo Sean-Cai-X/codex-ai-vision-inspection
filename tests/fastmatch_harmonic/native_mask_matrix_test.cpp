@@ -12,7 +12,8 @@ void check(bool b,const char* why){if(!b)throw std::runtime_error(why);}
 void save(const std::filesystem::path& p,const Json& j){std::ofstream f(p);f<<j.dump(2);f.close();check(bool(f),"write evidence");}
 struct Case {const char* id;double angle,scale;int defect;};
 int main(int argc,char** argv)try{
- check(argc==2,"output required");const std::filesystem::path out(argv[1]);std::filesystem::create_directories(out);
+ check(argc==2||(argc==3&&std::string(argv[2])=="endpoints"),"output [endpoints] required");
+ const bool endpoint_mode=argc==3;const std::filesystem::path out(argv[1]);std::filesystem::create_directories(out);
  cv::Mat base=cv::Mat::zeros(32,32,CV_8UC1);
  cv::fillPoly(base,std::vector<std::vector<cv::Point>>{{{5,5},{8,5},{8,6},{6,6},{6,8},{5,8}}},cv::Scalar(255));
  check(cv::imwrite((out/"reference.pgm").string(),base),"reference image");
@@ -26,6 +27,8 @@ int main(int argc,char** argv)try{
  {"interpolation","nearest"},{"quality_limits",{{"angle_deg",1},{"scale_absolute",.05},{"translation_px",.5}}},
  {"production_eligible",false},{"cases",Json::array()}};
  size_t accepted=0;
+ summary["endpoint_mode"]=endpoint_mode;
+ if(endpoint_mode)summary["anchor_basis"]="oracle_transformed_start_end_via_not_automatic_localization";
  for(const auto& c:cases){
   const double rad=c.angle*std::acos(-1.)/180.,co=c.scale*std::cos(rad),si=c.scale*std::sin(rad);
   const double tx=16-co*6+si*6,ty=16-si*6-co*6;
@@ -43,7 +46,14 @@ int main(int argc,char** argv)try{
    {"quality_pass",false},{"reference",Json::parse(ref.receipt())},{"candidates",Json::array()}};
   try{
   entry["order_gate_quality_pass"]=false;entry["order_gate_status"]="NOT_RUN";
-   auto obs=FromBinaryMask(cv::imread(path.string(),cv::IMREAD_GRAYSCALE),anchor,std::string("matrix-")+c.id,"v1","anchor");
+   const auto& reference_run=ref.boundary.ordered_run();
+   auto transform=[&](std::complex<double> p){return std::complex<double>(co,si)*p+std::complex<double>(tx,ty);};
+   BoundaryEndpointAnchors endpoints{transform(reference_run.points.front()),transform(reference_run.points.back()),
+    transform(reference_run.points[reference_run.points.size()/2]),2.,1e-8,"controlled_fixture_oracle_transform_not_detector"};
+   auto obs=FromBinaryMask(cv::imread(path.string(),cv::IMREAD_GRAYSCALE),anchor,std::string("matrix-")+c.id,"v1","anchor",128,3,
+    endpoint_mode?&endpoints:nullptr);
+   check(obs.boundary.ordered_run().points.size()<obs.boundary.parent_points().size(),"must remain open");
+   check(!endpoint_mode||Json::parse(obs.receipt())["endpoint_selection"].is_object(),"endpoint evidence missing");
    entry["observation"]=Json::parse(obs.receipt());ObservedBoundaryBundle ob({obs.boundary});
    PartialRequest r;r.request_id=c.id;r.reference_source=ref.boundary.source_id();r.observation_source=obs.boundary.source_id();
    r.reference=rb.features();r.observation=ob.features();
@@ -54,6 +64,7 @@ int main(int argc,char** argv)try{
    const auto raw=PartialPipelineReceiptV1(result);
    check(raw==PartialPipelineReceiptV1(SearchRefinedPartial(r)),"deterministic replay");
    entry["pose"]=Json::parse(raw);entry["status"]=result.status;
+   entry["solver_reason"]=result.raw.reason;
    BoundaryCandidateGate gate(rb,ob,result);
    entry["order_gate"]=Json::parse(gate.receipt());entry["order_gate_status"]=gate.status();
    if(std::string(c.id)=="translate"){
@@ -91,11 +102,18 @@ int main(int argc,char** argv)try{
    bool truth_present=false;for(const auto& x:entry["candidates"])truth_present=truth_present||x["within_limits"].get<bool>();
    check(truth_present,"translation control lost correct pose");
   }
+  if(endpoint_mode&&(std::string(c.id)=="rotate15"||std::string(c.id)=="rotate37"||std::string(c.id)=="combined37_150"))
+   check(entry.contains("observation"),"rotation endpoint selection regressed");
+  if(endpoint_mode&&std::string(c.id)=="rotate90")
+   check(entry["order_gate_quality_pass"].get<bool>(),"90 degree endpoint control regressed");
+  if(endpoint_mode&&std::string(c.id)=="scale200")
+   check(entry.value("solver_reason",std::string())=="PARTIAL_COVERAGE_IMPOSSIBLE","scale density diagnostic changed");
   if(entry["quality_pass"].get<bool>())++accepted;
   save(out/(std::string(c.id)+".json"),entry);
   summary["cases"].push_back({{"id",c.id},{"status",entry["status"]},{"quality_pass",entry["quality_pass"]},{"reason",entry["quality_reason"]}});
   summary["cases"].back()["order_gate_status"]=entry["order_gate_status"];
   summary["cases"].back()["order_gate_quality_pass"]=entry["order_gate_quality_pass"];
+  summary["cases"].back()["solver_reason"]=entry.value("solver_reason",std::string());
   std::cout<<c.id<<": "<<entry["status"]<<" quality="<<entry["quality_pass"]<<" reason="<<entry["quality_reason"]<<'\n';
  }
  summary["quality_pass_count"]=accepted;summary["case_count"]=std::size(cases);
