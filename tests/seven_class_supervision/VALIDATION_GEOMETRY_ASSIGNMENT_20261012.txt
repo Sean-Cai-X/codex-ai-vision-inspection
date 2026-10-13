@@ -1,0 +1,88 @@
+Controlled geometry-only assignment experiment, 2026-10-12
+
+Decision: REJECT AS REPLACEMENT. Execution passed; joint model quality failed.
+No runtime DLL, business defaults, existing deliveries or parent files changed.
+No production approval, no business handoff, no candidate auto-activation.
+
+Hypothesis and single change
+----------------------------
+Use box IoU^6 instead of sigmoid(target-class logit) * box IoU^6 to rank eligible
+anchors. Keep centers-inside-GT constraint, positive-IoU constraint, global
+Top-10, deterministic single GT owner and the same owner for class/box/DFL/mask.
+All v5 loss terms, weights, focal exponent, hard-negative policy and decoder
+settings are unchanged. Flag is explicit and defaults OFF. Production runtime
+does not use this test-only experimental loss. Version label: unified_v11_geometry_assignment_experimental.
+
+Fixed controls
+--------------
+Registered parent SHA c24110c9d20db2ad79accb234ab9f6228a6d9258ab1accff5ed5f48de2d99e09
+Parent manifest/attestation/lineage verified against registered binding.
+Seed 20261012, Adam LR 1e-4 to 1e-6 cosine, weight decay 0.
+40 epochs = 40 optimizer updates. One update per epoch from two microbatches
+of size 1; effective batch size 2. 80 Train exposures per shape. These epochs
+are the explicitly defined experimental schedule, not full 80-image passes.
+Train BN per microbatch; eval validation/inference. No inference train-mode fix.
+Seven classes unchanged; confidence .25, NMS .45, mask .5, max detections 20.
+Identical paired_coverage_v1 exposure revision checked against covered v5:
+circle  sha256:2e2cb4e455e53019db077677248f3b62d7ac05234d50ec650b6b40af1b690a02
+ellipse sha256:34a1f87cf5caa80acb738874ab19dd91ba88732ab61812c995f5802efa9a5731
+Covered-v5 checkpoint reload reproduced every metric of all ten scenes exactly
+before new training. Original v5 also reproduced prior stress IoU/counts.
+New weights strictly reloaded BEFORE evaluating all ten scenes, not merely
+evaluated in training memory. Frozen source/parent/control inventories unchanged.
+
+Actual evidence
+---------------
+../cxscript_runs/geometry_assignment_budget_20261012/33764823598600/comparison.json
+SHA256 5c63dd4ef16ecf5830c0f9536e13f94370d1c70604a172e1564a7184a6759350
+Native probe executable SHA256:
+d9892c6fc93b2167d0c5db54e933038a70e68345236604b715469051f710d9a7
+Circle checkpoint SHA256:
+741168a1098e1255d9a2dffe8202140a39c9e9bab9ad4bbff3b59b727cf5d139
+Ellipse checkpoint SHA256:
+aefa816224bf6a3d8096f28c6a7b8fbd1e622ffa4c2f7bf600cfb69118f9a01b
+Per-arm result.json, trace.json and flushed progress.jsonl retain actual losses,
+validation losses, effective LR, update counts and positive assignment counts.
+
+Paired results: v5 covered control versus geometry-only covered candidate
+------------------------------------------------------------------------
+Each arm: ten images, one annotated target per image. Nine Train-source stress
+variations + nominal Valid from same synthetic generator. NOT independent
+generalization evidence. Mean best-target IoU is NOT mAP. Target-count totals
+cannot substitute for per-image counts; misses and excess counts can cancel.
+Duplicate-pair totals are overlapping returned mask pairs, not unique objects.
+
+shape    arm       mean best-target IoU  zero-IoU images target other duplicate pairs
+circle   v5        .6644                 3               7    136      7
+circle   geometry  .5802                 3              12    113      8
+ellipse  v5        .5759                 4               6    131     12
+ellipse  geometry  .6140                 3               9    142     11
+
+Selected successes AND regressions:
+- Circle nominal Valid: target IoU 0 -> .7618, but target count becomes 3 for 1 GT.
+- Circle tall-letterbox: 0 -> .9546; inverted .9578 -> 0; textured .9654 -> 0.
+- Ellipse small: 0 -> .9783; wide-letterbox 0 -> .9654; tall-letterbox 0 -> .9488.
+- Ellipse nominal Valid: .9834 -> 0; best overlapping mask is open_curve, IoU .8824.
+- Ellipse textured: .9252 -> 0; best overlapping mask is open_curve, IoU .8668.
+Thus this experiment does NOT resolve class/count quality, and regresses Valid
+ellipse. It must not be labelled an improved business model based on recovery
+of small or letterboxed targets alone. Confidence scores are not geometry proof.
+
+Verification
+------------
+Native build passed (existing upstream LibTorch C4267 warning only).
+9/9 CTest subset passed, including a new explicit assignment-prior conflict
+test (class-biased ranking selects a worse box; geometry-only selects best IoU).
+Actual training: 2 shapes x 40 updates = 80 optimizer updates, 160 exposures.
+Evaluation: 2 shapes x 3 arms x 10 images = 60 real forwards, plus per-epoch
+validation forwards. No Python or remote/gateway execution.
+Runtime DLL SHA256 remains:
+308a1a8d045266004471908ecb9b896870e603f86a6d80649fd4b05b3fe03428
+
+Reproduce from repository root (native dependencies on process PATH):
+../build_supervision_runtime/Release/libtorch_module_business_dataset_probe.exe --coverage-geometry-budget contracts/development_parent_test001_20261009.json <registered_parent_root> contracts/seven_class_supervision_rules.v1.json ../cxscript_runs/unified_budget_20261012/26780499155900 ../cxscript_runs/image_error_audit_20261012/32122148377100 <fresh_output_base> ../cxscript_runs/coverage_budget_20261012/32678025432000
+
+Next investigation should keep the same failing image groups and distinguish
+classification at geometry-qualified anchors from unsuppressed background and
+duplicate candidates, including pre-/post-NMS provenance. Do not keep switching
+assignment heuristics or tuning display thresholds and call it a quality fix.

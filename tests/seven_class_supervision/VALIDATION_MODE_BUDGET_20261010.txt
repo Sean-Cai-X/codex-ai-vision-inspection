@@ -1,0 +1,111 @@
+Training/evaluation mode and equal-update loss comparison - 2026-10-10
+
+Status
+Requested diagnostic completed. No production code, runtime defaults, registered
+parent, historical candidate, image or prior evidence was modified. All checkpoints
+created here are R&D diagnostics, not admitted business candidates. No activation.
+
+Implementation and controls
+runtime_dataset_probe --mode-budget executes the actual private loader, model,
+preprocessing, current loss, decoding and mask functions in the production source
+translation unit. Legacy loss is frozen from f89ce6a in a test-only header. Its
+body was compared with git show: exact match after renaming the function symbol.
+This is not a reimplementation of a Python model and does not execute Python.
+
+Both training arms use the same freshly loaded registered parent, frozen dataset,
+CPU, seed 20261010, Adam, batch size 1, 20 epochs / 40 updates, Train sample order,
+cosine LR 1e-4 -> 1e-6, weight decay 0 and evaluation cadence. Two Train samples
+are visited once each per epoch; the one Valid sample is evaluated without
+gradients. VERIFY is excluded from training and validation loss. Class order,
+thresholds and NMS are unchanged. No cross-objective loss-value ranking is made.
+
+This common diagnostic loop is not a new business ABI. Its dense-v2 final model
+parameters AND buffers exactly reproduce the preceding real C ABI 40-update
+trial (max absolute state difference 0, checkpoint SHA also identical). That
+check is mandatory and fails the experiment if reproduction differs.
+
+Mode experiment
+For each of parent, legacy-v1 and dense-v2, each of four samples is run under:
+eval; train; train with every BatchNorm2d module set to eval. 36 forwards total.
+Every forward reloads a fresh checkpoint; no optimizer step or gradient is made.
+The train forward's local buffer updates are discarded. Models are never saved
+after these forwards. There are 66 BatchNorm2d modules per model.
+Production DecodeCandidates / DecodeMask / LargestContour filtering is reused.
+VERIFY mask oracle is reconstructed only for scoring from the R&D generator;
+it is not inserted into the frozen dataset. Scores are best matching accepted
+ellipse-instance IoU, not accuracy, precision, recall or duplicate-free success.
+
+Final evidence (relative to repository parent)
+cxscript_runs/mode_budget_diagnostic/4230939636600/mode_budget_report.json
+cxscript_runs/mode_budget_diagnostic/4230939636600/reproduction.json
+Per-arm traces and checkpoints reside in that same new directory.
+Parent SHA256 c24110c9d20db2ad79accb234ab9f6228a6d9258ab1accff5ed5f48de2d99e09
+Legacy SHA256 46a5661a1c55f41e873249e37dc305f60231131609f13b56d7ec1543658e9938
+Dense SHA256 a9a0164b4d8eaa4ded3809b25bc52e16113674e931682ce6a19a5ac15705cb3d
+Probe EXE SHA256 f7c8bf5cc88669152c261f369740f9fca99780d1a0175efba994a4b266b25866
+Report includes diagnostic/legacy source SHA, dataset revision, actual schedule,
+class counts, buffer deltas and class-logit deltas for every observation.
+The earlier diagnostic run 4121236225000 agrees; the final run adds separate
+running-statistic deltas (excluding batch counters) and source/executable hashes.
+
+Equal-budget eval results: best ellipse mask IoU
+Sample       legacy-v1 (40 updates)    dense-v2 (40 updates)
+Train0       .995475                   .000000 (no ellipse)
+Train1       .975510                   .598639
+Valid2       .546700                   .990050
+VERIFY3      .976667                   .988852
+The old loss also learns ellipse at 40 updates. The prior comparison of an old
+two-update run with a new 40-update run cannot establish loss-improvement causality.
+Dense-v2 improves this Valid sample but regresses both Train samples. It is NOT
+a globally superior or accepted model. Legacy-v1 also remains unaccepted: VERIFY
+contains 20 ellipse instances for one target. Dense-v2 VERIFY has ellipse7,
+circle3, line2, polygon2. Best IoU alone hides false/duplicate predictions.
+
+Dense-v2 mode results: best ellipse mask IoU
+Sample       eval       train      train + BN eval
+Train0       .000000    .559578    .000000
+Train1       .598639    .534694    .598639
+Valid2       .990050    .432130    .990050
+VERIFY3      .988852    .441472    .988852
+All train+BN-eval class logits exactly equal eval (max delta 0), and all these
+decoded class counts/IoUs agree too. Ordinary train changes dense-v2 class logits
+by max 3.724892 / 3.144771 / 8.161531 / 10.508791 across the four samples.
+Its max running-mean/variance changes are .033327 / .029497 / .101871 / .149997;
+the separate max buffer delta of 1 includes num_batches_tracked and must not be
+misreported as a variance shift of 1. Eval and train+BN-eval never change buffers.
+
+Interpretation and limitations
+The observed train/eval output difference is attributable to BatchNorm behavior
+in these tested models. This does not prove BatchNorm is the only reason dense-v2
+misses Train0: ordinary train still has only .559578 IoU, and the revised loss
+changes both optimization and the statistics learned along that trajectory.
+Switching inference to train is not a remedy: it harms Valid/VERIFY here and makes
+results depend on test-image batch statistics. Inference remains eval.
+The first dense repair supplies missing background gradients, but its center-only
+positive assignment plus treatment of all other anchors as negative needs further
+evaluation. The experiment does not independently isolate assignment, loss
+normalization and BN-update-policy effects. No general seven-class or business
+accuracy claim is supported by four same-generator synthetic images.
+
+Next proposed isolated experiments (not implemented by this diagnostic)
+1. Factorial controls for BN training policy and loss version at equal budget;
+   keep validation/test images out of any running-statistic recalibration.
+2. Coherent task-aligned positive assignment across class/box/DFL/mask, rather
+   than relabelling every non-center anchor negative without testing alternatives.
+3. Add per-image target counts, false positives and duplicate penalties to the
+   quality gate, plus independent shapes before accepting a new default.
+Neither legacy nor dense-v2 is approved or automatically selected by this work.
+
+Reproduce (PowerShell from repository root)
+cmake --build ../build_supervision_runtime --config Release --target libtorch_module_business_dataset_probe --parallel 4
+$env:PATH = 'D:/libtorch/lib;D:/opencv/build/x64/vc16/bin;' + $env:PATH
+& ../build_supervision_runtime/Release/libtorch_module_business_dataset_probe.exe --mode-budget contracts/development_parent_test001_20261009.json D:/Codex-WorkDir/Sean_WorkDir/Vision-AI/business_trials/test001-ellipse-trial-r1/parent_model ../cxscript_runs/dense_classification_overfit/31828055191600 ../cxscript_runs/mode_budget_diagnostic
+Requires this source checkout (versioned R&D rules are resolved via __FILE__).
+Explicit invocation only, never automatic CTest. Cooperative ten-minute deadline
+between epochs/forwards. Source/parent/prior-run inventory rehashed after execution.
+
+Verification
+Release compile PASS (preexisting LibTorch/MSVC C4267 warning remains).
+Runtime CTest 4/4 PASS; native supervision CTest 3/3 PASS.
+Both 40-update arms complete; 36 mode forwards complete; exact C ABI state
+reproduction PASS; parent and prior-run inventories unchanged PASS.

@@ -1,0 +1,125 @@
+Fixed-total stratified hard-background comparison, 2026-10-13
+
+Decision: reject this allocation as a business-model improvement. Some best
+mask IoUs improve, but target counts, wrong classes and duplicate pairs worsen.
+Effective target matching at IoU >= .5 is unchanged. No publication, default
+change, production approval or candidate activation. Native local C++/LibTorch
+only; no Python, gateway, remote host or business image access.
+
+Single controlled change: unified_v14_stratified_background_experimental
+------------------------------------------------------------------------
+Keep v13 foreground CE, ordinary background sigmoid BCE, single-owner positive
+assignment, box/DFL/mask losses and hard-loss weight 2. Replace global hard-
+background Top-K with per-level quotas: floor(K/5), floor(K/5), remainder.
+For the actual ten positives per exposure, K=200 and P3/P4/P5 quotas=40/40/120.
+If a level lacks negatives, globally fill remaining slots from unselected
+negatives. Positive anchors are excluded; no duplicates; total K preserved.
+Hard loss remains a single mean over the selected K anchors, not an unweighted
+mean of three per-level losses. Quotas change sampling, not the decoder.
+The new option defaults OFF and is R&D test code only.
+
+Fixed controls
+--------------
+Same registered parent, seven-class order, seed 20261012, paired_coverage_v1
+Train exposures, Adam 1e-4 -> 1e-6 cosine, decay 0, train BN/eval inference.
+40 epochs = 40 optimizer updates, two size-1 microbatches each; effective batch
+2. This is one sampled update per epoch, not a full-dataset epoch.
+Two trained arms: circle and ellipse, 160 total microbatch exposures.
+Assignment algorithm stays score*IoU^6/global Top-10, with one shared owner for
+class/box/DFL/mask. Actual selected positive anchors may evolve differently
+because the trained scores change; positive indices are not frozen to v13.
+Inference: sigmoid/class-max, confidence .25, class-agnostic box NMS .45,
+mask .5, cap 20, unchanged. No display filtering used to hide wrong classes.
+V5/v12/v13 checkpoint and coverage bindings checked; all control metrics
+reproduced before new training. New candidate strictly reloaded before evaluation.
+Parent, original data, controls and previous receipts verified unchanged.
+
+Actual allocation verified from every update
+--------------------------------------------
+Each of all 40 updates in BOTH shapes selected [80,80,240] across its two
+microbatches. Totals per shape = P3 3200, P4 3200, P5 9600, total 16000.
+This is 20%/20%/60% of selected anchors, not a claim of equal gradient mass.
+The preceding v13 audit had circle 35/2318/13647 and ellipse 52/2499/13449.
+Trace records actual selections separately from the configured policy name.
+
+Paired result: v13 -> v14, ten one-target scenes per shape
+--------------------------------------------------------
+Nine Train-source stress variants plus nominal Valid from the same R&D generator.
+These are sensitivity/regression checks, not independent accuracy evidence.
+Mean best-target IoU is not mAP. IoU >= .5 below means at least one returned
+target-class mask matches the single GT; it does not validate all returned
+predictions. Target-count totals include false/excess predictions too.
+
+shape    arm mean target IoU IoU>=.5 images target count other classes duplicate pairs
+circle   v13 .7560           8/10          17           106            6
+circle   v14 .8236           8/10          23           129           15
+ellipse  v13 .6903           7/10          16           111            8
+ellipse  v14 .7170           7/10          20           137           14
+
+Zero-target-IoU images fall from 1 -> 0 circle and 2 -> 1 ellipse, but this is
+not an effective-recall improvement at .5. Circle low-contrast merely changes
+0 -> .231397; ellipse wide-letterbox 0 -> .207048. Both remain poor matches.
+Every image still reaches cap 20. Mean above-threshold anchors out of 8400:
+circle 8157.9 -> 8371.6; ellipse 8333.3 -> 8275.9.
+
+Concrete improvements AND regressions:
+- Circle small .871111 -> .965174; tall-letterbox .088119 -> .907692.
+- Circle inverted .980469 -> .363900 (regression).
+- Circle nominal Valid .856727 -> .973091, but target count 1 -> 3 and
+  other classes 11 -> 15 for one GT.
+- Ellipse inverted .896396 -> .948949, but target count 4 -> 6.
+- Ellipse nominal Valid .996656 -> .971079, other classes 10 -> 16.
+- Ellipse tall-letterbox .197136 -> .277041, still below .5.
+Gradient sampling affects the shared features and later assignment trajectory,
+so unchanged geometry-loss formulas do not guarantee unchanged geometry quality.
+
+Candidate provenance verification
+--------------------------------
+40 additional eval forwards: two shapes x covered v5/v14 x ten scenes.
+Every final metric reproduces its receipt, audit on/off selections match.
+All above-threshold candidate identities/ranks/NMS dispositions retained;
+mask probes bounded at 128, selected outputs first then oracle-box-ranked
+candidates. Absence in this subset is not proof no qualifying candidate exists.
+Ellipse wide-letterbox has a probed pre-NMS target IoU .971429, final .207048;
+tall-letterbox has probed .956391, final .277041. Per-scene details retain
+the suppression/cap decisions and per-class scores. Sampling balance alone
+does not fix foreground score ordering or count quality.
+
+Verification
+------------
+12/12 native CTests passed. Added checks within foreground-loss tests verify
+40/40/120 under coarse-dominant scores, unchanged other loss terms, positive
+exclusion, gradient finiteness, and shortage redistribution without duplicate
+selection. Native build passed; existing upstream LibTorch C4267 warning only.
+No production DLL or ABI modifications in this turn.
+
+Authoritative artifacts
+-----------------------
+Training comparison (100 eval forwards across original v5, covered v5/v12/v13,
+and v14 controls/candidates, plus per-epoch validation):
+../cxscript_runs/stratified_background_budget_20261013/7339561234300/comparison.json
+SHA256 1839f0148bdba499bfd03385af7b46739d76bc58f8cef10ac9a025d98918f6ba
+Circle checkpoint SHA256:
+b632243036d060400b3181de19ddf9729ddbcae208176fd58953277500068f62
+Ellipse checkpoint SHA256:
+776e36780fded8009bca09035840621e72738654767e84bb3eceb5a7c64b11bf
+Per-arm progress.jsonl/trace.json retain actual losses/LR/updates and selected
+hard-background counts. Result binds parent, coverage revision and sampling policy.
+Candidate audit:
+../cxscript_runs/stratified_background_candidate_audit_20261013/7714936578000/candidate_audit.json
+SHA256 e4ab97211342dd0a686eeff858ae479c87610c43275993d572ffd3fa16870140
+Probe executable SHA256:
+a5ce7a6255fc3a64aaa86de1fa3cadc1cd97c747662a4e67195c25a4af83ecfb
+Local runtime DLL remains:
+bcb267fead1cb6b2b3a7b86e467ca690133fc03f876d1db2cdf13f9f12942eec
+
+Reproduce from repository root, LibTorch/OpenCV DLL directories on process PATH:
+../build_supervision_runtime/Release/libtorch_module_business_dataset_probe.exe --coverage-stratified-background-budget contracts/development_parent_test001_20261009.json <registered_parent_root> contracts/seven_class_supervision_rules.v1.json ../cxscript_runs/unified_budget_20261012/26780499155900 ../cxscript_runs/image_error_audit_20261012/32122148377100 <fresh_training_base> ../cxscript_runs/coverage_budget_20261012/32678025432000 ../cxscript_runs/foreground_competition_budget_20261013/3502412775100 ../cxscript_runs/sigmoid_background_budget_20261013/4626173689100
+../build_supervision_runtime/Release/libtorch_module_business_dataset_probe.exe --candidate-audit contracts/development_parent_test001_20261009.json <registered_parent_root> ../cxscript_runs/coverage_budget_20261012/32678025432000 <new_training_root> ../cxscript_runs/image_error_audit_20261012/32122148377100 <fresh_audit_base> unified_v14_stratified_background_experimental
+
+Next controlled direction: output-score calibration/update rate. The preceding
+parameter audit found output-bias changes around .002 despite persistent high
+background scores. Test final classifier bias optimization separately, keep
+the remaining learning-rate policy fixed, and measure per-image target matches,
+wrong/excess outputs and duplicates together. Bias movement alone cannot count
+as an accepted fix. This proposed policy is not implemented by this experiment.

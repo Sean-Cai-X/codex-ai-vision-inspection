@@ -1,0 +1,108 @@
+Circle partial upgrade delivery -- 2026-10-13
+
+Status: READY_FOR_BUSINESS_RETEST; inference only.
+Admission: development_trial / isolated_business_validation.
+No production approval, automatic activation, default replacement or issue closure.
+Ellipse delivery is unchanged and remains a separate follow-up.
+
+DELIVERY AND INDEPENDENT DIGEST
+Delivery ID: circle-unified-v16-partial-20261013-r1
+Package directory:
+D:/Codex-WorkDir/Sean_WorkDir/codex-ai-vision/cxscript_runs/partial_deliveries/circle-unified-v16-partial-20261013-r1
+Independent handoff.lock.json SHA256 (provided outside the package):
+sha256:079407ea0f560b0eea7b4e3766eb7d0a87a1a6c9e5a96119f675dc439ca219c2
+All 24 lock-listed files rehashed successfully on 2026-10-13.
+The lock itself is an additional file. Keep the delivered directory immutable.
+
+Baseline checkpoint:
+sha256:43bd814795d3b0480a00264c5f2fb591340edaa16f12a48e808ff6d6f6c25ca0
+Candidate checkpoint:
+sha256:9a06d103591e22a646226aa6172bee0c116279473c34b898db11ed6496d1d63f
+Runtime (unchanged baseline runtime, actually loaded by acceptance):
+sha256:308a1a8d045266004471908ecb9b896870e603f86a6d80649fd4b05b3fe03428
+upgrade_regression.json:
+sha256:272b8df28a12712f9621e11de3c2036c72ebe72cf3cdbeacae2972f7ed6cc9f9
+Change scope: weights. Complete seven-class checkpoint, not a tensor patch.
+Classes: arc / circle / ellipse / line / open_curve / polygon / closed_curve.
+Full parent manifest, checkpoint lineage and attestation are included and locked.
+
+Linked issue: RND-VAI-UNIFIED-V5-20261012
+Original structured feedback SHA256:
+sha256:79ebc33607afdcb67f21b62ba1a46ee493c7fd5e2b9b793676edba8f641cf07f
+This is a metadata link, not automatic business issue closure. Original ticket
+and its NOT_SENT state were not edited by R&D.
+
+ACTUAL VERIFICATION
+Native C++/LibTorch training, replay and typed bridge tests; no Python executor.
+Existing business broker + typed transport + packaged runtime acceptance: PASS.
+Strict checkpoint loading: 417/417 tensors. Five real synthetic-image inferences.
+Default session unchanged; external preview training correctly rejected.
+Acceptance evidence (outside immutable package):
+D:/Codex-WorkDir/Sean_WorkDir/codex-ai-vision/cxscript_runs/circle_partial_typed_acceptance_20261013/27934532324200/acceptance.json
+SHA256:
+sha256:ea9834fc2fec98c518685844724db27965db9cb8a9a5abfa0cc8e482dd31700f
+12 native business/metrics CTests rerun and passed on 2026-10-13.
+No business GUI quality acceptance is claimed by these protocol tests.
+The newer local diagnostics runtime is NOT included in this weights-only package.
+
+TRAINING POLICY AND COMPARISON LIMITS
+Same parent and nominal source split; each new arm uses 40 epochs / 40 optimizer
+updates / effective batch 2 (two microbatches of 1). Here an epoch is one sampled
+update, not a full pass over the dataset. v15 and v16 together consumed 80 updates
+and 160 microbatches; v16 was selected after observing v15, not in a blind trial.
+Class/box/DFL/mask supervision shares positive ownership. Foreground competition,
+ordinary background BCE and global hard-background selection follow v13.
+Only the three terminal classifier bias tensors get the special LR multiplier:
+v15 = 1000, v16 = 2000. v16 main LR 1e-4 -> 1e-6, bias LR 0.2 -> 0.002.
+Adam, zero weight decay; BN train statistics per microbatch, eval for inference.
+Preprocessing remains RGB 640x640, 1/255, centered letterbox. Confidence .25,
+class-agnostic NMS .45, mask .5, max detections 20 remain unchanged.
+v16 adds paired Train augmentation relative to delivered v5. Covered v5/v13
+controls share the same augmented exposure revision; original v5 does not.
+
+Ten single-GT R&D synthetic stress scenes:
+Arm                Mean best IoU  IoU>=.5 images  Circle count  Other count  Duplicate pairs  Cap-hit images
+Delivered v5       .296775        3/10            5             124          3                10
+Covered v13        .756015        8/10            17            106          6                10
+v16                .840087        9/10            20            3            5                0
+These are nine Train-derived variants and one nominal Valid from the SAME
+generator, not independent business/generalization evidence. Ten GT objects
+versus twenty circle outputs means excess candidates remain. Duplicate pairs
+regress from original v5's 3 to 5. Tall-letterbox IoU .483437 misses .5 and
+regresses from v15's .564778. v15 matched 10/10 but retained 85 wrong-class
+candidates and hit the cap in all ten scenes. Model quality is NOT accepted.
+
+Independent nominal replay and actual typed output agree on all five counts:
+Train seed0: circle1, others0; Train seed1: circle3, others0;
+Train seed2: circle1, others0; Valid seed3: circle2, others0;
+VERIFY seed4: circle4, closed_curve1. VERIFY has no GT; GT metrics remain null.
+Independent here means a separate execution path, not independent data origin.
+
+BUSINESS MANUAL RETEST
+1. Use the existing external-candidate manual import entry. Select the package
+   directory above and verify the independent lock digest supplied here.
+2. Confirm delivery ID, target circle, baseline/candidate/runtime pins and the
+   issue reference in partial_upgrade. Retain the current default configuration.
+3. Bind only an isolated circle test project/session; do not activate globally.
+4. Infer the same locally registered Train, Valid and unlabelled VERIFY images
+   with unchanged thresholds. Compare baseline and candidate on counts, wrong
+   classes, duplicates, mask position/completeness and coordinate restoration.
+5. Record structured, image-free feedback with delivery/checkpoint IDs, sample
+   purpose, execution status and geometric/count diagnostics. Do not transmit
+   business images, paths, masks, overlays or screenshots to R&D.
+6. Distinguish protocol PASS from effect acceptance. Regressions remain open;
+   use the existing session rollback to the retained baseline if needed.
+7. Training for this imported candidate is intentionally disabled. Historical
+   issue reopening, associated retest and manual closure belong to business.
+
+REPRODUCIBILITY ENTRY POINTS
+tests/seven_class_supervision/runtime_dataset_probe.cpp:
+  --coverage-circle-bias-budget (v15), --coverage-circle-bias2-budget (v16),
+  --partial-replay (strict baseline/candidate nominal replay).
+tools/Build-CirclePartialUpgrade.ps1 builds a fresh, pinned package, never edits
+the baseline or an existing delivery directory. Its parameters require the old
+lock, structured feedback digest, experiment, replay and real acceptance exe.
+Packaged Test-Preview.ps1 runs the actual isolated typed bridge acceptance.
+Experiment: ../cxscript_runs/circle_bias2_budget_20261013/27480600458500
+Prior arm: ../cxscript_runs/circle_bias_budget_20261013/27237609154600
+Replay: ../cxscript_runs/circle_partial_replay_20261013/27847295515400

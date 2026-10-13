@@ -3,10 +3,102 @@
 #include "../../libtorch_module/torch_runtime_yolov8_seg_executor.cpp"
 #include "synthetic_materializer.h"
 #include <iostream>
+#include "mode_budget_diagnostic.h"
+#include "unified_budget_runner.h"
+#include "unified_logits_diagnostic.h"
+#include "coverage_budget_runner.h"
+#include "partial_upgrade_replay.h"
+#include "ownership_gradient_audit.h"
+#include "candidate_provenance_audit.h"
+#include "score_mode_audit.h"
+#include "classification_update_audit.h"
 
 int main(int argc,char** argv) {
     using namespace supervision_fixture;
     try {
+        if(argc>1&&std::string(argv[1])=="--partial-replay")return partial_upgrade_replay::run(argc,argv);
+        if(argc>1&&std::string(argv[1])=="--classification-update-audit")return classification_update_audit::run(argc,argv);
+        if(argc>1&&(std::string(argv[1])=="--coverage-circle-bias-budget"||std::string(argv[1])=="--coverage-circle-bias2-budget"))return coverage_budget::run(argc,argv);
+        if(argc==2&&std::string(argv[1])=="--classification-update-audit-test") {
+            classification_update_audit::self_test();std::cout<<"PASS optimizer coverage, actual accumulated gradients and Adam updates\n";return 0;
+        }
+        if(argc>1&&std::string(argv[1])=="--score-mode-audit")return score_mode_audit::run(argc,argv);
+        if(argc==2&&std::string(argv[1])=="--foreground-competition-test") {
+            foreground_competition::self_test();std::cout<<"PASS competitive class/background gradients, empty partitions, loss descent and invalid labels\n";return 0;
+        }
+        if(argc>1&&std::string(argv[1])=="--candidate-audit")return candidate_audit::run(argc,argv);
+        if(argc==2&&std::string(argv[1])=="--candidate-provenance-test") {
+            candidate_audit::self_test();std::cout<<"PASS candidate identity, suppression parent, cap state and unchanged selection\n";return 0;
+        }
+        if(argc>1&&std::string(argv[1])=="--ownership-audit")return ownership_audit::run(argc,argv);
+        if(argc==2&&std::string(argv[1])=="--ownership-gradient-test") {
+            ownership_audit::self_test();std::cout<<"PASS unified output gradients: seven classes, competing GT, class sign and geometry owner support\n";return 0;
+        }
+        if(argc>1&&(std::string(argv[1])=="--coverage-budget"||std::string(argv[1])=="--coverage-geometry-budget"||std::string(argv[1])=="--coverage-competition-budget"||std::string(argv[1])=="--coverage-sigmoid-background-budget"||std::string(argv[1])=="--coverage-stratified-background-budget"))return coverage_budget::run(argc,argv);
+        if(argc==2&&std::string(argv[1])=="--coverage-test") {
+            coverage_augmentation::self_test();std::cout<<"PASS paired augmentation: 80 deterministic plans, image/polygon/box alignment, no clipping or mutation\n";return 0;
+        }
+        if(argc>1&&std::string(argv[1])=="--unified-budget")return unified_budget::run(argc,argv);
+        if(argc>1&&std::string(argv[1])=="--unified-logits")return unified_logits::run(argc,argv);
+        if(argc==2&&std::string(argv[1])=="--unified-assignment-test") {
+            auto scores=torch::zeros({1,3,7});
+            scores.index_put_({0,0,1},4.0);scores.index_put_({0,1,2},4.0);
+            SegTaskAlignedAnchorTable table;
+            table.class_logits=scores;
+            table.grid_widths=torch::full({1,3},2.0f);
+            table.grid_heights=torch::full({1,3},2.0f);
+            table.centers_xy=torch::tensor({{{.25f,.25f},{.70f,.70f},{.95f,.95f}}});
+            table.decoded_boxes=torch::tensor({{{.10f,.10f,.50f,.50f},{.50f,.50f,.90f,.90f},{.10f,.10f,.50f,.50f}}});
+            auto boxes=torch::tensor({{.10f,.10f,.50f,.50f},{.50f,.50f,.90f,.90f}});
+            auto owner=unified_experiment::assign(table,boxes,{1,2},1);
+            check(owner.index({0}).item<int64_t>()==0&&owner.index({1}).item<int64_t>()==1&&
+                owner.index({2}).item<int64_t>()==-1,"UNIFIED_REAL_GRID_OR_TOPK_INVALID");
+            auto empty=unified_experiment::assign(table,torch::empty({0,4}),{},1);
+            check((empty==-1).all().item<bool>(),"UNIFIED_EMPTY_GT_INVALID");
+            table.centers_xy=torch::tensor({{{.50f,.50f}}});
+            table.decoded_boxes=torch::tensor({{{.40f,.40f,.60f,.60f}}});
+            table.grid_widths=torch::full({1,1},1.0f);
+            table.grid_heights=torch::full({1,1},1.0f);
+            table.class_logits=torch::zeros({1,1,7});table.class_logits.index_put_({0,0,2},4.0);
+            boxes=torch::tensor({{.10f,.10f,.65f,.65f},{.35f,.35f,.90f,.90f}});
+            owner=unified_experiment::assign(table,boxes,{1,2},1);
+            check(owner.numel()==1&&owner.item<int64_t>()==1,"UNIFIED_COMPETING_GT_INVALID");
+            table.class_logits=torch::zeros({1,2,7});
+            table.centers_xy=torch::tensor({{{.50f,.50f},{.50f,.50f}}});
+            table.decoded_boxes=torch::tensor({{{.40f,.40f,.60f,.60f},{.40f,.40f,.60f,.60f}}});
+            table.grid_widths=torch::tensor({{2.0f,1.0f}});
+            table.grid_heights=torch::tensor({{2.0f,1.0f}});
+            auto one=torch::tensor({{.10f,.10f,.90f,.90f}});
+            auto global=unified_experiment::assign(table,one,{1},1);
+            auto scaled=unified_experiment::assign(table,one,{1},1,true);
+            check((global>=0).sum().item<int64_t>()==1&&
+                (scaled>=0).sum().item<int64_t>()==2,"UNIFIED_PER_LEVEL_QUOTA_INVALID");
+            // Equal center eligibility, high-IoU anchor has an incorrect class prior.
+            table.class_logits=torch::zeros({1,2,7});table.class_logits.index_put_({0,0,1},-20.0);
+            table.decoded_boxes=torch::tensor({{{.10f,.10f,.90f,.90f},{.20f,.20f,.80f,.80f}}});
+            auto class_ranked=unified_experiment::assign(table,one,{1},1);
+            auto geometry_ranked=unified_experiment::assign(table,one,{1},1,false,true);
+            check(class_ranked[0].item<int64_t>()==-1&&class_ranked[1].item<int64_t>()==0&&
+                geometry_ranked[0].item<int64_t>()==0&&geometry_ranked[1].item<int64_t>()==-1,"UNIFIED_GEOMETRY_RANKING_INVALID");
+            std::cout<<"PASS real grid, per-GT top K, empty GT, deterministic single owner\n";return 0;
+        }
+        if(argc==2&&std::string(argv[1])=="--nms-count-test") {
+            TorchModelManifest manifest;manifest.max_detections=2;manifest.iou_threshold=.45;manifest.class_agnostic_nms=true;
+            auto point=[](int cls,float score,float x){SegCandidate c;c.class_id=cls;c.score=score;c.x0=x;c.y0=0;c.x1=x+10;c.y1=10;return c;};
+            SegNmsDiagnostics d;
+            auto r=SelectSegCandidates({point(2,.9,0),point(2,.8,0),point(2,.7,30),point(2,.6,60)},manifest,d);
+            check(r.size()==2&&d.above_threshold==4&&d.examined==3&&d.suppressed==1&&d.cap_reached,"NMS_TRUNCATED_COUNTS");
+            check(r[0].score==.9f&&r[1].score==.7f,"NMS_SELECTION_CHANGED");
+            manifest.max_detections=20;
+            r=SelectSegCandidates({point(2,.9,0),point(1,.8,0)},manifest,d);
+            check(r.size()==1&&d.examined==2&&d.suppressed==1&&!d.cap_reached,"NMS_CROSS_CLASS_COUNTS");
+            manifest.class_agnostic_nms=false;
+            r=SelectSegCandidates({point(2,.9,0),point(1,.8,0)},manifest,d);
+            check(r.size()==2&&d.suppressed==0,"NMS_CLASS_AWARE_CHANGED");
+            r=SelectSegCandidates({},manifest,d);check(r.empty()&&d.examined==0&&!d.cap_reached,"NMS_EMPTY_COUNTS");
+            std::cout<<"PASS NMS accounting and preserved selection\n";return 0;
+        }
+        if(argc>1&&std::string(argv[1])=="--mode-budget")return mode_budget::run(argc,argv);
         if(argc==2&&std::string(argv[1])=="--classification-loss-test") {
             for(int cls=0;cls<7;++cls) {
                 auto logits=torch::zeros({1,7,2,2},torch::TensorOptions().requires_grad(true));

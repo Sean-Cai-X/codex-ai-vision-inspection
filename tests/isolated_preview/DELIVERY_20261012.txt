@@ -1,0 +1,34 @@
+Published business-side isolated preview (not production)
+========================================================
+Directory:
+D:/Codex-WorkDir/Sean_WorkDir/Vision-AI/business_trials/rd-deliveries/circle-ellipse-unified-v5-20261012-r1
+
+Independent collection handoff.lock.json SHA256:
+sha256:e2f0e8c3ddde31cb2a85aeb79421fb16a9ae68a0679a0fb2288978398d5008a2
+47 file digests verified after copy. Read START_HERE.txt first.
+This digest is recorded OUTSIDE the delivery package for independent handoff.
+
+Subpackage pins (business external_preview_root selects one subdirectory):
+circle/handoff.lock.json:
+sha256:ff3e599750cb14f651d876c8922d756c24ec98e971551342465d957e492a4cb1
+ellipse/handoff.lock.json:
+sha256:d5de1574db4c3844453bb5599c8665694fb866aa99e642e8071f1188ab9a83b7
+
+After publication, reran packaged Test-Preview.ps1 from the ACTUAL destination:
+circle PASS: ../cxscript_runs/published_preview_replay_20261012/29503784692900/acceptance.json
+ellipse PASS: ../cxscript_runs/published_preview_replay_20261012/29534659993500/acceptance.json
+10/10 real single-image typed inferences, role and digest checks, raw/typed counts,
+417/417 tensor load, default isolation and negative registration checks passed.
+Loaded dependency hashes checked before each run. No mock or Python execution.
+
+Ready for BUSINESS ISOLATED INFERENCE TEST, with installed dependency pins.
+Not a claim that the actual business frozen project/UI has already been tested.
+Does not include a new v5 business training executor or model-quality approval.
+Wrong-class candidates and count errors remain visible in the handoff.
+Closing the external-preview session restores unchanged normal configuration.
+Old delivery, original images, parent model and business configuration untouched.
+
+Publishing tool:
+tools/Publish-UnifiedInferencePreview.ps1 verifies acceptance belongs to the exact
+packaged executable, DLL, candidate and lock before copying to a NEW directory.
+Integrity is distinct from operational acceptance and from geometric accuracy.

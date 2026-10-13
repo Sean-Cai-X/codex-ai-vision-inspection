@@ -1,0 +1,149 @@
+Actual classification-head updates and per-level gradient audit, 2026-10-13
+
+Conclusion: the v13 classifier update/optimizer/checkpoint chain is intact.
+Gradient and hard-background allocation are strongly uneven across scales.
+This is a diagnostic replay, not a new accepted model or a proven learning-rate
+fix. Model-quality acceptance remains false. Business defaults and deliveries
+are unchanged. Local native C++/LibTorch only; no Python or gateway execution.
+Only registered parent assets and frozen R&D synthetic assets were consumed.
+
+What was measured
+-----------------
+Replay the COMPLETE v13 circle and ellipse training: same parent, seed 20261012,
+80 frozen paired_coverage_v1 Train exposures per shape, 40 updates, two size-1
+microbatches per update, Adam 1e-4 -> 1e-6 cosine, decay 0, train BN and eval
+validation. VERIFY never used for training. Same class/box/DFL/mask owners and
+same v13 objective/decoder. Original source/parent inventories checked unchanged.
+No training policy or threshold was changed by this task.
+
+The actual head module's tensor identities identify its cv3 parameters.
+Backbone C2f blocks also contain a cv3; substring-only whole-model selection
+would misidentify them. Each classifier parameter must require gradients and
+belong to exactly one optimizer group. This audit checks 24 parameter tensors
+per model (eight per P3/P4/P5 branch), including the three final seven-channel
+convolution weights/biases. Production classification grouping was inspected
+and already uses model.22.cv3/m22.cv3; no grouping bug was found there.
+
+For EVERY microbatch, autograd.grad obtains:
+- foreground CE gradients;
+- ordinary background sigmoid BCE gradients;
+- weighted hard-background gradients (factor 2 already included).
+Inputs include the live head outputs AND registered classifier parameters;
+these are parameter gradients, not detached-output proxy gradients alone.
+Diagnostic autograd.grad is checked not to change accumulated .grad buffers.
+The actual normal loss.backward() still supplies optimizer gradients.
+Two microbatches accumulate at scale 1/2, exactly matching the original run.
+
+The audit compares the accumulated true classifier gradients with the component
+sum; then records each actual Adam step, moments, LR, nonzero gradient/update
+counts, update norms, update/parameter norm ratios and seven-channel terminal
+bias values. Actual positive/hard-anchor selections are retained in loss Terms;
+they are NOT inferred from whether a gradient happens to be zero.
+
+Training negatives are reported separately as outside every GT box versus
+unassigned anchors inside a GT box. The latter include unselected anchors near
+the true target; they must not be described as all true background pixels.
+
+Update/serialization results
+----------------------------
+Both shapes: 24 classifier parameter tensors x 40 updates = 960 observations.
+No missing/zero accumulated classifier gradients; no zero parameter updates.
+Every classifier parameter has Adam state and reaches actual Adam step 40.
+LR is recorded from optimizer groups, not reconstructed solely for display.
+
+All parameters AND buffers after replay equal the frozen v13 reference exactly:
+changed state tensors = 0, maximum state delta = 0, for both models.
+Saved/reloaded replay states also have maximum delta 0. Checkpoint file SHA256
+is identical to the frozen reference for both shapes. Thus the audit did not
+alter training and the recorded updates were preserved by serialization.
+
+Float32 decomposition verification: max relative L2 gaps observed are
+3.40965e-6 (circle), 3.41463e-6 (ellipse). Separate convolution backwards change
+floating-point summation order, so element-wise relative comparison near zero
+was inappropriate. Both L2 gap and max gap are bounded by 1e-6 absolute plus
+1e-4 times the corresponding actual-gradient norm. Gaps/bounds are recorded.
+The test deliberately corrupts a real classifier gradient and verifies rejection.
+The final replay/state/checkpoint equality is exact, not this tolerance test.
+
+Final-layer cumulative updates relative to registered parent
+----------------------------------------------------------
+Weight relative L2 = ||weight_final - weight_parent|| / ||weight_parent||.
+
+shape    P3 weight   P4 weight   P5 weight   largest output-bias absolute change
+circle   2.9113%     2.3277%     2.8608%     .0020254
+ellipse  2.9063%     2.3919%     2.7888%     .0020244
+
+All P3 output biases decrease by approximately .00194..00197. The target-class
+P5 bias increases by .00056621 for circle and .000125736 for ellipse, while
+non-target P5 biases decrease about .002. Initial final-layer biases lie near
+zero (roughly -.114 to +.086); their values/deltas are recorded per class.
+These magnitudes show real updates; they do not by themselves establish that
+40 updates or the LR are sufficient, nor predict the effect of changing LR.
+
+Per-level allocation across 80 microbatches per shape
+----------------------------------------------------
+Counts are selections over training exposures, NOT distinct objects/images.
+Each exposure has ten assigned positives and 200 selected hard backgrounds.
+
+shape    level  assigned positives  hard backgrounds  hard share
+circle   P3        0                    35             .21875%
+circle   P4        0                  2318           14.48750%
+circle   P5      800                 13647           85.29375%
+ellipse  P3        0                    52             .32500%
+ellipse  P4      124                  2499           15.61875%
+ellipse  P5      676                 13449           84.05625%
+
+This does NOT mean P3 receives no background gradient. Ordinary background
+output-gradient L1 totals are substantial there. Component L1 totals below
+sum all seven output channels over all 80 microbatches before the backward /2
+factor; hard-background L1 already includes the objective's weight 2.
+
+shape    level ordinary-background L1 weighted-hard-background L1
+circle   P3     91.1554                 1.0650
+circle   P4     39.5613                73.1175
+circle   P5     10.7242               409.0650
+ellipse  P3     92.5365                 1.5324
+ellipse  P4     40.1733                79.3242
+ellipse  P5     10.8564               408.0943
+
+The global hard-negative ranking concentrates on P5 while P3 occupies 6400 of
+8400 anchors. Foreground assignments concentrate on coarse levels for these
+synthetic sizes. This is observed allocation, not proof all real datasets have
+the same imbalance or that positive assignment should be forced onto P3.
+
+Next controlled development direction
+------------------------------------
+Exclude missing optimizer membership, detached classifier parameters and failed
+checkpoint persistence as explanations for these runs. Preserve the total hard
+negative budget and shared positive owner; test scale-aware hard-background
+quotas as a separate change and check per-scale threshold exceedance, per-image
+class/count/duplicate/geometry results. LR changes require their own comparison.
+Do not infer accuracy improvement from gradient norms or parameter movement.
+
+Verification and authoritative artifacts
+---------------------------------------
+12/12 native CTests passed. The new test performs two real model microbatches,
+checks live gradients/Adam updates, rejects a missing-head optimizer and rejects
+gradient corruption. Build passed with the existing upstream C4267 warning.
+Final completed audit (earlier aborted debug runs have no PASS summary):
+../cxscript_runs/classification_update_audit_20261013/6439275293200/classification_update_audit.json
+SHA256 e934fd888e5d4b7aebfbeece835170a151146613fe0806fb35d1a89a5f097671
+Each shape has trace.json, flushed progress.jsonl, result.json and a diagnostic
+replayed_weights.pt. Summary pins trace/progress/checkpoint hashes.
+Circle trace SHA256:
+268108f0025f2aaeac33e3bb709f84e6d5aec04597d9813178fba2cd6a241d3b
+Ellipse trace SHA256:
+4a74457f3be9d00b3677b0226283a1eba87dc6a147c967fb6b6f40d9ea93dd6f
+Circle reference AND replay checkpoint SHA256:
+3acf2da282ce403192466380930822a034f9f14751d20f4ce7b678cc8bf2da3e
+Ellipse reference AND replay checkpoint SHA256:
+8ff2109a4937dfc5f585d2039e3e531d141ab098c5422af7369be3f319e5a7ab
+Probe executable SHA256:
+3353ede3bda18c4bea6d8c9599fc49be971fe6abad3c8bbad2b0230514826e57
+Runtime DLL unchanged this turn:
+bcb267fead1cb6b2b3a7b86e467ca690133fc03f876d1db2cdf13f9f12942eec
+
+Reproduce from repository root, with LibTorch/OpenCV DLL directories on PATH:
+cmake --build ../build_supervision_runtime --config Release --target libtorch_module_business_dataset_probe --parallel 4
+ctest --test-dir ../build_supervision_runtime -C Release --output-on-failure -R "libtorch_module_(business_|comparison_metrics|image_error_metrics)"
+../build_supervision_runtime/Release/libtorch_module_business_dataset_probe.exe --classification-update-audit contracts/development_parent_test001_20261009.json <registered_parent_root> ../cxscript_runs/sigmoid_background_budget_20261013/4626173689100 <fresh_output_base>

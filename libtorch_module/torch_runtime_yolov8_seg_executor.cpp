@@ -47,6 +47,10 @@ struct SegCandidate
     float x1 = 0.0f;
     float y1 = 0.0f;
     torch::Tensor coefficients;
+    // Private diagnostic identity, not part of the exported runtime ABI.
+    int64_t source_anchor = -1;
+    int source_level = -1;
+    int64_t source_row = -1, source_column = -1;
 };
 
 struct YoloV8SegDatasetSample
@@ -984,18 +988,95 @@ float BoxIou(const SegCandidate& lhs, const SegCandidate& rhs)
         std::max(1.0e-6f, lhs_area + rhs_area - intersection);
 }
 
+struct SegNmsDiagnostics {
+    std::size_t anchors = 0, above_threshold = 0, examined = 0, suppressed = 0;
+    bool cap_reached = false;
+};
+
+struct SegNmsTraceEntry {
+    SegCandidate candidate;
+    // unexamined means the detection cap was reached, NOT suppression.
+    std::string decision = "unexamined_detection_cap";
+    int64_t suppressor_anchor = -1;
+    float suppressor_box_iou = 0;
+};
+
+struct SegCandidateAudit {
+    std::vector<SegNmsTraceEntry> ranked;
+};
+
+std::vector<SegCandidate> SelectSegCandidates(
+    std::vector<SegCandidate> candidates, const TorchModelManifest& manifest,
+    SegNmsDiagnostics& diagnostics, SegCandidateAudit* audit = nullptr)
+{
+    diagnostics.above_threshold = candidates.size();
+    diagnostics.examined = diagnostics.suppressed = 0;
+    diagnostics.cap_reached = false;
+    std::sort(
+        candidates.begin(),
+        candidates.end(),
+        [](const SegCandidate& lhs, const SegCandidate& rhs)
+        {
+            return lhs.score > rhs.score;
+        });
+    std::vector<SegCandidate> selected;
+    if (audit) {
+        audit->ranked.clear();
+        for (const auto& candidate : candidates)
+            audit->ranked.push_back({candidate});
+    }
+    for (const auto& candidate : candidates)
+    {
+        ++diagnostics.examined;
+        bool suppressed = false;
+        for (const auto& kept : selected)
+        {
+            if ((manifest.class_agnostic_nms ||
+                 candidate.class_id == kept.class_id) &&
+                BoxIou(candidate, kept) > manifest.iou_threshold)
+            {
+                suppressed = true;
+                if (audit) {
+                    auto& entry = audit->ranked[diagnostics.examined - 1];
+                    entry.decision = "suppressed_box_nms";
+                    entry.suppressor_anchor = kept.source_anchor;
+                    entry.suppressor_box_iou = BoxIou(candidate, kept);
+                }
+                break;
+            }
+        }
+        if (!suppressed)
+        {
+            if (audit) audit->ranked[diagnostics.examined - 1].decision = "selected";
+            selected.push_back(candidate);
+            if (selected.size() >=
+                static_cast<std::size_t>(manifest.max_detections))
+            {
+                diagnostics.cap_reached = true;
+                break;
+            }
+        }
+        else ++diagnostics.suppressed;
+    }
+    return selected;
+}
+
 std::vector<SegCandidate> DecodeCandidates(
     const YoloV8SegRawOutput& raw,
     const YoloV8SegmentHead& head,
-    const TorchModelManifest& manifest)
+    const TorchModelManifest& manifest, SegNmsDiagnostics* output_diagnostics = nullptr,
+    SegCandidateAudit* audit = nullptr)
 {
     const std::vector<float> strides{8.0f, 16.0f, 32.0f};
     std::vector<SegCandidate> candidates;
+    SegNmsDiagnostics diagnostics;
+    int64_t source_offset = 0;
     for (std::size_t level = 0; level < 3; ++level)
     {
         const int64_t height = raw.box_logits[level].size(2);
         const int64_t width = raw.box_logits[level].size(3);
         const int64_t anchors = height * width;
+        diagnostics.anchors += static_cast<std::size_t>(anchors);
         const torch::Tensor boxes = raw.box_logits[level]
             .view({1, 64, anchors});
         const torch::Tensor distances =
@@ -1029,6 +1110,10 @@ std::vector<SegCandidate> DecodeCandidates(
             const float center_y =
                 (static_cast<float>(row) + 0.5f) * strides[level];
             SegCandidate candidate;
+            candidate.source_anchor = source_offset + anchor;
+            candidate.source_level = static_cast<int>(level);
+            candidate.source_row = row;
+            candidate.source_column = column;
             candidate.class_id =
                 class_ids[anchor].item<int64_t>();
             candidate.score = score;
@@ -1044,39 +1129,11 @@ std::vector<SegCandidate> DecodeCandidates(
                 coefficients[anchor].clone();
             candidates.push_back(std::move(candidate));
         }
+        source_offset += anchors;
     }
 
-    std::sort(
-        candidates.begin(),
-        candidates.end(),
-        [](const SegCandidate& lhs, const SegCandidate& rhs)
-        {
-            return lhs.score > rhs.score;
-        });
-    std::vector<SegCandidate> selected;
-    for (const auto& candidate : candidates)
-    {
-        bool suppressed = false;
-        for (const auto& kept : selected)
-        {
-            if ((manifest.class_agnostic_nms ||
-                 candidate.class_id == kept.class_id) &&
-                BoxIou(candidate, kept) > manifest.iou_threshold)
-            {
-                suppressed = true;
-                break;
-            }
-        }
-        if (!suppressed)
-        {
-            selected.push_back(candidate);
-            if (selected.size() >=
-                static_cast<std::size_t>(manifest.max_detections))
-            {
-                break;
-            }
-        }
-    }
+    auto selected = SelectSegCandidates(std::move(candidates), manifest, diagnostics, audit);
+    if (output_diagnostics) *output_diagnostics = diagnostics;
     return selected;
 }
 
@@ -1273,8 +1330,9 @@ TorchTaskResultCpp ExecuteTorchYoloV8SegTask(
         for (auto& tensor : raw.class_logits) tensor = tensor.to(torch::kCPU);
         for (auto& tensor : raw.mask_coefficients) tensor = tensor.to(torch::kCPU);
         raw.prototypes = raw.prototypes.to(torch::kCPU);
+        SegNmsDiagnostics nms_diagnostics;
         const std::vector<SegCandidate> candidates =
-            DecodeCandidates(raw, model->head(), manifest);
+            DecodeCandidates(raw, model->head(), manifest, &nms_diagnostics);
         const auto finished = std::chrono::steady_clock::now();
 
         const std::filesystem::path output_dir(request.output_dir);
@@ -1342,6 +1400,7 @@ TorchTaskResultCpp ExecuteTorchYoloV8SegTask(
                      << "\"instances\":[";
 
         int accepted_instances = 0;
+        std::vector<std::size_t> returned_class_counts(manifest.num_classes, 0);
         for (std::size_t index = 0; index < candidates.size(); ++index)
         {
             double quality = 0.0;
@@ -1497,6 +1556,7 @@ TorchTaskResultCpp ExecuteTorchYoloV8SegTask(
                           rejected_points.size()))
                 << "}";
             ++accepted_instances;
+            ++returned_class_counts.at(static_cast<std::size_t>(candidates[index].class_id));
         }
         instances << "],\"overlay_ref\":" << QuoteSegJson(overlay_ref.string())
                   << ",\"metrics_ref\":" << QuoteSegJson(metrics_ref.string())
@@ -1539,11 +1599,53 @@ TorchTaskResultCpp ExecuteTorchYoloV8SegTask(
         const double elapsed_ms =
             std::chrono::duration<double, std::milli>(
                 finished - started).count();
+        // Bounded, no-image diagnostic payload. No paths, masks, contours or
+        // per-anchor tensor dumps enter the business feedback channel.
+        const nlohmann::json inference_diagnostics = {
+            {"schema", "visionai.runtime.inference_diagnostics.v1"},
+            {"inference_mode", "eval"},
+            {"preprocessing_version", "bgr-rgb-resize-linear-center-pad-v1"},
+            {"postprocessing_version", "sigmoid-dfl-box-nms-proto-mask-contour-v1"},
+            {"parameters", {{"confidence_threshold",manifest.confidence_threshold},
+                {"nms_iou_threshold",manifest.iou_threshold},{"mask_threshold",manifest.mask_threshold},
+                {"max_detections",manifest.max_detections},{"class_agnostic_nms",manifest.class_agnostic_nms}}},
+            {"input", {{"width",manifest.input_width},{"height",manifest.input_height},
+                {"scale",1.0/255.0},{"letterbox",true},{"color","rgb"},
+                {"declared_scale",manifest.input_scale},{"declared_letterbox",manifest.letterbox},{"declared_color",manifest.input_color}}},
+            {"transform", {{"original_width",image.cols},{"original_height",image.rows},
+                {"resized_width",letterbox.resized_width},{"resized_height",letterbox.resized_height},
+                {"scale",letterbox.scale},{"pad_x",letterbox.pad_x},{"pad_y",letterbox.pad_y}}},
+            {"class_catalog",manifest.class_names},{"raw_class_counts",returned_class_counts},
+            {"counts", {{"above_threshold_count",nms_diagnostics.above_threshold},
+                {"examined_count",nms_diagnostics.examined},{"suppressed_count",nms_diagnostics.suppressed},
+                {"unexamined_count",nms_diagnostics.above_threshold-nms_diagnostics.examined},
+                {"selected_before_mask_count",candidates.size()},
+                {"mask_rejected_count",candidates.size()-static_cast<std::size_t>(accepted_instances)},
+                {"returned_count",accepted_instances},{"detection_cap",manifest.max_detections},
+                {"cap_hit",nms_diagnostics.cap_reached},
+                {"full_post_nms_count",!nms_diagnostics.cap_reached && nms_diagnostics.examined==nms_diagnostics.above_threshold
+                    ? nlohmann::json(candidates.size()) : nlohmann::json(nullptr)}}},
+            {"mask_rejection_reasons", {{"contour_fewer_than_three_points",candidates.size()-static_cast<std::size_t>(accepted_instances)}}},
+            {"elapsed_ms",elapsed_ms},{"timing_scope","forward_and_box_decode"},
+            {"model_quality_accepted",false},{"production_allowed",false}
+        };
         std::ofstream(metrics_ref)
             << "{\"schema\":\"cxvision.segmentation_metrics.v1\","
             << "\"candidate_count\":" << candidates.size()
             << ",\"instance_count\":" << accepted_instances
+            << ",\"diagnostic_version\":\"bounded_nms_counts_v1\""
+            << ",\"anchor_count\":" << nms_diagnostics.anchors
+            << ",\"pre_nms_above_threshold_count\":" << nms_diagnostics.above_threshold
+            << ",\"nms_examined_count\":" << nms_diagnostics.examined
+            << ",\"nms_suppressed_examined_count\":" << nms_diagnostics.suppressed
+            << ",\"nms_unexamined_count\":" << (nms_diagnostics.above_threshold - nms_diagnostics.examined)
+            << ",\"max_detections\":" << manifest.max_detections
+            << ",\"output_cap_reached\":" << (nms_diagnostics.cap_reached ? "true" : "false")
+            << ",\"full_post_nms_count\":" << (!nms_diagnostics.cap_reached && nms_diagnostics.examined == nms_diagnostics.above_threshold ? std::to_string(candidates.size()) : "null")
+            << ",\"returned_post_nms_count\":" << candidates.size()
+            << ",\"mask_contour_rejected_count\":" << (candidates.size() - accepted_instances)
             << ",\"elapsed_ms\":" << elapsed_ms
+            << ",\"diagnostics\":" << inference_diagnostics.dump()
             << ",\"semantic_quality\":\"pending_human_review\"}\n";
         std::ofstream(evidence_ref)
             << "{\"schema\":\"cxvision.torch.runtime_evidence.v1\","
@@ -1578,7 +1680,7 @@ TorchTaskResultCpp ExecuteTorchYoloV8SegTask(
             ",\"overlay_ref\":" + QuoteSegJson(overlay_ref.string()) +
             ",\"measurement_evidence_ref\":" +
             QuoteSegJson(measurement_ref.string()) +
-            ",\"semantic_quality\":\"pending_human_review\"}";
+            ",\"semantic_quality\":\"pending_human_review\",\"diagnostics\":" + inference_diagnostics.dump() + "}";
         return result;
     }
     catch (const std::exception& error)
@@ -5878,6 +5980,7 @@ TorchTaskResultCpp ExecuteTorchYoloV8SegBusinessInferenceTask(
         local_result.status = "auto_provisional_review_required";
         local_result.unified_mainline_summary =
             "AUTO_PROVISIONAL inference requires manual business review";
+        const auto diagnostic_payload = nlohmann::json::parse(local_result.result_json).at("diagnostics");
         local_result.result_json =
             "{\"schema\":\"cxvision.yolov8seg.business_inference.v1\","
             "\"status\":\"AUTO_PROVISIONAL\","
@@ -5892,7 +5995,7 @@ TorchTaskResultCpp ExecuteTorchYoloV8SegBusinessInferenceTask(
             ",\"verify_asset_sha256\":" +
                 QuoteSegJson(inference_settings.verify_asset_sha256) +
             ",\"production_activation\":false,"
-            "\"human_review_required\":true}";
+            "\"human_review_required\":true,\"diagnostics\":" + diagnostic_payload.dump() + "}";
         return local_result;
     }
     catch (const std::exception&)

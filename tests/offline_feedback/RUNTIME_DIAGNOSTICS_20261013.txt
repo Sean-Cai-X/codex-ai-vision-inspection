@@ -1,0 +1,93 @@
+R&D runtime diagnostic extension -- 2026-10-13
+
+DELIVERED
+Actual torch_runtime_run_business_inference_v1 result_json now includes a
+diagnostics object with schema visionai.runtime.inference_diagnostics.v1.
+The C ABI entry point and TorchTaskResult layout are unchanged. Existing business
+inference root schema/status/review/binding fields are preserved.
+
+Contains only bounded numbers, flags and implementation identifiers:
+- eval mode; preprocessing/postprocessing version; actual thresholds and cap;
+- fixed seven-class catalog and returned class counts before project filtering;
+- above-threshold/examined/suppressed/unexamined/selected/mask-rejected/returned;
+- detection cap hit; full_post_nms_count=null when cap hit or unexamined exists;
+- rejection count for contour_fewer_than_three_points;
+- original/input/resized dimensions, scale and padding;
+- actual RGB, letterbox and 1/255 input behavior, separately from manifest-declared
+  color/letterbox/scale. MakeSegInput currently always performs these operations;
+  metadata MUST NOT pretend that unused manifest options changed execution.
+- elapsed_ms timing_scope=forward_and_box_decode. It excludes weight loading,
+  preprocessing, mask/geometry reconstruction and artifact writes. It is not
+  end-to-end wall time. Existing infer_runtime_ms meaning is preserved.
+No image, path, mask, overlay, full contour or per-anchor dump in diagnostics.
+
+BUSINESS ADAPTER NEXT ACTION (SOURCE NOT MODIFIED HERE)
+Existing ParseBusinessInferenceSuccess currently accepts the successful result
+and parses predictions but does not preserve diagnostics in the typed receipt.
+After existing execution/model/binding validation, call:
+  ExtractInferenceDiagnostics(raw.result_json, shippedContract)
+from VisionAI::OfflineFeedbackValidation. It rejects inconsistent/new malformed
+payloads; old runtime missing diagnostics returns null, not zero counters.
+Persist the extension with the same typed task/model/image/dataset identity.
+Map counts into N4 issue.diagnostics and class counts into raw_class_counts;
+map implementation versions into runtime preprocessing/postprocessing fields.
+Business must bind configuration SHA from the actual frozen parameter record,
+not invent one from a display label. Manual candidate association remains manual.
+
+Schema change is additive: a new inference_diagnostics definition; preexisting
+issue/disposition/repair JSON shapes remain unchanged. Shape validation alone is
+not sufficient: use the native invariant validator. The earlier contract digest
+in VALIDATION_20261013.txt remains historical evidence of the previous commit.
+
+VERIFICATION
+MSVC x64 Release builds: actual runtime DLL, ABI smoke, dataset probe, native
+contract tests, developer validator and actual C ABI diagnostic probe all pass.
+Existing upstream LibTorch C4267 and synthetic-materializer C4244 warnings remain.
+3/3 feedback CTests PASS; 72 native checks including fixture byte-SHA linkage.
+12/12 existing runtime/metrics tests PASS, using the rebuilt runtime for ABI smoke.
+Eight ACTUAL C ABI calls PASS, strict 417/417 loading:
+circle/ellipse x Train/Valid/VERIFY synthetic variants + wide 192x96 fixture.
+Raw instances == diagnostic returned class counts; returned metrics diagnostics
+== result_json diagnostics. Wide letterbox is resized 640x320, pad=(0,160),
+scale=640/192, original dimensions 192x96. No business images consumed.
+
+Measured old-candidate diagnostics (NOT quality acceptance):
+shape   role       above  examined selected mask_rejected returned
+circle  Train      8333       45       20        4          16
+circle  Valid      8340       96       20        5          15
+circle  VERIFY     8291       86       20       10          10
+circle  RND_WIDE   8273       35       20        8          12
+ellipse Train      8307       85       20        0          20
+ellipse Valid      8326       48       20       16           4
+ellipse VERIFY     8292       80       20       12           8
+ellipse RND_WIDE   8359       55       20       13           7
+All hit cap 20; full post-NMS population is unknown/null. Mask rejection explains
+why returned list length is smaller than the selected cap, not why correct
+targets are missed. Geometry correctness and class quality still require review.
+
+Evidence directory:
+../cxscript_runs/runtime_feedback_diagnostics_20261013/12642601698800
+diagnostic_acceptance.json SHA256:
+sha256:aceb55076f0d182b39141fdca722919d42a98630f7eca31aca21cdbe64ae8b45
+ACTUALLY LOADED runtime DLL SHA256 (recorded by GetModuleFileNameW):
+sha256:5ff5124d563b55a8c70c7665c9ebfd1349ae907025cf221d872f1e421011130f
+Current contract original-byte SHA256:
+sha256:6845466ed930beaae4461f3a97decdc91fa6f48b067e9562ace9b3759642cb4a
+
+REPRODUCE: development only, no operator CLI requirement
+Configure tests/offline_feedback with RUNTIME_IMPORT_LIBRARY pointing to the
+actual built libtorch_module_runtime.lib, build offline_feedback_runtime_probe.
+PATH: actual DLL directory + installed LibTorch/OpenCV dependencies.
+offline_feedback_runtime_probe.exe RND-collection supervision-rules.json
+  business_offline_feedback_contract.v1.json fresh-output-base
+The collection used is the immutable R&D circle-ellipse-unified-v5-20261012-r1
+delivery, NOT a business image inventory. No training or model updates performed.
+
+NOT YET CLAIMED
+- Business typed receipt/GUI export integration or independent operator acceptance.
+- New offline dependency/package admission: DLL has a NEW digest. It must not be
+  copied into the old 47-file package or loaded under the old pinned SHA. A future
+  package needs its own lock, compatibility evidence and independent handoff SHA.
+- Quality improvement, registered ticket receipt, issue closure or production.
+No business files/defaults, old deliverables, parent/checkpoints or NOT_SENT
+statuses were changed. This is a diagnostic source/build step, not a repair model.

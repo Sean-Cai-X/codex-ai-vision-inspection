@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "visionai.business.offline_feedback_contract.v1",
+  "$defs": {
+    "id": {"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"},
+    "sha": {"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},
+    "nullable_sha": {"type":["string","null"],"pattern":"^sha256:[0-9a-f]{64}$"},
+    "text": {"type":"string","minLength":1,"maxLength":2000},
+    "count": {"type":"integer","minimum":0,"maximum":100000000},
+    "nullable_count": {"type":["integer","null"],"minimum":0,"maximum":100000000},
+    "nullable_metric": {"type":["number","null"],"minimum":0},
+    "nullable_iou": {"type":["number","null"],"minimum":0,"maximum":1},
+    "classes": {"const":["arc","circle","ellipse","line","open_curve","polygon","closed_curve"]},
+    "class_counts": {"type":["array","null"],"minItems":7,"maxItems":7,"items":{"$ref":"#/$defs/count"}},
+    "candidate": {
+      "type":"object","additionalProperties":false,
+      "required":["candidate_id","class_id","score","bounds"],
+      "properties":{
+        "candidate_id":{"$ref":"#/$defs/id"},
+        "class_id":{"type":"integer","minimum":0,"maximum":6},
+        "score":{"type":"number","minimum":0,"maximum":1},
+        "bounds":{"type":"array","minItems":4,"maxItems":4,"items":{"type":"number","minimum":0}}
+      }
+    },
+    "metrics": {
+      "type":"object","additionalProperties":false,
+      "required":["metric_version","best_target_iou","best_any_class_iou","center_error_pixels","boundary_distance_pixels","unmatched_gt_count","unmatched_prediction_count","duplicate_pair_count"],
+      "properties":{
+        "metric_version":{"$ref":"#/$defs/id"},
+        "best_target_iou":{"$ref":"#/$defs/nullable_iou"},
+        "best_any_class_iou":{"$ref":"#/$defs/nullable_iou"},
+        "center_error_pixels":{"$ref":"#/$defs/nullable_metric"},
+        "boundary_distance_pixels":{"$ref":"#/$defs/nullable_metric"},
+        "unmatched_gt_count":{"$ref":"#/$defs/nullable_count"},
+        "unmatched_prediction_count":{"$ref":"#/$defs/nullable_count"},
+        "duplicate_pair_count":{"$ref":"#/$defs/nullable_count"}
+      }
+    },
+    "diagnostics": {
+      "type":"object","additionalProperties":false,
+      "required":["above_threshold_count","examined_count","suppressed_count","unexamined_count","selected_before_mask_count","mask_rejected_count","returned_count","detection_cap","cap_hit","full_post_nms_count"],
+      "properties":{
+        "above_threshold_count":{"$ref":"#/$defs/nullable_count"},
+        "examined_count":{"$ref":"#/$defs/nullable_count"},
+        "suppressed_count":{"$ref":"#/$defs/nullable_count"},
+        "unexamined_count":{"$ref":"#/$defs/nullable_count"},
+        "selected_before_mask_count":{"$ref":"#/$defs/nullable_count"},
+        "mask_rejected_count":{"$ref":"#/$defs/nullable_count"},
+        "returned_count":{"$ref":"#/$defs/nullable_count"},
+        "detection_cap":{"type":"integer","minimum":1,"maximum":100000000},
+        "cap_hit":{"type":["boolean","null"]},
+        "full_post_nms_count":{"$ref":"#/$defs/nullable_count"}
+      }
+    },
+    "issue": {
+      "type":"object","additionalProperties":false,
+      "required":["schema","issue_id","project_ref","case_ref","sample_ref","image_sha256","source_split","business_target","annotation","dataset","model","runtime","execution","parameters","class_catalog","raw_class_counts","selected_candidates","association","metrics","diagnostics","issue_type","expected","actual","operation_steps","human_confirmed","production_allowed"],
+      "properties":{
+        "schema":{"const":"visionai.business.no_image_issue.v1"},
+        "issue_id":{"$ref":"#/$defs/id"},"project_ref":{"$ref":"#/$defs/id"},
+        "case_ref":{"$ref":"#/$defs/id"},"sample_ref":{"$ref":"#/$defs/id"},
+        "image_sha256":{"$ref":"#/$defs/sha"},
+        "source_split":{"enum":["Train","Valid","VERIFY"]},
+        "business_target":{"type":"object","additionalProperties":false,"required":["version","description","presence"],"properties":{
+          "version":{"$ref":"#/$defs/id"},"description":{"$ref":"#/$defs/text"},"presence":{"enum":["present","absent","undecidable"]}}},
+        "annotation":{"type":"object","additionalProperties":false,"required":["version","sha256","state"],"properties":{
+          "version":{"type":["string","null"],"pattern":"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"},
+          "sha256":{"$ref":"#/$defs/nullable_sha"},"state":{"enum":["confirmed","missing","invalid"]}}},
+        "dataset":{"type":"object","additionalProperties":false,"required":["revision","sha256"],"properties":{
+          "revision":{"$ref":"#/$defs/id"},"sha256":{"$ref":"#/$defs/sha"}}},
+        "model":{"type":"object","additionalProperties":false,"required":["model_id","manifest_sha256","checkpoint_sha256","origin"],"properties":{
+          "model_id":{"$ref":"#/$defs/id"},"manifest_sha256":{"$ref":"#/$defs/sha"},"checkpoint_sha256":{"$ref":"#/$defs/sha"},
+          "origin":{"enum":["RND_SYNTHETIC","BUSINESS_FROZEN","REGISTERED_PARENT"]}}},
+        "runtime":{"type":"object","additionalProperties":false,"required":["sha256","abi_version","preprocessing_version","postprocessing_version"],"properties":{
+          "sha256":{"$ref":"#/$defs/sha"},"abi_version":{"$ref":"#/$defs/id"},
+          "preprocessing_version":{"$ref":"#/$defs/id"},"postprocessing_version":{"$ref":"#/$defs/id"}}},
+        "execution":{"type":"object","additionalProperties":false,"required":["task_id","request_id","status","elapsed_ms","error_code","failure_stage"],"properties":{
+          "task_id":{"$ref":"#/$defs/id"},"request_id":{"$ref":"#/$defs/id"},
+          "status":{"enum":["SUCCEEDED","FAILED","CANCELLED"]},"elapsed_ms":{"type":"number","minimum":0},
+          "error_code":{"type":["string","null"],"pattern":"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"},
+          "failure_stage":{"type":["string","null"],"pattern":"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"}}},
+        "parameters":{"type":"object","additionalProperties":false,"required":["configuration_sha256","confidence_threshold","nms_iou_threshold","mask_threshold","max_detections"],"properties":{
+          "configuration_sha256":{"$ref":"#/$defs/sha"},
+          "confidence_threshold":{"type":"number","minimum":0,"maximum":1},
+          "nms_iou_threshold":{"type":"number","minimum":0,"maximum":1},"mask_threshold":{"type":"number","minimum":0,"maximum":1},
+          "max_detections":{"type":"integer","minimum":1,"maximum":100000000}}},
+        "class_catalog":{"$ref":"#/$defs/classes"},"raw_class_counts":{"$ref":"#/$defs/class_counts"},
+        "selected_candidates":{"type":"array","maxItems":128,"items":{"$ref":"#/$defs/candidate"}},
+        "association":{"type":"object","additionalProperties":false,"required":["source","annotation_ref","candidate_ids","rule","threshold"],"properties":{
+          "source":{"enum":["human_confirmed","automatic_suggestion","none"]},
+          "annotation_ref":{"type":["string","null"],"pattern":"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"},
+          "candidate_ids":{"type":"array","maxItems":128,"items":{"$ref":"#/$defs/id"}},
+          "rule":{"type":["string","null"],"pattern":"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"},
+          "threshold":{"$ref":"#/$defs/nullable_iou"}}},
+        "metrics":{"$ref":"#/$defs/metrics"},"diagnostics":{"$ref":"#/$defs/diagnostics"},
+        "issue_type":{"enum":["missing_target","wrong_class","duplicate","location_error","boundary_error","business_target_misunderstood","execution_failure"]},
+        "expected":{"$ref":"#/$defs/text"},"actual":{"$ref":"#/$defs/text"},
+        "operation_steps":{"type":"array","minItems":1,"maxItems":32,"items":{"$ref":"#/$defs/text"}},
+        "human_confirmed":{"const":true},"production_allowed":{"const":false}
+      }
+    },
+    "disposition": {
+      "type":"object","additionalProperties":false,
+      "required":["schema","issue_id","issue_sha256","status","summary","requested_diagnostics","evidence_kind","evidence_sha256","repair_lock_sha256","production_allowed"],
+      "properties":{
+        "schema":{"const":"visionai.rd.issue_disposition.v1"},"issue_id":{"$ref":"#/$defs/id"},"issue_sha256":{"$ref":"#/$defs/sha"},
+        "status":{"enum":["received","located","needs_diagnostics","reproduced","fix_pending_retest"]},
+        "summary":{"$ref":"#/$defs/text"},
+        "requested_diagnostics":{"type":"array","maxItems":32,"items":{"enum":["business_target","association","effective_parameters","prepost_versions","nms_counts","numeric_geometry_summary","execution_failure","training_policy"]}},
+        "evidence_kind":{"enum":["structured_review","rnd_synthetic_reproduction","release_validation"]},
+        "evidence_sha256":{"$ref":"#/$defs/nullable_sha"},"repair_lock_sha256":{"$ref":"#/$defs/nullable_sha"},"production_allowed":{"const":false}
+      }
+    },
+    "inference_diagnostics": {
+      "type":"object","additionalProperties":false,
+      "required":["schema","inference_mode","preprocessing_version","postprocessing_version","parameters","input","transform","class_catalog","raw_class_counts","counts","mask_rejection_reasons","elapsed_ms","timing_scope","model_quality_accepted","production_allowed"],
+      "properties":{
+        "schema":{"const":"visionai.runtime.inference_diagnostics.v1"},"inference_mode":{"const":"eval"},
+        "preprocessing_version":{"$ref":"#/$defs/id"},"postprocessing_version":{"$ref":"#/$defs/id"},
+        "parameters":{"type":"object","additionalProperties":false,"required":["confidence_threshold","nms_iou_threshold","mask_threshold","max_detections","class_agnostic_nms"],"properties":{
+          "confidence_threshold":{"type":"number","minimum":0,"maximum":1},"nms_iou_threshold":{"type":"number","minimum":0,"maximum":1},
+          "mask_threshold":{"type":"number","minimum":0,"maximum":1},"max_detections":{"type":"integer","minimum":1,"maximum":100000000},"class_agnostic_nms":{"type":"boolean"}}},
+        "input":{"type":"object","additionalProperties":false,"required":["width","height","scale","letterbox","color","declared_scale","declared_letterbox","declared_color"],"properties":{
+          "width":{"type":"integer","minimum":1},"height":{"type":"integer","minimum":1},"scale":{"type":"number","minimum":0},
+          "letterbox":{"const":true},"color":{"const":"rgb"},"declared_scale":{"type":"number","minimum":0},"declared_letterbox":{"type":"boolean"},"declared_color":{"$ref":"#/$defs/id"}}},
+        "transform":{"type":"object","additionalProperties":false,"required":["original_width","original_height","resized_width","resized_height","scale","pad_x","pad_y"],"properties":{
+          "original_width":{"type":"integer","minimum":1},"original_height":{"type":"integer","minimum":1},
+          "resized_width":{"type":"integer","minimum":1},"resized_height":{"type":"integer","minimum":1},
+          "scale":{"type":"number","minimum":0},"pad_x":{"$ref":"#/$defs/count"},"pad_y":{"$ref":"#/$defs/count"}}},
+        "class_catalog":{"$ref":"#/$defs/classes"},"raw_class_counts":{"$ref":"#/$defs/class_counts"},"counts":{"$ref":"#/$defs/diagnostics"},
+        "mask_rejection_reasons":{"type":"object","additionalProperties":false,"required":["contour_fewer_than_three_points"],"properties":{"contour_fewer_than_three_points":{"$ref":"#/$defs/count"}}},
+        "elapsed_ms":{"type":"number","minimum":0},"timing_scope":{"const":"forward_and_box_decode"},
+        "model_quality_accepted":{"const":false},"production_allowed":{"const":false}
+      }
+    },
+    "repair": {
+      "type":"object","additionalProperties":false,
+      "required":["schema","package_id","handoff_lock_sha256","issue_bindings","change_scope","change_summary","candidate_model_id","candidate_manifest_sha256","candidate_checkpoint_sha256","runtime_sha256","abi_version","inference_supported","training_supported","training_acceptance_sha256","requires_restart","quality_status","production_allowed","auto_activate"],
+      "properties":{
+        "schema":{"const":"visionai.rd.issue_repair_binding.v1"},"package_id":{"$ref":"#/$defs/id"},"handoff_lock_sha256":{"$ref":"#/$defs/sha"},
+        "issue_bindings":{"type":"array","minItems":1,"maxItems":128,"items":{"type":"object","additionalProperties":false,"required":["issue_id","issue_sha256"],"properties":{
+          "issue_id":{"$ref":"#/$defs/id"},"issue_sha256":{"$ref":"#/$defs/sha"}}}},
+        "change_scope":{"enum":["DIAGNOSTIC_ONLY","MODEL_CORRECTION","RUNTIME_FIX"]},"change_summary":{"$ref":"#/$defs/text"},
+        "candidate_model_id":{"$ref":"#/$defs/id"},"candidate_manifest_sha256":{"$ref":"#/$defs/sha"},"candidate_checkpoint_sha256":{"$ref":"#/$defs/sha"},
+        "runtime_sha256":{"$ref":"#/$defs/sha"},"abi_version":{"$ref":"#/$defs/id"},
+        "inference_supported":{"const":true},"training_supported":{"type":"boolean"},"training_acceptance_sha256":{"$ref":"#/$defs/nullable_sha"},
+        "requires_restart":{"type":"boolean"},"quality_status":{"enum":["NOT_ACCEPTED","PENDING_BUSINESS_RETEST"]},
+        "production_allowed":{"const":false},"auto_activate":{"const":false}
+      }
+    }
+  }
+}
