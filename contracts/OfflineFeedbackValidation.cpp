@@ -74,6 +74,31 @@ void Privacy(const Json& j) {
     } else if (j.is_structured()) for (const auto& v : j) Privacy(v);
 }
 bool Known(const Json& j, const char* field) { return !j.at(field).is_null(); }
+void Counts(const Json& d, const Json& parameters, const Json& classCounts, const Json& selectedCandidates) {
+    Require(d.at("detection_cap") == parameters.at("max_detections"), "FEEDBACK_CAP_PARAMETER_MISMATCH");
+    const auto equation = [&](const char* total, const char* a, const char* b) {
+        if (Known(d,total) && Known(d,a) && Known(d,b))
+            Require(d.at(total).get<long long>() == d.at(a).get<long long>() + d.at(b).get<long long>(), "FEEDBACK_COUNT_INCONSISTENT");
+    };
+    equation("above_threshold_count","examined_count","unexamined_count");
+    equation("examined_count","suppressed_count","selected_before_mask_count");
+    equation("selected_before_mask_count","returned_count","mask_rejected_count");
+    if (Known(d,"selected_before_mask_count")) Require(d.at("selected_before_mask_count") <= d.at("detection_cap"), "FEEDBACK_COUNT_INCONSISTENT");
+    if ((Known(d,"unexamined_count") && d.at("unexamined_count").get<long long>() > 0) || (Known(d,"cap_hit") && d.at("cap_hit") == true))
+        Require(!Known(d,"full_post_nms_count"), "FEEDBACK_TRUNCATION_HAS_FULL_COUNT");
+    if (Known(d,"cap_hit") && d.at("cap_hit") == true && Known(d,"selected_before_mask_count"))
+        Require(d.at("selected_before_mask_count") == d.at("detection_cap"), "FEEDBACK_CAP_HIT_INCONSISTENT");
+    if (Known(d,"full_post_nms_count") && Known(d,"selected_before_mask_count"))
+        Require(d.at("full_post_nms_count") == d.at("selected_before_mask_count"), "FEEDBACK_FULL_COUNT_INCONSISTENT");
+    if (!classCounts.is_null()) {
+        long long total = 0;
+        for (const auto& c : classCounts) total += c.get<long long>();
+        if (Known(d,"returned_count")) Require(total == d.at("returned_count").get<long long>(), "FEEDBACK_CLASS_COUNT_MISMATCH");
+        std::vector<long long> selected(7,0);
+        for (const auto& c : selectedCandidates) ++selected[c.at("class_id").get<std::size_t>()];
+        for (std::size_t i = 0; i < 7; ++i) Require(selected[i] <= classCounts.at(i).get<long long>(), "FEEDBACK_SELECTED_COUNT_MISMATCH");
+    }
+}
 void Issue(const Json& j) {
     const auto& ann = j.at("annotation");
     const bool confirmed = ann.at("state") == "confirmed";
@@ -109,34 +134,7 @@ void Issue(const Json& j) {
         Require(assoc.at("candidate_ids").empty() && !Known(assoc, "annotation_ref") && !Known(assoc, "rule") && !Known(assoc, "threshold"), "FEEDBACK_NONE_HAS_ASSOCIATION");
     if (Known(assoc, "annotation_ref"))
         Require(confirmed, "FEEDBACK_ASSOCIATION_WITHOUT_ANNOTATION");
-    const auto& d = j.at("diagnostics");
-    Require(d.at("detection_cap") == j.at("parameters").at("max_detections"), "FEEDBACK_CAP_PARAMETER_MISMATCH");
-    const auto equation = [&](const char* total, const char* a, const char* b) {
-        if (Known(d, total) && Known(d, a) && Known(d, b))
-            Require(d.at(total).get<long long>() == d.at(a).get<long long>() + d.at(b).get<long long>(), "FEEDBACK_COUNT_INCONSISTENT");
-    };
-    equation("above_threshold_count", "examined_count", "unexamined_count");
-    equation("examined_count", "suppressed_count", "selected_before_mask_count");
-    equation("selected_before_mask_count", "returned_count", "mask_rejected_count");
-    if (Known(d, "selected_before_mask_count"))
-        Require(d.at("selected_before_mask_count") <= d.at("detection_cap"), "FEEDBACK_COUNT_INCONSISTENT");
-    if (Known(d, "unexamined_count") && d.at("unexamined_count").get<long long>() > 0)
-        Require(!Known(d, "full_post_nms_count"), "FEEDBACK_TRUNCATION_HAS_FULL_COUNT");
-    if (Known(d, "cap_hit") && d.at("cap_hit") == true)
-        Require(!Known(d, "full_post_nms_count"), "FEEDBACK_TRUNCATION_HAS_FULL_COUNT");
-    if (Known(d, "cap_hit") && d.at("cap_hit") == true && Known(d, "selected_before_mask_count"))
-        Require(d.at("selected_before_mask_count") == d.at("detection_cap"), "FEEDBACK_CAP_HIT_INCONSISTENT");
-    if (Known(d, "full_post_nms_count") && Known(d, "selected_before_mask_count"))
-        Require(d.at("full_post_nms_count") == d.at("selected_before_mask_count"), "FEEDBACK_FULL_COUNT_INCONSISTENT");
-    if (!j.at("raw_class_counts").is_null()) {
-        long long total = 0;
-        for (const auto& c : j.at("raw_class_counts")) total += c.get<long long>();
-        if (Known(d, "returned_count")) Require(total == d.at("returned_count").get<long long>(), "FEEDBACK_CLASS_COUNT_MISMATCH");
-        std::vector<long long> selected(7, 0);
-        for (const auto& c : j.at("selected_candidates")) ++selected[c.at("class_id").get<std::size_t>()];
-        for (std::size_t i = 0; i < 7; ++i)
-            Require(selected[i] <= j.at("raw_class_counts").at(i).get<long long>(), "FEEDBACK_SELECTED_COUNT_MISMATCH");
-    }
+    Counts(j.at("diagnostics"),j.at("parameters"),j.at("raw_class_counts"),j.at("selected_candidates"));
 }
 }
 Json ParseStrict(const std::string& bytes) {
@@ -156,11 +154,21 @@ Json ParseStrict(const std::string& bytes) {
 }
 void ValidateRecord(const Json& record, const Json& contract, const std::string& kind) {
     try {
-    Require(kind == "issue" || kind == "disposition" || kind == "repair", "FEEDBACK_KIND_INVALID");
+    Require(kind == "issue" || kind == "disposition" || kind == "repair" || kind == "inference_diagnostics", "FEEDBACK_KIND_INVALID");
     Require(contract.at("$id") == "visionai.business.offline_feedback_contract.v1", "FEEDBACK_CONTRACT_VERSION_INVALID");
     Shape(record, contract.at("$defs").at(kind), contract);
     Privacy(record);
     if (kind == "issue") Issue(record);
+    if (kind == "inference_diagnostics") {
+        Counts(record.at("counts"),record.at("parameters"),record.at("raw_class_counts"),Json::array());
+        Require(!record.at("raw_class_counts").is_null(), "FEEDBACK_RUNTIME_CLASS_COUNTS_REQUIRED");
+        for (const auto& field : record.at("counts").items())
+            if (field.key() != "full_post_nms_count") Require(!field.value().is_null(), "FEEDBACK_RUNTIME_COUNT_REQUIRED");
+        Require(record.at("mask_rejection_reasons").at("contour_fewer_than_three_points") == record.at("counts").at("mask_rejected_count"), "FEEDBACK_MASK_REASON_COUNT_MISMATCH");
+        const auto& t = record.at("transform"); const auto& input = record.at("input");
+        Require(t.at("resized_width").get<long long>() + 2*t.at("pad_x").get<long long>() <= input.at("width").get<long long>() &&
+            t.at("resized_height").get<long long>() + 2*t.at("pad_y").get<long long>() <= input.at("height").get<long long>(), "FEEDBACK_TRANSFORM_INVALID");
+    }
     if (kind == "disposition") {
         if (record.at("status") == "needs_diagnostics")
             Require(!record.at("requested_diagnostics").empty(), "FEEDBACK_DIAGNOSTICS_REQUIRED");
@@ -182,6 +190,14 @@ void ValidateRecord(const Json& record, const Json& contract, const std::string&
     } catch (const std::regex_error&) {
         throw std::invalid_argument("FEEDBACK_CONTRACT_INVALID");
     }
+}
+Json ExtractInferenceDiagnostics(const std::string& bytes, const Json& contract) {
+    const auto root = ParseStrict(bytes);
+    Require(root.is_object(), "FEEDBACK_RUNTIME_RESULT_INVALID");
+    if (!root.contains("diagnostics")) return nullptr;
+    const auto diagnostic = root.at("diagnostics");
+    ValidateRecord(diagnostic,contract,"inference_diagnostics");
+    return diagnostic;
 }
 void ValidateLinks(const Json& issue, const std::string& issueSha, const Json& disposition, const Json* repair) {
     Require(disposition.at("issue_id") == issue.at("issue_id") && disposition.at("issue_sha256") == issueSha, "FEEDBACK_ISSUE_BINDING_MISMATCH");

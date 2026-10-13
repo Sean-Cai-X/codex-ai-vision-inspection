@@ -26,6 +26,17 @@ add_test(NAME OfflineFeedback_CLI_Rejects_Wrong_Digest COMMAND offline_feedback_
 set_tests_properties(OfflineFeedback_CLI_Original_Byte_Digest_Links OfflineFeedback_CLI_Rejects_Wrong_Digest
   PROPERTIES FIXTURES_REQUIRED feedback_fixture)
 set_tests_properties(OfflineFeedback_CLI_Rejects_Wrong_Digest PROPERTIES WILL_FAIL TRUE)
+set(RUNTIME_IMPORT_LIBRARY "" CACHE FILEPATH "Optional actual native runtime import library for manual R&D inference verification")
+if(EXISTS "${RUNTIME_IMPORT_LIBRARY}")
+  add_executable(offline_feedback_runtime_probe runtime_probe.cpp
+    ../../cximage/CxSevenClassSupervision.cpp
+    ../../cxgeom/src/CxGeoSO2ReferenceAsset.cpp ../../cxgeom/src/CxGeoSO2Harmonic.cpp)
+  target_link_libraries(offline_feedback_runtime_probe PRIVATE VisionAI::OfflineFeedbackValidation "${RUNTIME_IMPORT_LIBRARY}")
+  target_include_directories(offline_feedback_runtime_probe PRIVATE ../../cxgeom/include)
+  if(MSVC)
+    target_compile_options(offline_feedback_runtime_probe PRIVATE /W4 /utf-8 /EHsc)
+  endif()
+endif()
 if(MSVC)
   target_compile_options(offline_feedback_test PRIVATE /W4 /utf-8 /EHsc)
   target_compile_options(offline_feedback_validate PRIVATE /W4 /utf-8 /EHsc)

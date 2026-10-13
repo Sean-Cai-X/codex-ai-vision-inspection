@@ -65,6 +65,40 @@ int main(int argc, char** argv) {
         const auto schema = f::ParseStrict(bytes);
         const auto check = [&](const J& j, const std::string& kind = "issue") { f::ValidateRecord(j,schema,kind); };
         auto issue = Issue(); auto disposition = Disposition(); auto repair = Repair();
+        J diagnostic = {{"schema","visionai.runtime.inference_diagnostics.v1"},{"inference_mode","eval"},
+            {"preprocessing_version","bgr-rgb-resize-linear-center-pad-v1"},{"postprocessing_version","sigmoid-dfl-box-nms-proto-mask-contour-v1"},
+            {"parameters",{{"confidence_threshold",0.25},{"nms_iou_threshold",0.45},{"mask_threshold",0.5},{"max_detections",20},{"class_agnostic_nms",true}}},
+            {"input",{{"width",640},{"height",640},{"scale",1.0/255},{"letterbox",true},{"color","rgb"},{"declared_scale",1.0/255},{"declared_letterbox",true},{"declared_color","rgb"}}},
+            {"transform",{{"original_width",64},{"original_height",64},{"resized_width",640},{"resized_height",640},{"scale",10.0},{"pad_x",0},{"pad_y",0}}},
+            {"class_catalog",issue.at("class_catalog")},{"raw_class_counts",issue.at("raw_class_counts")},
+            {"counts",issue.at("diagnostics")},{"mask_rejection_reasons",{{"contour_fewer_than_three_points",19}}},
+            {"elapsed_ms",12.5},{"timing_scope","forward_and_box_decode"},{"model_quality_accepted",false},{"production_allowed",false}};
+        Pass([&]{ check(diagnostic,"inference_diagnostics"); });
+        Pass([&]{ if (f::ExtractInferenceDiagnostics("{\"schema\":\"old-runtime\"}",schema) != nullptr) throw std::runtime_error("legacy missing was manufactured"); });
+        Pass([&]{ if (f::ExtractInferenceDiagnostics(J{{"diagnostics",diagnostic}}.dump(),schema) != diagnostic) throw std::runtime_error("diagnostic extraction changed payload"); });
+        auto badDiagnostic = diagnostic; badDiagnostic["counts"]["returned_count"] = nullptr;
+        Reject([&]{ check(badDiagnostic,"inference_diagnostics"); },"FEEDBACK_RUNTIME_COUNT_REQUIRED");
+        badDiagnostic = diagnostic; badDiagnostic["mask_rejection_reasons"]["contour_fewer_than_three_points"] = 18;
+        Reject([&]{ check(badDiagnostic,"inference_diagnostics"); },"FEEDBACK_MASK_REASON_COUNT_MISMATCH");
+        badDiagnostic = diagnostic; badDiagnostic["transform"]["pad_x"] = 1;
+        Reject([&]{ check(badDiagnostic,"inference_diagnostics"); },"FEEDBACK_TRANSFORM_INVALID");
+        badDiagnostic = diagnostic; badDiagnostic["mask_ref"] = "private";
+        Reject([&]{ check(badDiagnostic,"inference_diagnostics"); },"FEEDBACK_FIELD_NOT_ALLOWED");
+        auto complete = diagnostic;
+        complete["counts"] = {{"above_threshold_count",1},{"examined_count",1},{"suppressed_count",0},{"unexamined_count",0},
+            {"selected_before_mask_count",1},{"mask_rejected_count",0},{"returned_count",1},{"detection_cap",20},{"cap_hit",false},{"full_post_nms_count",1}};
+        complete["mask_rejection_reasons"]["contour_fewer_than_three_points"] = 0;
+        Pass([&]{ check(complete,"inference_diagnostics"); });
+        complete["parameters"]["max_detections"] = 1; complete["counts"]["detection_cap"] = 1;
+        complete["counts"]["cap_hit"] = true; complete["counts"]["full_post_nms_count"] = nullptr;
+        Pass([&]{ check(complete,"inference_diagnostics"); });
+        complete["counts"]["full_post_nms_count"] = 1;
+        Reject([&]{ check(complete,"inference_diagnostics"); },"FEEDBACK_TRUNCATION_HAS_FULL_COUNT");
+        auto empty = diagnostic;
+        for(auto& field:empty["counts"].items()) if(field.key()!="detection_cap") field.value()=0;
+        empty["counts"]["cap_hit"] = false;
+        empty["raw_class_counts"] = {0,0,0,0,0,0,0};empty["mask_rejection_reasons"]["contour_fewer_than_three_points"] = 0;
+        Pass([&]{ check(empty,"inference_diagnostics"); });
         Pass([&]{ check(issue); check(disposition,"disposition"); check(repair,"repair"); f::ValidateLinks(issue,sha,disposition); });
         auto wrongSchema = schema; wrongSchema["$id"] = "unsupported-version";
         Reject([&]{ f::ValidateRecord(issue,wrongSchema,"issue"); },"FEEDBACK_CONTRACT_VERSION_INVALID");

@@ -111,6 +111,28 @@
         "evidence_sha256":{"$ref":"#/$defs/nullable_sha"},"repair_lock_sha256":{"$ref":"#/$defs/nullable_sha"},"production_allowed":{"const":false}
       }
     },
+    "inference_diagnostics": {
+      "type":"object","additionalProperties":false,
+      "required":["schema","inference_mode","preprocessing_version","postprocessing_version","parameters","input","transform","class_catalog","raw_class_counts","counts","mask_rejection_reasons","elapsed_ms","timing_scope","model_quality_accepted","production_allowed"],
+      "properties":{
+        "schema":{"const":"visionai.runtime.inference_diagnostics.v1"},"inference_mode":{"const":"eval"},
+        "preprocessing_version":{"$ref":"#/$defs/id"},"postprocessing_version":{"$ref":"#/$defs/id"},
+        "parameters":{"type":"object","additionalProperties":false,"required":["confidence_threshold","nms_iou_threshold","mask_threshold","max_detections","class_agnostic_nms"],"properties":{
+          "confidence_threshold":{"type":"number","minimum":0,"maximum":1},"nms_iou_threshold":{"type":"number","minimum":0,"maximum":1},
+          "mask_threshold":{"type":"number","minimum":0,"maximum":1},"max_detections":{"type":"integer","minimum":1,"maximum":100000000},"class_agnostic_nms":{"type":"boolean"}}},
+        "input":{"type":"object","additionalProperties":false,"required":["width","height","scale","letterbox","color","declared_scale","declared_letterbox","declared_color"],"properties":{
+          "width":{"type":"integer","minimum":1},"height":{"type":"integer","minimum":1},"scale":{"type":"number","minimum":0},
+          "letterbox":{"const":true},"color":{"const":"rgb"},"declared_scale":{"type":"number","minimum":0},"declared_letterbox":{"type":"boolean"},"declared_color":{"$ref":"#/$defs/id"}}},
+        "transform":{"type":"object","additionalProperties":false,"required":["original_width","original_height","resized_width","resized_height","scale","pad_x","pad_y"],"properties":{
+          "original_width":{"type":"integer","minimum":1},"original_height":{"type":"integer","minimum":1},
+          "resized_width":{"type":"integer","minimum":1},"resized_height":{"type":"integer","minimum":1},
+          "scale":{"type":"number","minimum":0},"pad_x":{"$ref":"#/$defs/count"},"pad_y":{"$ref":"#/$defs/count"}}},
+        "class_catalog":{"$ref":"#/$defs/classes"},"raw_class_counts":{"$ref":"#/$defs/class_counts"},"counts":{"$ref":"#/$defs/diagnostics"},
+        "mask_rejection_reasons":{"type":"object","additionalProperties":false,"required":["contour_fewer_than_three_points"],"properties":{"contour_fewer_than_three_points":{"$ref":"#/$defs/count"}}},
+        "elapsed_ms":{"type":"number","minimum":0},"timing_scope":{"const":"forward_and_box_decode"},
+        "model_quality_accepted":{"const":false},"production_allowed":{"const":false}
+      }
+    },
     "repair": {
       "type":"object","additionalProperties":false,
       "required":["schema","package_id","handoff_lock_sha256","issue_bindings","change_scope","change_summary","candidate_model_id","candidate_manifest_sha256","candidate_checkpoint_sha256","runtime_sha256","abi_version","inference_supported","training_supported","training_acceptance_sha256","requires_restart","quality_status","production_allowed","auto_activate"],

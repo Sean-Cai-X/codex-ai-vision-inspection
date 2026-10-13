@@ -1400,6 +1400,7 @@ TorchTaskResultCpp ExecuteTorchYoloV8SegTask(
                      << "\"instances\":[";
 
         int accepted_instances = 0;
+        std::vector<std::size_t> returned_class_counts(manifest.num_classes, 0);
         for (std::size_t index = 0; index < candidates.size(); ++index)
         {
             double quality = 0.0;
@@ -1555,6 +1556,7 @@ TorchTaskResultCpp ExecuteTorchYoloV8SegTask(
                           rejected_points.size()))
                 << "}";
             ++accepted_instances;
+            ++returned_class_counts.at(static_cast<std::size_t>(candidates[index].class_id));
         }
         instances << "],\"overlay_ref\":" << QuoteSegJson(overlay_ref.string())
                   << ",\"metrics_ref\":" << QuoteSegJson(metrics_ref.string())
@@ -1597,6 +1599,36 @@ TorchTaskResultCpp ExecuteTorchYoloV8SegTask(
         const double elapsed_ms =
             std::chrono::duration<double, std::milli>(
                 finished - started).count();
+        // Bounded, no-image diagnostic payload. No paths, masks, contours or
+        // per-anchor tensor dumps enter the business feedback channel.
+        const nlohmann::json inference_diagnostics = {
+            {"schema", "visionai.runtime.inference_diagnostics.v1"},
+            {"inference_mode", "eval"},
+            {"preprocessing_version", "bgr-rgb-resize-linear-center-pad-v1"},
+            {"postprocessing_version", "sigmoid-dfl-box-nms-proto-mask-contour-v1"},
+            {"parameters", {{"confidence_threshold",manifest.confidence_threshold},
+                {"nms_iou_threshold",manifest.iou_threshold},{"mask_threshold",manifest.mask_threshold},
+                {"max_detections",manifest.max_detections},{"class_agnostic_nms",manifest.class_agnostic_nms}}},
+            {"input", {{"width",manifest.input_width},{"height",manifest.input_height},
+                {"scale",1.0/255.0},{"letterbox",true},{"color","rgb"},
+                {"declared_scale",manifest.input_scale},{"declared_letterbox",manifest.letterbox},{"declared_color",manifest.input_color}}},
+            {"transform", {{"original_width",image.cols},{"original_height",image.rows},
+                {"resized_width",letterbox.resized_width},{"resized_height",letterbox.resized_height},
+                {"scale",letterbox.scale},{"pad_x",letterbox.pad_x},{"pad_y",letterbox.pad_y}}},
+            {"class_catalog",manifest.class_names},{"raw_class_counts",returned_class_counts},
+            {"counts", {{"above_threshold_count",nms_diagnostics.above_threshold},
+                {"examined_count",nms_diagnostics.examined},{"suppressed_count",nms_diagnostics.suppressed},
+                {"unexamined_count",nms_diagnostics.above_threshold-nms_diagnostics.examined},
+                {"selected_before_mask_count",candidates.size()},
+                {"mask_rejected_count",candidates.size()-static_cast<std::size_t>(accepted_instances)},
+                {"returned_count",accepted_instances},{"detection_cap",manifest.max_detections},
+                {"cap_hit",nms_diagnostics.cap_reached},
+                {"full_post_nms_count",!nms_diagnostics.cap_reached && nms_diagnostics.examined==nms_diagnostics.above_threshold
+                    ? nlohmann::json(candidates.size()) : nlohmann::json(nullptr)}}},
+            {"mask_rejection_reasons", {{"contour_fewer_than_three_points",candidates.size()-static_cast<std::size_t>(accepted_instances)}}},
+            {"elapsed_ms",elapsed_ms},{"timing_scope","forward_and_box_decode"},
+            {"model_quality_accepted",false},{"production_allowed",false}
+        };
         std::ofstream(metrics_ref)
             << "{\"schema\":\"cxvision.segmentation_metrics.v1\","
             << "\"candidate_count\":" << candidates.size()
@@ -1609,10 +1641,11 @@ TorchTaskResultCpp ExecuteTorchYoloV8SegTask(
             << ",\"nms_unexamined_count\":" << (nms_diagnostics.above_threshold - nms_diagnostics.examined)
             << ",\"max_detections\":" << manifest.max_detections
             << ",\"output_cap_reached\":" << (nms_diagnostics.cap_reached ? "true" : "false")
-            << ",\"full_post_nms_count\":" << (nms_diagnostics.examined == nms_diagnostics.above_threshold ? std::to_string(candidates.size()) : "null")
+            << ",\"full_post_nms_count\":" << (!nms_diagnostics.cap_reached && nms_diagnostics.examined == nms_diagnostics.above_threshold ? std::to_string(candidates.size()) : "null")
             << ",\"returned_post_nms_count\":" << candidates.size()
             << ",\"mask_contour_rejected_count\":" << (candidates.size() - accepted_instances)
             << ",\"elapsed_ms\":" << elapsed_ms
+            << ",\"diagnostics\":" << inference_diagnostics.dump()
             << ",\"semantic_quality\":\"pending_human_review\"}\n";
         std::ofstream(evidence_ref)
             << "{\"schema\":\"cxvision.torch.runtime_evidence.v1\","
@@ -1647,7 +1680,7 @@ TorchTaskResultCpp ExecuteTorchYoloV8SegTask(
             ",\"overlay_ref\":" + QuoteSegJson(overlay_ref.string()) +
             ",\"measurement_evidence_ref\":" +
             QuoteSegJson(measurement_ref.string()) +
-            ",\"semantic_quality\":\"pending_human_review\"}";
+            ",\"semantic_quality\":\"pending_human_review\",\"diagnostics\":" + inference_diagnostics.dump() + "}";
         return result;
     }
     catch (const std::exception& error)
@@ -5947,6 +5980,7 @@ TorchTaskResultCpp ExecuteTorchYoloV8SegBusinessInferenceTask(
         local_result.status = "auto_provisional_review_required";
         local_result.unified_mainline_summary =
             "AUTO_PROVISIONAL inference requires manual business review";
+        const auto diagnostic_payload = nlohmann::json::parse(local_result.result_json).at("diagnostics");
         local_result.result_json =
             "{\"schema\":\"cxvision.yolov8seg.business_inference.v1\","
             "\"status\":\"AUTO_PROVISIONAL\","
@@ -5961,7 +5995,7 @@ TorchTaskResultCpp ExecuteTorchYoloV8SegBusinessInferenceTask(
             ",\"verify_asset_sha256\":" +
                 QuoteSegJson(inference_settings.verify_asset_sha256) +
             ",\"production_activation\":false,"
-            "\"human_review_required\":true}";
+            "\"human_review_required\":true,\"diagnostics\":" + diagnostic_payload.dump() + "}";
         return local_result;
     }
     catch (const std::exception&)
