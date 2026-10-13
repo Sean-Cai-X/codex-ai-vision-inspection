@@ -118,7 +118,7 @@ inline J inspect(YoloV8Segment& model,const TorchModelManifest& manifest,const c
 inline int run(int argc,char** argv){
     check(argc==8||argc==9,"usage: --candidate-audit binding parent_root covered_v5_root candidate_root transfer_root output_base [candidate_arm]");
     const std::string candidate_arm=argc==9?argv[8]:"unified_v11_geometry_assignment_experimental";
-    check(candidate_arm=="unified_v11_geometry_assignment_experimental"||candidate_arm=="unified_v12_foreground_competition_experimental"||candidate_arm=="unified_v13_sigmoid_background_experimental","CANDIDATE_ARM_INVALID");
+    check(candidate_arm=="unified_v11_geometry_assignment_experimental"||candidate_arm=="unified_v12_foreground_competition_experimental"||candidate_arm=="unified_v13_sigmoid_background_experimental"||candidate_arm=="unified_v14_stratified_background_experimental","CANDIDATE_ARM_INVALID");
     auto binding=mode_budget::json(argv[2]);auto parent=fs::canonical(argv[3]),v5=fs::canonical(argv[4]),geo=fs::canonical(argv[5]),transfer=fs::canonical(argv[6]);
     auto pm=mode_budget::json(parent/"model_manifest.json");check(mode_budget::hash(parent/"model_manifest.json")==binding.at("parent_manifest_sha256")&&
         mode_budget::hash(parent/pm.at("weights").get<std::string>())==binding.at("checkpoint_sha256")&&

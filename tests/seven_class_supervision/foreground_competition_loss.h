@@ -7,7 +7,25 @@ struct Terms {
     // Diagnostic masks/indices from the actual selection, never inferred from gradients.
     torch::Tensor positive_anchors,hard_background_anchors;
 };
-inline Terms loss(const torch::Tensor& logits,const torch::Tensor& one_hot,bool sigmoid_background=false) {
+inline torch::Tensor stratified_indices(const torch::Tensor& values,const torch::Tensor& positive,
+    int64_t count,const std::vector<int64_t>& sizes){
+    torch::NoGradGuard guard;
+    TORCH_CHECK(sizes.size()==3&&sizes[0]>0&&sizes[1]>0&&sizes[2]>0&&sizes[0]+sizes[1]+sizes[2]==values.numel(),"STRATIFIED_LEVEL_LAYOUT");
+    auto used=torch::zeros_like(positive);std::vector<torch::Tensor> selected;int64_t offset=0,total=0;
+    const std::vector<int64_t> quotas={count/5,count/5,count-2*(count/5)};
+    for(int level=0;level<3;++level){
+        auto indices=torch::nonzero(positive.slice(0,offset,offset+sizes[level]).logical_not()).squeeze(1)+offset;
+        auto quota=std::min<int64_t>(indices.numel(),quotas[level]);
+        if(quota){auto best=std::get<1>(values.index_select(0,indices).topk(quota));auto ids=indices.index_select(0,best);
+            selected.push_back(ids);used.index_put_({ids},true);total+=quota;}offset+=sizes[level];
+    }
+    if(total<count){auto remaining=torch::nonzero(positive.logical_not()&used.logical_not()).squeeze(1);
+        TORCH_CHECK(remaining.numel()>=count-total,"STRATIFIED_BUDGET_UNFILLABLE");
+        selected.push_back(remaining.index_select(0,std::get<1>(values.index_select(0,remaining).topk(count-total))));}
+    return selected.empty()?torch::empty({0},positive.options().dtype(torch::kLong)):torch::cat(selected);
+}
+inline Terms loss(const torch::Tensor& logits,const torch::Tensor& one_hot,bool sigmoid_background=false,
+    const std::vector<int64_t>& level_sizes={}) {
     TORCH_CHECK(logits.dim()==2&&logits.size(0)>0&&logits.size(1)==7&&one_hot.sizes()==logits.sizes(),"COMPETITION_SHAPE");
     TORCH_CHECK(((one_hot==0)|(one_hot==1)).all().item<bool>()&&(one_hot.sum(1)<=1).all().item<bool>(),"COMPETITION_TARGET_NOT_SINGLE_OWNER");
     auto positive=one_hot.sum(1)>0;
@@ -25,7 +43,11 @@ inline Terms loss(const torch::Tensor& logits,const torch::Tensor& one_hot,bool 
     const auto count=std::min<int64_t>(bg.numel(),std::max<int64_t>(1,fg.numel()*20));
     t.positive_anchors=positive.detach();
     t.hard_background_anchors=torch::empty({0},logits.options().dtype(torch::kLong));
-    if(count){auto selected=bg.topk(count);t.hard_background=std::get<0>(selected).mean();
+    if(!level_sizes.empty()){
+        TORCH_CHECK(sigmoid_background,"STRATIFIED_REQUIRES_SIGMOID_BACKGROUND");
+        t.hard_background_anchors=stratified_indices(bg_per_anchor,positive,count,level_sizes);
+        t.hard_background=count?bg_per_anchor.index_select(0,t.hard_background_anchors).mean():zero;
+    }else if(count){auto selected=bg.topk(count);t.hard_background=std::get<0>(selected).mean();
         t.hard_background_anchors=torch::nonzero(positive.logical_not()).squeeze(1).index_select(0,std::get<1>(selected));
     }else t.hard_background=zero;
     t.total=t.foreground+t.background+2*t.hard_background;return t;
@@ -64,5 +86,20 @@ inline void self_test(){
         if(positive)target.select(1,1).fill_(1);auto t=loss(logits,target,true);t.total.backward();
         TORCH_CHECK(torch::isfinite(t.total).item<bool>()&&torch::isfinite(logits.grad()).all().item<bool>(),"SIGMOID_BACKGROUND_NONFINITE");
     }
+    // Coarse-level scores dominate the global miner; floors must still sample fine levels.
+    auto logits=torch::zeros({900,7},torch::TensorOptions().requires_grad(true));
+    {torch::NoGradGuard guard;logits.slice(0,600,900).fill_(5);}
+    auto target=torch::zeros_like(logits).detach();target.slice(0,600,610).select(1,1).fill_(1);
+    auto global=loss(logits,target,true),balanced=loss(logits,target,true,{300,300,300});
+    TORCH_CHECK(torch::equal(global.foreground,balanced.foreground)&&torch::equal(global.background,balanced.background),"STRATIFIED_CHANGED_OTHER_TERMS");
+    TORCH_CHECK(global.hard_background_anchors.min().item<int64_t>()>=610&&balanced.hard_background_anchors.numel()==200,"STRATIFIED_CONTROL_OR_BUDGET");
+    const auto& ids=balanced.hard_background_anchors;
+    TORCH_CHECK((ids<300).sum().item<int64_t>()==40&&((ids>=300)&(ids<600)).sum().item<int64_t>()==40&&(ids>=600).sum().item<int64_t>()==120,"STRATIFIED_QUOTAS");
+    TORCH_CHECK(!(ids.ge(600)&ids.lt(610)).any().item<bool>(),"STRATIFIED_SELECTED_POSITIVE");
+    balanced.total.backward();TORCH_CHECK(torch::isfinite(logits.grad()).all().item<bool>(),"STRATIFIED_NONFINITE_GRADIENT");
+    auto sparse_target=torch::zeros({13,7});sparse_target.index_put_({2,1},1);
+    auto sparse=loss(torch::zeros({13,7}),sparse_target,true,{1,1,11});
+    auto sorted=std::get<0>(sparse.hard_background_anchors.sort());
+    TORCH_CHECK(sorted.numel()==12&&torch::equal(sorted,torch::nonzero(sparse.positive_anchors.logical_not()).squeeze(1)),"STRATIFIED_SCARCITY_DUPLICATE_OR_LOSS");
 }
 }
