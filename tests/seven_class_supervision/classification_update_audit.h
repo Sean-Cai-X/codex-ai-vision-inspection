@@ -81,9 +81,18 @@ public:
     }
     J before_step(){J rows=J::array();torch::NoGradGuard guard;
         for(const auto& p:parameters_){auto g=p.value.grad();check(g.defined(),"PARAMETER_AUDIT_NO_ACTUAL_GRAD");
-            check(torch::allclose(g,p.expected,1e-4,1e-6),"PARAMETER_AUDIT_DECOMPOSITION_MISMATCH");
+            const double max_gap=(g-p.expected).abs().max().item<double>(),gap_l2=(g-p.expected).norm().item<double>();
+            const double actual_l2=g.norm().item<double>(),actual_max=g.abs().max().item<double>();
+            // Separate convolution backwards sum float32 terms in different orders.
+            // Use both tensor-relative L2 and maximum-error bounds; element-wise
+            // relative checks misclassify cancellation around zero as disconnection.
+            const bool agrees=max_gap<=1e-6+1e-4*actual_max&&gap_l2<=1e-6+1e-4*actual_l2;
+            if(!agrees)std::cerr<<"gradient decomposition "<<p.name<<" update="<<update_
+                <<" max_gap="<<max_gap<<" actual_l2="<<actual_l2<<" gap_l2="<<gap_l2<<" actual_max="<<actual_max<<std::endl;
+            check(agrees,"PARAMETER_AUDIT_DECOMPOSITION_MISMATCH");
             rows.push_back({{"name",p.name},{"level",p.level},{"actual_accumulated_gradient",tensor_stats(g)},
-                {"decomposition_max_abs_gap",(g-p.expected).abs().max().item<double>()}});}
+                {"decomposition_max_abs_gap",max_gap},{"decomposition_relative_l2_gap",actual_l2>0?J(gap_l2/actual_l2):J(nullptr)},
+                {"decomposition_abs_tolerance",1e-6},{"decomposition_tensor_relative_tolerance",1e-4}});}
         return rows;
     }
     J after_step(const J& before){J rows=J::array();torch::NoGradGuard guard;
@@ -119,7 +128,11 @@ inline void self_test(){
     optimizer.zero_grad();for(int micro=0;micro<2;++micro){auto input=torch::rand({1,3,64,64});auto raw=model->forward(input);foreground_competition::Terms terms;
         auto loss=unified_experiment::loss(model,raw,sample,input,lb,manifest,nullptr,false,false,false,true,&terms,true);
         audit.observe(raw,terms,sample,lb,manifest,micro);(loss.total_loss/2).backward();}
-    auto before=audit.before_step();optimizer.step();auto result=audit.after_step(before);int changed=0;
+    auto before=audit.before_step();
+    auto probe=model->head()->named_parameters()["cv3.0.0.conv.weight"];auto original_grad=probe.grad().clone();probe.grad().add_(1);
+    bool corruption_rejected=false;try{audit.before_step();}catch(const std::runtime_error&){corruption_rejected=true;}
+    probe.grad().copy_(original_grad);check(corruption_rejected,"PARAMETER_AUDIT_CORRUPTED_GRAD_ACCEPTED");
+    optimizer.step();auto result=audit.after_step(before);int changed=0;
     for(const auto& p:result.at("parameters"))changed+=p.at("update").at("nonzero").get<int64_t>()>0;check(changed>0,"PARAMETER_AUDIT_NO_REAL_UPDATE");
 }
 inline int run(int argc,char** argv){
