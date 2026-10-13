@@ -41,7 +41,7 @@ inline BusinessLossTensors loss(YoloV8Segment& model,const YoloV8SegRawOutput& r
     const YoloV8SegDatasetSample& sample,const torch::Tensor& input,const SegLetterbox& lb,
     const TorchModelManifest& manifest,int64_t* positive_count=nullptr,bool per_level=false,
     bool per_level_hard_negative=false,bool geometry_only=false,bool competition=false,
-    foreground_competition::Terms* competition_terms=nullptr) {
+    foreground_competition::Terms* competition_terms=nullptr,bool sigmoid_background=false) {
     auto t=BuildSegTaskAlignedAnchorTable(raw,model,manifest.input_width,manifest.input_height);
     std::vector<float> coords;
     for(const auto& b:sample.boxes_xyxy_norm)coords.insert(coords.end(),{
@@ -77,7 +77,7 @@ inline BusinessLossTensors loss(YoloV8Segment& model,const YoloV8SegRawOutput& r
     }
     BusinessLossTensors r;r.class_loss=(weighted*target).sum()/target.sum().clamp_min(1)+
         (weighted*(1-target)).sum()/(1-target).sum().clamp_min(1)+2*hard_negative;
-    if(competition){auto terms=foreground_competition::loss(logits,target);r.class_loss=terms.total;if(competition_terms)*competition_terms=terms;}
+    if(competition){auto terms=foreground_competition::loss(logits,target,sigmoid_background);r.class_loss=terms.total;if(competition_terms)*competition_terms=terms;}
     auto target_boxes=boxes.index_select(0,gt);auto predicted=t.decoded_boxes.index({0}).index_select(0,indices);
     auto matched_iou=overlap(predicted,target_boxes);
     auto quality=per_level?matched_iou.detach().clamp_min(.05):torch::ones_like(matched_iou);

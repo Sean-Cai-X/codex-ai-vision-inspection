@@ -28,11 +28,13 @@ inline J evaluate(YoloV8Segment& model,const TorchModelManifest& manifest,const 
 }
 inline int run(int argc,char** argv){
     const bool geometry_only=std::string(argv[1])=="--coverage-geometry-budget";
-    const bool competition=std::string(argv[1])=="--coverage-competition-budget";
+    const bool sigmoid_background=std::string(argv[1])=="--coverage-sigmoid-background-budget";
+    const bool competition=std::string(argv[1])=="--coverage-competition-budget"||sigmoid_background;
     const bool controlled=geometry_only||competition;
-    check(argc==(controlled?9:8),"usage: --coverage[-geometry|-competition]-budget binding parent_root rules prior_experiment transfer_audit_root output_base [covered_v5_root for controlled arm]");
+    check(argc==(sigmoid_background?10:controlled?9:8),"usage: --coverage[-geometry|-competition|-sigmoid-background]-budget binding parent_root rules prior_experiment transfer_audit_root output_base [covered_v5_root] [covered_v12_root for sigmoid background]");
     auto binding=mode_budget::json(argv[2]),rules=mode_budget::json(argv[4]);auto parent=fs::canonical(argv[3]);
     auto prior=fs::canonical(argv[5]),audit=fs::canonical(argv[6]);auto parent_manifest=mode_budget::json(parent/"model_manifest.json");
+    check(parent_manifest.at("classes")==binding.at("geometry_contract"),"COVERAGE_CLASS_ORDER_MISMATCH");
     auto weights=parent/parent_manifest.at("weights").get<std::string>();
     check(mode_budget::hash(weights)==binding.at("checkpoint_sha256")&&mode_budget::hash(parent/"model_manifest.json")==binding.at("parent_manifest_sha256")&&
         mode_budget::hash(parent/binding.at("attestation_reference").get<std::string>())==binding.at("attestation_sha256")&&
@@ -43,6 +45,8 @@ inline int run(int argc,char** argv){
     auto root=fs::canonical(fresh_root(argv[7]));std::cout<<"Coverage evidence: "<<root.generic_string()<<std::endl;
     fs::path covered_root;J covered_inventory;
     if(controlled){covered_root=fs::canonical(argv[8]);covered_inventory=mode_budget::inventory(covered_root);}
+    fs::path competition_root;J competition_inventory;
+    if(sigmoid_background){competition_root=fs::canonical(argv[9]);competition_inventory=mode_budget::inventory(competition_root);}
     TorchModelManifest manifest;std::string reason;check(LoadTorchModelManifest((parent/"model_manifest.json").string(),parent.string(),manifest,reason),"COVERAGE_MANIFEST");
     auto policy=coverage_augmentation::policy();const auto policy_sha="sha256:"+Sha256Bytes(policy.dump());
     write_new(root/"coverage_policy.json",policy.dump(2));J results=J::array();auto started=std::chrono::steady_clock::now();
@@ -90,7 +94,7 @@ inline int run(int argc,char** argv){
             {"annotation_sha256",mode_budget::hash(valid_mask)},{"target_class_id",settings.project_geometry_class_id},{"independent_accuracy_evidence",false}});
         for(int version=controlled?1:0;version<2;++version){
             const std::string baseline_loss=version?"unified_v5_hard_negative_experimental":"legacy_v1";
-            const std::string loss_name=competition?"unified_v12_foreground_competition_experimental":geometry_only?"unified_v11_geometry_assignment_experimental":baseline_loss;
+            const std::string loss_name=sigmoid_background?"unified_v13_sigmoid_background_experimental":competition?"unified_v12_foreground_competition_experimental":geometry_only?"unified_v11_geometry_assignment_experimental":baseline_loss;
             auto old_root=prior/(shape+"-"+baseline_loss);auto old=mode_budget::json(old_root/"result.json");
             check(old.at("parent_sha256")==binding.at("checkpoint_sha256")&&old.at("dataset_revision")==data_binding.at("dataset_revision_id")&&
                 old.at("epochs")==40&&old.at("updates")==40&&old.at("batch_size")==2&&old.at("seed")==20261012&&
@@ -115,11 +119,22 @@ inline int run(int argc,char** argv){
                 for(std::size_t i=0;i<evaluated.size();++i)check(evaluated[i].at("metrics")==base.at("observations")[i].at("metrics"),"GEOMETRY_CONTROL_NOT_REPRODUCED");
                 base["observations"]=evaluated;results.push_back(base);
             }
+            if(sigmoid_background){
+                auto base_dir=competition_root/(shape+"-unified_v12_foreground_competition_experimental-coverage-v1");auto base=mode_budget::json(base_dir/"result.json");
+                check(base.at("coverage_revision_sha256")==revision_sha&&base.at("coverage_policy_sha256")==policy_sha&&
+                    base.at("parent_sha256")==binding.at("checkpoint_sha256")&&base.at("epochs")==40&&base.at("updates")==40&&
+                    base.at("batch_size")==2&&base.at("microbatch_size")==1&&base.at("gradient_accumulation_steps")==2&&base.at("seed")==20261012&&
+                    base.at("classification_policy")=="fixed_zero_background_competition_v1"&&mode_budget::hash(base_dir/"weights.pt")==base.at("checkpoint_sha256"),"SIGMOID_CONTROL_NOT_MATCHED");
+                YoloV8Segment baseline(7);check(baseline->load_state_dict_strict((base_dir/"weights.pt").string()).complete(),"SIGMOID_CONTROL_LOAD");
+                auto evaluated=evaluate(baseline,manifest,inputs);check(evaluated.size()==base.at("observations").size(),"SIGMOID_CONTROL_COUNT");
+                for(std::size_t i=0;i<evaluated.size();++i)check(evaluated[i].at("metrics")==base.at("observations")[i].at("metrics"),"SIGMOID_CONTROL_NOT_REPRODUCED");
+                base["observations"]=evaluated;results.push_back(base);
+            }
             budget();torch::manual_seed(20261012);YoloV8Segment model(7);check(model->load_state_dict_strict(weights.string()).complete(),"COVERAGE_PARENT_LOAD");model->train();
             torch::optim::Adam optimizer(model->parameters(),torch::optim::AdamOptions(1e-4).weight_decay(0));
             foreground_competition::Terms terms;
             auto compute=[&](const YoloV8SegDatasetSample& s,int64_t& positives){auto image=cv::imread(s.image_ref);SegLetterbox lb;auto in=MakeSegInput(image,manifest,lb);auto raw=model->forward(in);
-                return version?unified_experiment::loss(model,raw,s,in,lb,manifest,&positives,false,false,geometry_only,competition,competition?&terms:nullptr):LegacyBusinessYoloV8SegLoss(model,raw,s,in,lb,manifest);};
+                return version?unified_experiment::loss(model,raw,s,in,lb,manifest,&positives,false,false,geometry_only,competition,competition?&terms:nullptr,sigmoid_background):LegacyBusinessYoloV8SegLoss(model,raw,s,in,lb,manifest);};
             J trace=J::array();auto dir=root/(shape+"-"+loss_name+"-coverage-v1");fs::create_directory(dir);
             std::ofstream progress(dir/"progress.jsonl");check(bool(progress),"COVERAGE_PROGRESS_OPEN");
             for(int epoch=0;epoch<40;++epoch){budget();double lr=1e-6+(1e-4-1e-6)*.5*(1+std::cos(std::acos(-1.)*epoch/39.));
@@ -147,7 +162,7 @@ inline int run(int argc,char** argv){
                 {"parent_sha256",binding.at("checkpoint_sha256")},{"base_dataset_revision",data_binding.at("dataset_revision_id")},
                 {"coverage_revision_sha256",revision_sha},{"coverage_policy_sha256",policy_sha},{"checkpoint_sha256",mode_budget::hash(dir/"weights.pt")},
                 {"assignment_ranking",geometry_only?"box_iou_pow6":"baseline"},{"strict_reload_evaluated",true},
-                {"classification_policy",competition?"fixed_zero_background_competition_v1":"baseline"},
+                {"classification_policy",sigmoid_background?"foreground_competition_sigmoid_background_v1":competition?"fixed_zero_background_competition_v1":"baseline"},
                 {"probe_executable_sha256",mode_budget::hash(fs::canonical(argv[0]))},
                 {"observations",evaluated},{"model_quality_accepted",false},{"production_allowed",false}};
             write_new(dir/"result.json",result.dump(2));results.push_back(result);
@@ -157,6 +172,7 @@ inline int run(int argc,char** argv){
     }
     check(mode_budget::inventory(parent)==parent_inventory&&mode_budget::hash(audit/"transfer_error_audit.json")==audit_digest,"COVERAGE_SOURCE_CHANGED");
     if(controlled)check(mode_budget::inventory(covered_root)==covered_inventory,"GEOMETRY_CONTROL_CHANGED");
+    if(sigmoid_background)check(mode_budget::inventory(competition_root)==competition_inventory,"SIGMOID_CONTROL_CHANGED");
     write_new(root/"comparison.json",J({{"schema","visionai.rd.coverage_budget_comparison.v1"},{"source_audit_sha256",audit_digest},
         {"coverage_policy_sha256",policy_sha},{"results",results},{"execution_status","PASS"},{"model_quality_accepted",false},{"production_allowed",false}}).dump(2));
     std::cout<<"PASS execution, NOT quality: "<<root.generic_string()<<std::endl;return 0;

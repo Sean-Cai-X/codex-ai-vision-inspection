@@ -24,7 +24,7 @@ int main(int argc,char** argv) {
         if(argc==2&&std::string(argv[1])=="--ownership-gradient-test") {
             ownership_audit::self_test();std::cout<<"PASS unified output gradients: seven classes, competing GT, class sign and geometry owner support\n";return 0;
         }
-        if(argc>1&&(std::string(argv[1])=="--coverage-budget"||std::string(argv[1])=="--coverage-geometry-budget"||std::string(argv[1])=="--coverage-competition-budget"))return coverage_budget::run(argc,argv);
+        if(argc>1&&(std::string(argv[1])=="--coverage-budget"||std::string(argv[1])=="--coverage-geometry-budget"||std::string(argv[1])=="--coverage-competition-budget"||std::string(argv[1])=="--coverage-sigmoid-background-budget"))return coverage_budget::run(argc,argv);
         if(argc==2&&std::string(argv[1])=="--coverage-test") {
             coverage_augmentation::self_test();std::cout<<"PASS paired augmentation: 80 deterministic plans, image/polygon/box alignment, no clipping or mutation\n";return 0;
         }
