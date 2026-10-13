@@ -71,4 +71,23 @@ Explicit missing override keeps Latin fallback and logs UI_FONT_CJK_MISSING with
 Startup logs font path and CJK probe status; native tests inspect glyphs, not file existence alone.
 Linux desktop verified Chinese Evidence labels and unchanged case search/focus behavior.
 Windows candidate build and visual validation remain unperformed in this increment.
+
+## Paired boundary / landmark controls (2026-10-13)
+Reuse Evidence and Key Parameter Controls with one Reference and one Observation group.
+Expose image path, dataset revision, explicit span, continuous endpoints, gray parameters,
+landmark source/trace/SHA/declared localization error, common-support mode and solver gates.
+Binding SHA records bytes; source confirmation and error calibration remain separate facts.
+Store the readable execution calls plus an opaque GUI recipe token; reject custom script drift
+rather than overwriting it. The token never supplies geometry or execution settings.
+Run goes through the existing queued Parser owner. Freeze both image hashes, reject source/case
+changes, archive actual runtime receipts and two overlays. Parameter edits invalidate old results.
+Image View overlays use only the matching input SHA and current receipt. No fitted pose is drawn
+on an unrelated image. Results scroll in a bounded region and preserve all rejection reasons.
+Independent asymmetric raster quality is reported separately from native/UI execution success.
+Native ImGui/queued execution acceptance is separate from desktop click/screenshot acceptance.
+Linux desktop acceptance on 2026-10-13 verified F4 case search/selection, F7 pair controls,
+successful Run, stale overlay removal after error edits, localization-error rejection,
+parameter restoration, and SHA rejection with actual persisted receipts. Screenshots and
+run records stay outside the source repository. Initial auxiliary-panel overlap still needs
+workspace focusing; Windows desktop acceptance remains unperformed.
 Set CXVISION_TEST_CJK_FONT at CMake configure time to include the local CJK glyph test.

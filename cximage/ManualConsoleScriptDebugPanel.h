@@ -17,6 +17,7 @@ bool RequestHarmonicAuditRun(ManualTestContext& context,std::string& reason);
 
 bool RequestSetMatchRun(ManualTestContext& context,std::string& reason);
 bool RequestGrayBoundaryRun(ManualTestContext& context,std::string& reason);
+bool RequestRefinedArcRun(ManualTestContext& context,std::string& reason);
 bool RequestPartialMatchRun(ManualTestContext& context,std::string& reason);
 
 #endif

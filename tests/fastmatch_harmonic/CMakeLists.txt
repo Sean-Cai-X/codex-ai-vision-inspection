@@ -267,6 +267,32 @@ if(PARTIAL_MASK_OPENCV_TEST)
  target_include_directories(observed_gray_guards PRIVATE ${OpenCV_INCLUDE_DIRS})
  target_link_libraries(observed_gray_guards PRIVATE cx_so2 cxgeom_polar_discrete_harmonic ${OpenCV_LIBS})
  add_test(NAME observed_gray_normals COMMAND observed_gray_guards ${CMAKE_CURRENT_BINARY_DIR}/observed_gray_normals)
+ add_executable(refined_pair_ui_guards native_refined_pair_ui_test.cpp)
+ target_include_directories(refined_pair_ui_guards PRIVATE ${OpenCV_INCLUDE_DIRS})
+ target_link_libraries(refined_pair_ui_guards PRIVATE cx_so2 cxgeom_polar_discrete_harmonic ${OpenCV_LIBS})
+ add_test(NAME refined_pair_ui_parameters COMMAND refined_pair_ui_guards)
+ add_executable(make_refined_arc_pairs make_refined_arc_pairs.cpp)
+ target_include_directories(make_refined_arc_pairs PRIVATE ${OpenCV_INCLUDE_DIRS})
+ target_link_libraries(make_refined_arc_pairs PRIVATE partial_script_parser cx_so2 cxgeom_polar_discrete_harmonic ${OpenCV_LIBS})
+ set(PAIR_ROOT ${CMAKE_CURRENT_BINARY_DIR}/refined_arc_pairs)
+ add_test(NAME independent_asymmetric_gray_pairs COMMAND make_refined_arc_pairs ${PAIR_ROOT})
+ set_tests_properties(independent_asymmetric_gray_pairs PROPERTIES FIXTURES_SETUP pair_assets_ready)
+ if(PARTIAL_HEADLESS_APP)
+  foreach(id curve_combined s_curve_missing landmark_sha_rejected)
+   add_test(NAME paired_${id}_headless COMMAND ${PARTIAL_HEADLESS_APP} --cxscript-headless
+    --image ${PAIR_ROOT}/curve_identity/reference.pgm --script ${PAIR_ROOT}/${id}/run.cxsc
+    --out ${PAIR_ROOT}/headless/${id} --unified-log ${PAIR_ROOT}/headless/${id}.jsonl)
+   set_tests_properties(paired_${id}_headless PROPERTIES FIXTURES_REQUIRED pair_assets_ready
+    FIXTURES_SETUP pair_${id}_done ENVIRONMENT "CXVISION_RUN_ROOT=${PAIR_ROOT}" PASS_REGULAR_EXPRESSION "cxscript_headless_ok=true" TIMEOUT 60
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../..)
+  endforeach()
+  add_test(NAME paired_evidence_catalog COMMAND ${PARTIAL_HEADLESS_APP} --paired-evidence-catalog-smoke)
+  set_tests_properties(paired_evidence_catalog PROPERTIES FIXTURES_REQUIRED pair_assets_ready
+   ENVIRONMENT "CXVISION_RUN_ROOT=${PAIR_ROOT}" PASS_REGULAR_EXPRESSION "PAIRED_EVIDENCE_CATALOG_PASS"
+   TIMEOUT 60 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../..)
+  add_test(NAME paired_headless_parity COMMAND make_refined_arc_pairs ${PAIR_ROOT} verify-headless)
+  set_tests_properties(paired_headless_parity PROPERTIES FIXTURES_REQUIRED "pair_curve_combined_done;pair_s_curve_missing_done;pair_landmark_sha_rejected_done")
+ endif()
  add_executable(refined_arc_script_guards native_refined_arc_script_test.cpp)
  target_include_directories(refined_arc_script_guards PRIVATE ${OpenCV_INCLUDE_DIRS})
  target_link_libraries(refined_arc_script_guards PRIVATE partial_script_parser cx_so2 cxgeom_polar_discrete_harmonic ${OpenCV_LIBS})

@@ -3,6 +3,7 @@
 
 #include "CxEvidenceSelfTestRuntime.h"
 #include "CxGrayBoundaryUiState.h"
+#include "CxRefinedArcUiState.h"
 #include "CxParamRegressionRuntime.h"
 #include "CxScriptCatalogRuntime.h"
 #include "CxScriptHeadlessRuntime.h"
@@ -1485,6 +1486,7 @@ struct ManualTestContext {
   std::string setmatch_output_path;
   std::string setmatch_receipt;
   CxGrayBoundaryUiState gray_boundary;
+  CxRefinedArcUiState refined_arc;
   std::string partial_output_path, partial_receipt, partial_result_summary;
   std::string partial_executed_script, partial_executed_case;
   std::string partial_pending_script, partial_pending_case;

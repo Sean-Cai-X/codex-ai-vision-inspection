@@ -1,5 +1,6 @@
 #include "CxUiFont.h"
 #include "CxGrayBoundaryManualRun.h"
+#include "CxRefinedArcManualRun.h"
 #include "CxSetMatchEvidenceParameters.h"
 #include "CxHarmonicEvidenceParameters.h"
 #include "ManualConsoleScriptDebugPanel.h"
@@ -5241,6 +5242,7 @@ void ViewController::drawScriptAcceptancePanels() {
   };
 
   if(baseImageValid)cxgraymanual::Draw(m_manualTest,drawList,imagePos,m_imageViewZoom);
+  if(baseImageValid)cxpairmanual::Draw(m_manualTest,drawList,imagePos,m_imageViewZoom);
 
   // Layer 2: Manual Element / Annotation Tool Layer.
 

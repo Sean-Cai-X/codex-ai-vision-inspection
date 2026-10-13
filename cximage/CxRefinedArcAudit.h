@@ -9,7 +9,7 @@ class CxRefinedArcAudit {
  int side_=0,span_[2]={-1,-1};
  bool common_enabled_=false,anchor_set_[2]={false,false};
  cxpartialimage::CommonRefinedArcConfig common_;
- void clear_anchor(){anchor_set_[side_]=false;common_.correspondence_id.clear();}
+ void clear_anchor(){anchor_set_[side_]=false;common_.correspondence_id.clear();common_.landmarks[side_]={};}
  std::string receipt_;
  void invalidate(){receipt_.clear();}
  static std::string text(const char* s){if(!s||!*s)throw std::invalid_argument("REFINED_ARC_MISSING_TEXT");return s;}
@@ -22,6 +22,15 @@ public:
  void span(int index){invalidate();clear_anchor();if(index<0||index>127)throw std::invalid_argument("REFINED_ARC_SPAN_INDEX");span_[side_]=index;}
  void endpointparameter(double value,const char* key){invalidate();clear_anchor();sides_[side_].endpointparameter(value,key);}
  void endpointprovenance(const char* source){invalidate();clear_anchor();sides_[side_].endpointprovenance(source);}
+ // Opaque GUI recipe token. It is never decoded into geometry or execution settings.
+ void guiconfig(const char* value){
+  invalidate();const auto token=text(value);if(token.size()>131072)throw std::invalid_argument("PAIR_GUI_TOKEN_BUDGET");
+  for(char c:token)if(!((c>='0'&&c<='9')||(c>='a'&&c<='f')))throw std::invalid_argument("PAIR_GUI_TOKEN_HEX");
+ }
+ void landmarksource(const char* value){invalidate();common_.landmarks[side_].source=text(value);}
+ void landmarktrace(const char* value){invalidate();common_.landmarks[side_].trace=text(value);}
+ void landmarksha(const char* value){invalidate();common_.landmarks[side_].image_sha256=text(value);}
+ void landmarkerror(double value){invalidate();if(!std::isfinite(value)||value<0)throw std::invalid_argument("LANDMARK_LOCALIZATION_ERROR_UNKNOWN");common_.landmarks[side_].localization_error_px=value;}
  void anchor(double begin,double end){
   invalidate();clear_anchor();cxgeom::polar::RawArcAnchors a{begin,end};cxgeom::polar::ValidateRawArcAnchors(a);
   (side_==0?common_.reference:common_.observation)=a;anchor_set_[side_]=true;
@@ -42,6 +51,9 @@ public:
   else if(key=="minimum_common_anchor_fraction")common_.minimum_common_anchor_fraction=v;
   else if(key=="endpoint_projection_enabled"){if(v!=0&&v!=1)throw std::invalid_argument("REFINED_ARC_BOOLEAN");common_.endpoint_projection_enabled=v!=0;}
   else if(key=="maximum_projection_normal_residual_px")common_.maximum_projection_normal_residual_px=v;
+  else if(key=="reliable_landmarks_required"){if(v!=0&&v!=1)throw std::invalid_argument("REFINED_ARC_BOOLEAN");common_.reliable_landmarks_required=v!=0;}
+  else if(key=="maximum_landmark_localization_error_px")common_.maximum_landmark_localization_error_px=v;
+  else if(key=="maximum_landmark_pose_error_px")common_.maximum_landmark_pose_error_px=v;
   else if(key=="common_support_enabled"){if(v!=0&&v!=1)throw std::invalid_argument("REFINED_ARC_BOOLEAN");common_enabled_=v!=0;}
   else if(key=="allow_reversed"){if(v!=0&&v!=1)throw std::invalid_argument("REFINED_ARC_BOOLEAN");c.allow_reversed=v!=0;}
   else throw std::invalid_argument("REFINED_ARC_UNKNOWN_PARAMETER");
@@ -49,6 +61,7 @@ public:
  void run(){
   invalidate();
   if(span_[0]<0||span_[1]<0)throw std::invalid_argument("REFINED_ARC_EXPLICIT_SPANS_REQUIRED");
+  if(common_.reliable_landmarks_required&&!common_enabled_)throw std::invalid_argument("LANDMARK_COMMON_MODE_REQUIRED");
   if(common_.endpoint_projection_enabled&&!common_enabled_)
    throw std::invalid_argument("ENDPOINT_PROJECTION_COMMON_MODE_REQUIRED");
   if(common_enabled_&&(common_.correspondence_id.empty()||
@@ -62,6 +75,7 @@ public:
    receipt_=cxpartialimage::MatchCommonRefinedArc(a[size_t(span_[0])],b[size_t(span_[1])],common_).receipt();
   }else receipt_=cxpartialimage::MatchRefinedArc(a[size_t(span_[0])],b[size_t(span_[1])],settings_).receipt();
  }
+ cv::Mat sideoverlay(int side)const{if(side<0||side>1)throw std::invalid_argument("REFINED_ARC_SIDE");receipt();return sides_[side].overlay();}
  const std::string& receipt()const{if(receipt_.empty())throw std::runtime_error("REFINED_ARC_RUN_REQUIRED");return receipt_;}
  void expectstatus(const char* status){if(nlohmann::json::parse(receipt()).at("status")!=text(status))throw std::runtime_error("REFINED_ARC_STATUS_ASSERTION");}
  void save(const char* path){const auto& r=receipt();std::ofstream f(text(path));f<<r;f.close();if(!f)throw std::runtime_error("REFINED_ARC_WRITE_FAILED");}
@@ -77,6 +91,11 @@ template<class Parser> void RegisterRefinedArcAudit(Parser& parser){
  parser.DefineClassFun("RefinedArcAudit",p,"parameter",&CxRefinedArcAudit::parameter);
  parser.DefineClassFun("RefinedArcAudit",p,"endpointparameter",&CxRefinedArcAudit::endpointparameter);
  parser.DefineClassFun("RefinedArcAudit",p,"endpointprovenance",&CxRefinedArcAudit::endpointprovenance);
+ parser.DefineClassFun("RefinedArcAudit",p,"guiconfig",&CxRefinedArcAudit::guiconfig);
+ parser.DefineClassFun("RefinedArcAudit",p,"landmarksource",&CxRefinedArcAudit::landmarksource);
+ parser.DefineClassFun("RefinedArcAudit",p,"landmarktrace",&CxRefinedArcAudit::landmarktrace);
+ parser.DefineClassFun("RefinedArcAudit",p,"landmarksha",&CxRefinedArcAudit::landmarksha);
+ parser.DefineClassFun("RefinedArcAudit",p,"landmarkerror",&CxRefinedArcAudit::landmarkerror);
  parser.DefineClassFun("RefinedArcAudit",p,"anchor",&CxRefinedArcAudit::anchor);
  parser.DefineClassFun("RefinedArcAudit",p,"correspondence",&CxRefinedArcAudit::correspondence);
  parser.DefineClassFun("RefinedArcAudit",p,"run",&CxRefinedArcAudit::run);

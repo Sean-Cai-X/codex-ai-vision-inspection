@@ -3,6 +3,7 @@
 #include "CxPartialMatchAudit.h"
 #include "CxGrayBoundaryAudit.h"
 #include "CxGrayBoundaryManualRun.h"
+#include "CxRefinedArcManualRun.h"
 #include "muParser.h"
 #include "../libtorchsegmentation/src/utils/json.hpp"
 #ifndef WIN32_LEAN_AND_MEAN
@@ -5404,6 +5405,41 @@ static bool IsCuratedAssetOnlyEvidenceQueueLocal() {
              "CURATED_ASSET_ONLY";
 }
 
+
+bool RunRefinedArcGuiBridgeSmoke(ManualTestContext&,std::string&);
+int RunRefinedArcEvidenceCatalogSmoke(){
+ struct Scope{Scope(){ImGui::CreateContext();}~Scope(){ImGui::DestroyContext();}} scope;
+ auto& io=ImGui::GetIO();io.DisplaySize=ImVec2(1500,1800);io.DeltaTime=1.f/60;io.IniFilename=nullptr;
+ unsigned char* pixels=nullptr;int width=0,height=0;io.Fonts->GetTexDataAsRGBA32(&pixels,&width,&height);
+ auto c=std::make_unique<ManualTestContext>();std::string reason;std::set<std::string> found;
+ auto groupFor=[&](const std::string& name)->ScriptEvidenceGroup&{
+  for(auto& g:c->script_evidence_groups)if(g.label==name)return g;
+  ScriptEvidenceGroup g;g.label=name;c->script_evidence_groups.push_back(g);return c->script_evidence_groups.back();
+ };
+ AppendAssetDrivenEvidenceCasesLocal(*c,groupFor,reason);
+ try{
+  for(const auto& group:c->script_evidence_groups)for(const auto& item:group.thumbs){
+   if(item.tool!="RefinedArcAudit")continue;
+   std::string text;if(!ReadTextFile(item.script_path,text)||cv::imread(item.image_path).empty()||cv::imread(item.thumbnail_path).empty())
+    throw std::runtime_error("PAIR_CATALOG_ASSET_MISSING");
+   cxpairui::Read(text);c->editor_text=text;c->editor_dirty=true;c->active_case_id=item.case_id;
+   c->image_file_path=item.image_path;c->loaded_script_path=item.script_path;
+   if(!IsGeometryAuditKeyParameterContext(*c))throw std::runtime_error("PAIR_PARAMETER_GATE");
+   for(int frame=0;frame<2;++frame){
+    ImGui::NewFrame();ImGui::SetNextWindowSize(ImVec2(1000,1700));
+    ImGui::Begin("Key Parameter Controls");DrawKeyParameterControlPanel(*c,nullptr);ImGui::End();ImGui::Render();
+   }
+   if(!ImGui::GetDrawData()||ImGui::GetDrawData()->TotalVtxCount<=0)throw std::runtime_error("PAIR_PANEL_EMPTY");
+   if(item.case_id=="curve_identity"||item.case_id=="curve_combined"){
+    ImGui::NewFrame();ImGui::Begin("Pair bridge");
+    bool ok=RunRefinedArcGuiBridgeSmoke(*c,reason);ImGui::End();ImGui::Render();if(!ok)throw std::runtime_error(reason);
+   }
+   found.insert(item.case_id);std::cout<<"paired_evidence_case="<<item.case_id<<"\n";
+  }
+  for(const char* id:{"curve_identity","curve_combined","s_curve_missing"})if(!found.count(id))throw std::runtime_error(std::string("PAIR_CASE_MISSING:")+id);
+ }catch(const std::exception& e){std::cerr<<e.what()<<"\n";return 1;}
+ std::cout<<"PAIRED_EVIDENCE_CATALOG_PASS native ImGui/real owner chain; desktop clicks remain separate\n";return 0;
+}
 
 bool RunGrayBoundaryGuiBridgeSmoke(ManualTestContext&,std::string&);
 int RunGrayBoundaryEvidenceCatalogSmoke() {

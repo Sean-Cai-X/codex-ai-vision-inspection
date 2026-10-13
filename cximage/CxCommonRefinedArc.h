@@ -1,12 +1,15 @@
 #pragma once
 #include "CxRefinedBoundaryArc.h"
 #include "../cxgeom/polar_discrete_harmonic/endpoint_projected_arc.h"
+#include "../cxgeom/polar_discrete_harmonic/reliable_landmarks.h"
 namespace cxpartialimage {
 struct CommonRefinedArcConfig {
  cxgeom::polar::ArcCorrespondenceConfig pose;
  cxgeom::polar::RawArcAnchors reference,observation;
  double minimum_common_anchor_fraction=.25;
- bool endpoint_projection_enabled=false;
+ bool endpoint_projection_enabled=false,reliable_landmarks_required=false;
+ cxgeom::polar::LandmarkEvidence landmarks[2];
+ double maximum_landmark_localization_error_px=.25,maximum_landmark_pose_error_px=.5;
  double maximum_projection_normal_residual_px=.3;
  std::string correspondence_id; // caller assertion, never proof of correspondence
 };
@@ -30,9 +33,18 @@ inline RefinedArcComparison MatchCommonRefinedArc(const BoundRefinedSpan& refere
   rpcoords=ProjectEndpointCoordinates(reference.refined_points(),r.start,r.end,config.maximum_projection_normal_residual_px);
   opcoords=ProjectEndpointCoordinates(observation.refined_points(),o.start,o.end,config.maximum_projection_normal_residual_px);
  }
- const auto d=config.endpoint_projection_enabled?
+ auto d=config.endpoint_projection_enabled?
   IntersectProjectedSupport(rpcoords,opcoords,config.minimum_common_anchor_fraction):
   IntersectCommonArcDomain(config.reference,config.observation,rs,os,config.minimum_common_anchor_fraction);
+ const auto geometric_support_status=d.status;
+ std::string landmark_status[2]={"NOT_REQUIRED","NOT_REQUIRED"};
+ if(config.reliable_landmarks_required){
+  if(!std::isfinite(config.maximum_landmark_pose_error_px)||config.maximum_landmark_pose_error_px<=0)
+   throw std::invalid_argument("LANDMARK_INVALID_POSE_ERROR_LIMIT");
+  landmark_status[0]=CheckLandmarkEvidence(config.landmarks[0],J::parse(reference.receipt())["binding"]["gray_sha256"],config.maximum_landmark_localization_error_px);
+  landmark_status[1]=CheckLandmarkEvidence(config.landmarks[1],J::parse(observation.receipt())["binding"]["gray_sha256"],config.maximum_landmark_localization_error_px);
+  for(int i:{0,1})if(landmark_status[i]!="LANDMARK_DECLARATION_BOUND_TO_IMAGE"){d.status=landmark_status[i];break;}
+ }
  RefinedArcComparison out;
  out.refined.config=config.pose;out.refined.reference_receipt=reference.receipt();out.refined.observation_receipt=observation.receipt();
  out.matched_raw=out.refined;
@@ -52,12 +64,17 @@ inline RefinedArcComparison MatchCommonRefinedArc(const BoundRefinedSpan& refere
   {"uncertainty_calibrated",false},{"scope","conditional_on_caller_asserted_endpoint_correspondence"},
   {"pose_parameters",pose_parameters},{"correspondence_id",config.correspondence_id},{"anchor_correspondence_verified",false},
   {"automatic_overlap_discovery",false},{"independent_refined_length_normalization",false},
-  {"common_support",{{"status",d.status},{"anchor_interval",{d.begin,d.end}},
+  {"common_support",{{"status",geometric_support_status},{"anchor_interval",{d.begin,d.end}},
     {"minimum_anchor_fraction",config.minimum_common_anchor_fraction},
     {"retained_anchor_fraction",std::max(0.,d.end-d.begin)},
     {"coverage_semantics","fraction_of_caller_anchor_interval_not_whole_shape_quality"}}},
   {"reference",input(reference,config.reference,rs)},{"observation",input(observation,config.observation,os)},
   {"full_raw_under_refined_pose",J::array()}};
+ evidence["landmark_gate"]={{"required",config.reliable_landmarks_required},{"maximum_localization_error_px",config.maximum_landmark_localization_error_px},
+  {"maximum_propagated_pose_error_px",config.maximum_landmark_pose_error_px},{"localization_error_calibrated",false},
+  {"semantic_identity_automatically_verified",false},{"sides",J::array()}};
+ for(int i:{0,1})evidence["landmark_gate"]["sides"].push_back({{"source",config.landmarks[i].source},{"trace",config.landmarks[i].trace},
+  {"declared_image_sha256",config.landmarks[i].image_sha256},{"declared_localization_error_px",config.landmarks[i].localization_error_px},{"status",landmark_status[i]}});
  if(config.endpoint_projection_enabled){
   auto projection=[](const BoundRefinedSpan& span,const EndpointProjectionCoordinates& p){
    const auto& a=*span.endpoint_anchors();
@@ -80,7 +97,7 @@ inline RefinedArcComparison MatchCommonRefinedArc(const BoundRefinedSpan& refere
  if(!d.accepted()){
   out.refined.status=d.status;out.matched_raw.status=d.status;
   evidence["status"]=d.status;evidence["fallback"]="RAW_REVIEW_REQUIRED_NO_AUTOMATIC_PROMOTION";
-  evidence["refined"]=empty("no_common_refined_fit");evidence["matched_raw"]=empty("no_common_raw_fit");
+  evidence["refined"]=empty("fit_not_executed_due_to_input_gate");evidence["matched_raw"]=empty("fit_not_executed_due_to_input_gate");
   out.evidence=evidence.dump(2);return out;
  }
  const auto r=config.endpoint_projection_enabled?
@@ -115,6 +132,16 @@ inline RefinedArcComparison MatchCommonRefinedArc(const BoundRefinedSpan& refere
   evidence[key]["raw_control_sampling"]=samples(span,slice.raw_samples);
  };
  describe("reference",reference,r);describe("observation",observation,o);
+ if(config.reliable_landmarks_required){
+  out.refined.accepted_indices.clear();
+  for(size_t i=0;i<out.refined.candidates.size();++i){
+   auto& c=out.refined.candidates[i];if(std::abs(c.factor)<=1e-9){c.accepted=false;c.reason="ARC_DEGENERATE_FIT";continue;}const double error=PropagatedLandmarkError(std::abs(c.factor),config.landmarks[0].localization_error_px,config.landmarks[1].localization_error_px);
+   evidence["landmark_gate"]["candidate_errors"].push_back({{"candidate",i},{"declared_propagated_error_px",error}});
+   if(error>config.maximum_landmark_pose_error_px){c.accepted=false;c.reason="LANDMARK_PROPAGATED_POSE_ERROR_EXCEEDED";}
+   if(c.accepted)out.refined.accepted_indices.push_back(i);
+  }
+  out.refined.status=out.refined.accepted_indices.empty()?"NO_ARC_CANDIDATE":out.refined.accepted_indices.size()==1?"UNIQUE_ARC_CANDIDATE":"ARC_AMBIGUOUS";
+ }
  for(auto& c:out.refined.candidates)if(c.accepted)c.reason="COMMON_REFINED_ARC_CONDITIONAL_NOT_PRODUCTION";
  auto refined=J::parse(out.refined.receipt());
  refined["schema"]="refined_arc_pose_assessment.v1";

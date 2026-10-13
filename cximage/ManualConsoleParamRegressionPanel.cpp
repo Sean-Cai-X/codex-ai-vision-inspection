@@ -6,6 +6,7 @@
 #include "CxPartialMatchUiParameters.h"
 #include "CxPartialMatchManualRun.h"
 #include "CxGrayBoundaryManualRun.h"
+#include "CxRefinedArcManualRun.h"
 #include "CxParameterProfileRuntime.h"
 #include "CxScriptCasePackageWriter.h"
 #include "CxUnifiedLog.h"
@@ -9128,8 +9129,83 @@ static void DrawHarmonicAuditControls(ManualTestContext& context) {
 }
 
 bool IsGeometryAuditKeyParameterContext(const ManualTestContext& context) {
- return cxgrayui::IsCase(context.editor_text)||cxpartialui::IsCase(context.editor_text)||cxharmonicui::IsCase(context.editor_text)||
+ return cxpairui::IsCase(context.editor_text)||cxgrayui::IsCase(context.editor_text)||cxpartialui::IsCase(context.editor_text)||cxharmonicui::IsCase(context.editor_text)||
         cxsetmatchui::IsCase(context.editor_text);
+}
+
+static void DrawRefinedArcControls(ManualTestContext& context){
+ if(ImGui::Button("Focus Geometry Workspace")){
+  for(const char* name:{"Torch Training Image Set","Torch Runtime / Evidence","Analytics Smoke / Metrology Bridge","Parameter Tuning Map / Result Conclusion"})
+   ImGui::SetWindowCollapsed(name,true,ImGuiCond_Always);
+  ImGui::SetWindowFocus();
+ }
+ ImGui::TextUnformatted("Refined Arc / Paired Images");
+ ImGui::TextWrapped("Explicit source images, endpoint correspondence and declared landmark error. Development comparison; semantic landmark identity is not automatically verified.");
+ ImGui::BeginDisabled(context.has_pending_execution_snapshot);
+ try{
+  auto s=cxpairui::Read(context.editor_text);bool changed=false;
+  ImGui::TextWrapped("%s",cxpairmanual::Current(context)?context.refined_arc.summary.c_str():"No current pair result.");
+  if(ImGui::Button("Run paired audit")){std::string reason;if(!RequestRefinedArcRun(context,reason))context.debug_reason=reason;}
+  auto text=[&](const char* label,nlohmann::json& value){
+   char buffer[4096]={};const auto old=value.get<std::string>();std::copy(old.begin(),old.end(),buffer);
+   ImGui::TextUnformatted(label);ImGui::SetNextItemWidth(-1);const std::string id=std::string("##")+label;if(ImGui::InputText(id.c_str(),buffer,sizeof(buffer))){value=std::string(buffer);return true;}return false;
+  };
+  changed=text("Correspondence trace",s["correspondence_id"])||changed;
+  for(int i:{0,1}){
+   ImGui::PushID(i);auto& side=s["sides"][i];
+   if(ImGui::CollapsingHeader(i==0?"Reference image / landmarks":"Observation image / landmarks",ImGuiTreeNodeFlags_DefaultOpen)){
+    if(text("Image path",side["image"])){
+     side["landmark"]["image_sha256"]="";side["landmark"]["trace"]="";side["landmark"]["source"]="UNVERIFIED";changed=true;
+    }
+    changed=text("Source case",side["case_id"])||changed;changed=text("Dataset revision",side["revision"])||changed;
+    int span=side["span"];if(ImGui::InputInt("Explicit span",&span)){side["span"]=span;changed=true;}
+    changed=text("Endpoint source",side["endpoint_provenance"])||changed;
+    for(const char* key:{"raw_anchor_begin","raw_anchor_end"}){double value=side[key];if(ImGui::InputDouble(key,&value,0,0,"%.12g")){side[key]=value;changed=true;}}
+    for(auto it=side["endpoints"].begin();it!=side["endpoints"].end();++it){double value=it.value();if(ImGui::InputDouble(it.key().c_str(),&value,0,0,"%.12g")){it.value()=value;changed=true;}}
+    const char* sources[]={"UNVERIFIED","MANUAL_CONFIRMED","UPSTREAM_VERIFIED","CONTROLLED_REFERENCE"};int selected=0;
+    for(int k=0;k<4;++k)if(side["landmark"]["source"]==sources[k])selected=k;
+    if(ImGui::Combo("Landmark source",&selected,sources,4)){side["landmark"]["source"]=sources[selected];changed=true;}
+    changed=text("Landmark trace",side["landmark"]["trace"])||changed;
+    changed=text("Declared image SHA",side["landmark"]["image_sha256"])||changed;
+    double error=side["landmark"]["localization_error_px"];
+    if(ImGui::InputDouble("Declared localization error (px)",&error,0,0,"%.12g")){side["landmark"]["localization_error_px"]=error;changed=true;}
+    if(ImGui::Button("Bind SHA from local image")){
+     try{side["landmark"]["image_sha256"]=cxpairui::ImageSha(side);changed=true;}
+     catch(const std::exception& e){context.debug_reason=e.what();}
+    }
+    ImGui::TextWrapped("SHA binding records image bytes. It does not confirm landmark identity or calibrate the declared error.");
+    if(ImGui::TreeNode("Gray extraction / refinement parameters")){
+     for(const auto& p:cxgrayparams::Parameters()){
+      double value=side["gray"][p.key];if(ImGui::InputDouble(p.key,&value,0,0,"%.12g")){side["gray"][p.key]=value;changed=true;}
+     }ImGui::TreePop();
+    }
+   }ImGui::PopID();
+  }
+  if(ImGui::CollapsingHeader("Pair solver / quality gates",ImGuiTreeNodeFlags_DefaultOpen)){
+   for(const auto& p:cxpairui::Parameters()){
+    double value=s["parameters"][p.key];if(ImGui::InputDouble(p.key,&value,0,0,"%.12g")){s["parameters"][p.key]=value;changed=true;}
+    if(ImGui::IsItemHovered())ImGui::SetTooltip("Default %.9g | %.9g .. %.9g | %s",p.initial,p.minimum,p.maximum,p.integer?"integer":"real");
+   }
+  }
+  if(changed){cxpairmanual::Invalidate(context);context.editor_text=cxpairui::Build(s);context.editor_dirty=true;context.debug_reason="Pair configuration changed; rerun both sources.";}
+  if(ImGui::Button("Run paired boundary audit")){std::string reason;if(!RequestRefinedArcRun(context,reason))context.debug_reason=reason;}
+ }catch(const std::exception& e){ImGui::TextWrapped("%s",e.what());}
+ ImGui::EndDisabled();
+ ImGui::TextWrapped("%s",cxpairmanual::Current(context)?context.refined_arc.summary.c_str():"No current pair result. Re-run after image, landmark or parameter changes.");
+ if(cxpairmanual::Current(context)){
+  ImGui::TextWrapped("Evidence output: %s",context.refined_arc.output_path.c_str());
+  if(ImGui::TreeNode("Executed pose / observed error / fallback")){
+   auto j=nlohmann::json::parse(context.refined_arc.receipt);
+   ImGui::BeginChild("pair_results",ImVec2(0,250),true,ImGuiWindowFlags_HorizontalScrollbar);
+   ImGui::TextUnformatted(j["landmark_gate"].dump(2).c_str());
+   ImGui::TextUnformatted(j["common_support"].dump(2).c_str());
+   for(const auto& c:j["refined"]["candidates"])ImGui::TextUnformatted(c.dump(2).c_str());
+   ImGui::TextUnformatted(j["full_raw_under_refined_pose"].dump(2).c_str());
+   ImGui::TextUnformatted(j["fallback"].dump().c_str());ImGui::EndChild();ImGui::TreePop();
+  }
+  if(ImGui::Button("Copy pair receipt"))ImGui::SetClipboardText(context.refined_arc.receipt.c_str());
+ }
+ if(!context.debug_reason.empty())ImGui::TextWrapped("%s",context.debug_reason.c_str());
 }
 
 static void DrawGrayBoundaryControls(ManualTestContext& context) {
@@ -9241,6 +9317,7 @@ static void DrawPartialMatchControls(ManualTestContext& context) {
 }
 void DrawKeyParameterControlPanel(
     ManualTestContext &context, const ParserDebugBridge *parserDebugBridge) {
+  if(cxpairui::IsCase(context.editor_text)){DrawRefinedArcControls(context);return;}
   if(cxgrayui::IsCase(context.editor_text)){DrawGrayBoundaryControls(context);return;}
   if(cxpartialui::IsCase(context.editor_text)){
     DrawPartialMatchControls(context);return;
