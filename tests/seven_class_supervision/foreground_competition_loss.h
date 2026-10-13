@@ -2,7 +2,11 @@
 // Experimental training objective only. Seven emitted logits and inference
 // sigmoid are unchanged; a fixed zero background logit is used only in the loss.
 namespace foreground_competition {
-struct Terms {torch::Tensor total,foreground,background,hard_background;};
+struct Terms {
+    torch::Tensor total,foreground,background,hard_background;
+    // Diagnostic masks/indices from the actual selection, never inferred from gradients.
+    torch::Tensor positive_anchors,hard_background_anchors;
+};
 inline Terms loss(const torch::Tensor& logits,const torch::Tensor& one_hot,bool sigmoid_background=false) {
     TORCH_CHECK(logits.dim()==2&&logits.size(0)>0&&logits.size(1)==7&&one_hot.sizes()==logits.sizes(),"COMPETITION_SHAPE");
     TORCH_CHECK(((one_hot==0)|(one_hot==1)).all().item<bool>()&&(one_hot.sum(1)<=1).all().item<bool>(),"COMPETITION_TARGET_NOT_SINGLE_OWNER");
@@ -19,7 +23,11 @@ inline Terms loss(const torch::Tensor& logits,const torch::Tensor& one_hot,bool 
     auto zero=logits.sum()*0;Terms t;
     t.foreground=fg.numel()?fg.mean():zero;t.background=bg.numel()?bg.mean():zero;
     const auto count=std::min<int64_t>(bg.numel(),std::max<int64_t>(1,fg.numel()*20));
-    t.hard_background=count?std::get<0>(bg.topk(count)).mean():zero;
+    t.positive_anchors=positive.detach();
+    t.hard_background_anchors=torch::empty({0},logits.options().dtype(torch::kLong));
+    if(count){auto selected=bg.topk(count);t.hard_background=std::get<0>(selected).mean();
+        t.hard_background_anchors=torch::nonzero(positive.logical_not()).squeeze(1).index_select(0,std::get<1>(selected));
+    }else t.hard_background=zero;
     t.total=t.foreground+t.background+2*t.hard_background;return t;
 }
 inline void self_test(){

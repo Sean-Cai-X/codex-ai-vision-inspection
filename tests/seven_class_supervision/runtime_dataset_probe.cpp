@@ -10,10 +10,15 @@
 #include "ownership_gradient_audit.h"
 #include "candidate_provenance_audit.h"
 #include "score_mode_audit.h"
+#include "classification_update_audit.h"
 
 int main(int argc,char** argv) {
     using namespace supervision_fixture;
     try {
+        if(argc>1&&std::string(argv[1])=="--classification-update-audit")return classification_update_audit::run(argc,argv);
+        if(argc==2&&std::string(argv[1])=="--classification-update-audit-test") {
+            classification_update_audit::self_test();std::cout<<"PASS optimizer coverage, actual accumulated gradients and Adam updates\n";return 0;
+        }
         if(argc>1&&std::string(argv[1])=="--score-mode-audit")return score_mode_audit::run(argc,argv);
         if(argc==2&&std::string(argv[1])=="--foreground-competition-test") {
             foreground_competition::self_test();std::cout<<"PASS competitive class/background gradients, empty partitions, loss descent and invalid labels\n";return 0;
