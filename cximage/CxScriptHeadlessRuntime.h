@@ -358,6 +358,9 @@ struct CxScriptExecutionCapture
     std::vector<std::string> geometric_set_receipts;
     bool partial_match_only = false;
     std::vector<std::string> partial_match_receipts;
+    std::vector<std::string> gray_boundary_receipts;
+    std::vector<std::string> refined_arc_receipts;
+    bool refined_arc_only = false;
     bool script_compiled = false;
     bool runtime_completed = false;
 

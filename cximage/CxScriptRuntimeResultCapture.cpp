@@ -9,6 +9,8 @@
 #include "FastMatch.h"
 #include "FindSetMatch.h"
 #include "CxPartialMatchAudit.h"
+#include "CxGrayBoundaryAudit.h"
+#include "CxRefinedArcAudit.h"
 #include "CxTextInspect.h"
 #include "TorchTask.h"
 #include "CxTorchResultProjector.h"
@@ -2329,9 +2331,69 @@ bool CaptureRuntimeToolResults(
             return false;
         }
     }
+    const int gray_count = runtime.GetClassObjSum("GrayBoundaryAudit");
+    for (int i = 0; i < gray_count; ++i) {
+        auto* tool = static_cast<CxGrayBoundaryAudit*>(runtime.GetClassObj("GrayBoundaryAudit", i));
+        if (!tool || !captured_objects.insert(tool).second) continue;
+        try {
+            const auto& r = tool->result();
+            CxScriptToolResultCapture item;
+            item.type = "GrayBoundaryAudit";
+            item.name = runtime.GetClassObjName("GrayBoundaryAudit", i);
+            item.owner_ref = item.name;item.algorithm_executed = true;
+            item.reason = "GrayBoundaryAudit;bound_gray_refinement;production_eligible=false";
+            auto shape = [&](const std::string& name,const std::string& role,const std::string& kind) {
+                CxShapeElementSnapshot s;s.stable_ref=item.name+":"+name;s.owner_type=item.type;
+                s.owner_ref=item.name;s.semantic_role=role;s.shape_kind=kind;s.closed=false;s.result_element=true;return s;
+            };
+            auto raw=shape("raw","boundary","PolylineShape");
+            auto rejected=shape("rejected","measure_points","PointsShape");
+            for(const auto& p:r.points) {
+                raw.points.push_back(p.raw.real());raw.points.push_back(p.raw.imag());
+                if(!p.accepted){rejected.points.push_back(p.raw.real());rejected.points.push_back(p.raw.imag());}
+            }
+            item.shapes.push_back(raw);
+            if(!rejected.points.empty())item.shapes.push_back(rejected);
+            size_t index=0;
+            for(const auto& run:cxpartialimage::AcceptedGrayRuns(r,2)) {
+                auto refined=shape("refined_"+std::to_string(index++),"boundary","PolylineShape");
+                for(auto n:run){refined.points.push_back(r.points[n].refined.real());refined.points.push_back(r.points[n].refined.imag());}
+                item.shapes.push_back(refined);
+            }
+            capture.gray_boundary_receipts.push_back(tool->receipt());
+            MergeToolCapture(item,capture);supported_object_found=true;
+            capture.partial_match_only=false;
+            capture.geometric_set_only=false;
+        } catch(const std::exception& e) {
+            reason=std::string("GrayBoundaryAudit capture failed: ")+e.what();return false;
+        }
+    }
+    const bool before_refined_arc = supported_object_found;
+    const int refined_arc_count = runtime.GetClassObjSum("RefinedArcAudit");
+    for (int i = 0; i < refined_arc_count; ++i) {
+        auto* tool = static_cast<CxRefinedArcAudit*>(runtime.GetClassObj("RefinedArcAudit", i));
+        if (!tool || !captured_objects.insert(tool).second) continue;
+        try {
+            const auto& text = tool->receipt();
+            const auto receipt = nlohmann::json::parse(text);
+            CxScriptToolResultCapture item;
+            item.type = "RefinedArcAudit";
+            item.name = runtime.GetClassObjName("RefinedArcAudit", i);
+            item.owner_ref = item.name;item.algorithm_executed = true;
+            item.candidate_count = static_cast<int>(receipt.at("refined").at("accepted_indices").size());
+            item.reason = "RefinedArcAudit:" + receipt.at("status").get<std::string>() +
+                ";paired_bound_gray_inputs;carrier_image_not_comparison_source;production_eligible=false";
+            capture.refined_arc_receipts.push_back(text);
+            capture.refined_arc_only = !before_refined_arc;
+            // No synthetic fitted shape or overlay on the unrelated CLI carrier.
+            MergeToolCapture(item,capture);supported_object_found = true;
+        } catch(const std::exception& e) {
+            reason=std::string("RefinedArcAudit capture failed: ")+e.what();return false;
+        }
+    }
     if (!supported_object_found)
     {
-        reason = "no supported cximage runtime object found; expected one of Findline, FindCircle, FindEllipse, FindObject, FindRect, FindSegmentation, Match, fastmatch, FindSetMatch, PartialMatchAudit or TorchTask";
+        reason = "no supported cximage runtime object found; expected one of Findline, FindCircle, FindEllipse, FindObject, FindRect, FindSegmentation, Match, fastmatch, FindSetMatch, PartialMatchAudit, GrayBoundaryAudit, RefinedArcAudit or TorchTask";
         return false;
     }
 

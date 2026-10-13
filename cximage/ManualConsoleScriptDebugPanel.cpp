@@ -1,5 +1,7 @@
 #include <fstream>
 #include "CxPartialMatchManualRun.h"
+#include "CxGrayBoundaryManualRun.h"
+#include "CxRefinedArcManualRun.h"
 #include "../libtorchsegmentation/src/utils/json.hpp"
 #include <opencv2/imgcodecs.hpp>
 #include "CxHarmonicEvidenceParameters.h"
@@ -716,6 +718,139 @@ bool MigrateLegacyFindSegmentationPromptCallsForRun(
 }
 } // namespace
 
+
+bool ViewController::RunRefinedArcPendingEntrySmoke(ManualTestContext& source,std::string& reason){
+ try{
+  m_parserOwner.ConfigureStreams(&m_os,&m_createcodeos);m_parserDebugBridge.Bind(&m_parserOwner);
+  if(!m_parserOwner.Initialize(reason))return false;
+  m_manualTest=source;auto& c=m_manualTest;const auto original=c.editor_text;
+  m_imageViewImage=cv::imread(c.image_file_path);cxgraymanual::ImageChanged(c,m_imageViewImage);
+  if(!RequestRefinedArcRun(c,reason))return false;
+  std::string duplicate;if(RequestRefinedArcRun(c,duplicate))throw std::runtime_error("Duplicate pair request accepted");
+  auto frozen=c.editor_text;c.editor_text="later mutation";
+  if(!ConsumePendingManualScriptRun(c,"paired_pending_smoke")||c.has_pending_execution_snapshot||c.refined_arc.pending)
+   throw std::runtime_error("Pair not consumed once");
+  if(c.editor_text!=frozen||!cxpairmanual::Current(c))throw std::runtime_error("Pair frozen result missing: "+c.debug_reason);
+  const auto expected=c.refined_arc.receipt,output=c.refined_arc.output_path;
+  std::ifstream in(std::filesystem::path(output)/"refined_arc_receipt.json");
+  nlohmann::json persisted;in>>persisted;if(persisted!=nlohmann::json::parse(expected))throw std::runtime_error("Pair receipt differs");
+  const auto before=ImGui::GetWindowDrawList()->VtxBuffer.Size;
+  cxpairmanual::Draw(c,ImGui::GetWindowDrawList(),ImVec2(10,10),3);
+  const bool input_rejected=persisted.value("input_rejected",false);
+  if(input_rejected){
+   if(ImGui::GetWindowDrawList()->VtxBuffer.Size!=before)throw std::runtime_error("Rejected input drew invented matched geometry");
+   auto legacy=cxpairui::Read(original);legacy["parameters"]["input_rejection_receipt_enabled"]=0;
+   c.editor_text=cxpairui::Build(legacy);cxpairmanual::Invalidate(c);
+   if(!RequestRefinedArcRun(c,reason))return false;
+   ConsumePendingManualScriptRun(c,"input_rejection_legacy_exception");
+   if(cxpairmanual::Current(c)||c.run_state!="failed")throw std::runtime_error("Uncaptured rejection must fail and clear current receipt");
+   std::ifstream prior(std::filesystem::path(output)/"refined_arc_receipt.json");nlohmann::json prior_json;prior>>prior_json;
+   if(prior_json!=persisted)throw std::runtime_error("Input rejection archive overwritten");
+   std::cout<<"PAIRED_INPUT_REJECTION_ENTRY_PASS "<<source.active_case_id<<" captured/sha/frozen/no-pose/legacy-failure/evidence\n";
+   return true;
+  }
+  if(ImGui::GetWindowDrawList()->VtxBuffer.Size<=before)throw std::runtime_error("Pair source overlay absent");
+  if(source.active_case_id=="asymmetric_combined"||source.active_case_id=="repeated_boundary"){
+   auto edited=cxpairui::Read(original);
+   edited["parameters"]["identity_step_px"]=.125;
+   if(source.active_case_id=="asymmetric_combined")edited["parameters"]["uncertainty_required"]=1;
+   else edited["parameters"]["identity_required"]=0;
+   c.editor_text=cxpairui::Build(edited);cxpairmanual::Invalidate(c);
+   if(cxpairmanual::Current(c)||!RequestRefinedArcRun(c,reason))throw std::runtime_error("Quality edit invalidation/request");
+   ConsumePendingManualScriptRun(c,"identity_quality_parameter_edit");
+   if(!cxpairmanual::Current(c))throw std::runtime_error("Quality edited receipt missing");
+   auto actual=nlohmann::json::parse(c.refined_arc.receipt);
+   if(actual["landmark_quality_parameters"]!=cxpairui::QualityValues(edited))throw std::runtime_error("Quality edited parameters not executed");
+   const bool accepted=!actual["refined"]["accepted_indices"].empty();
+   if(accepted!=(source.active_case_id=="repeated_boundary"))throw std::runtime_error("Quality gate edit had no expected effect");
+  }
+  auto changed=cxpairui::Read(original);changed["sides"][1]["landmark"]["source"]="UNVERIFIED";
+  c.editor_text=cxpairui::Build(changed);cxpairmanual::Invalidate(c);
+  if(cxpairmanual::Current(c))throw std::runtime_error("Pair mutation retained result");
+  if(!RequestRefinedArcRun(c,reason))return false;
+  ConsumePendingManualScriptRun(c,"paired_rejected_source");
+  if(!cxpairmanual::Current(c)||nlohmann::json::parse(c.refined_arc.receipt)["status"]!="LANDMARK_SOURCE_UNVERIFIED")
+   throw std::runtime_error("Pair source rejection not observable");
+  c.editor_text=original;
+  if(!RequestRefinedArcRun(c,reason))return false;
+  c.active_case_id+="changed";ConsumePendingManualScriptRun(c,"paired_case_changed");
+  if(c.refined_arc.valid||c.run_state!="failed")throw std::runtime_error("Pair queued case change accepted");
+  std::ifstream prior(std::filesystem::path(output)/"refined_arc_receipt.json");nlohmann::json prior_json;prior>>prior_json;
+  if(prior_json!=nlohmann::json::parse(expected))throw std::runtime_error("Pair archived result overwritten");
+  std::cout<<"PAIRED_PENDING_ENTRY_PASS "<<source.active_case_id<<" frozen/once/stale/rejection/case/overlay/evidence\n";return true;
+ }catch(const std::exception& e){reason=e.what();return false;}
+}
+bool RunRefinedArcGuiBridgeSmoke(ManualTestContext& c,std::string& reason){
+ auto controller=std::make_unique<ViewController>();return controller->RunRefinedArcPendingEntrySmoke(c,reason);
+}
+
+bool ViewController::RunGrayBoundaryPendingEntrySmoke(ManualTestContext& source,std::string& reason){
+ try{
+  m_parserOwner.ConfigureStreams(&m_os,&m_createcodeos);m_parserDebugBridge.Bind(&m_parserOwner);
+  if(!m_parserOwner.Initialize(reason))return false;
+  m_manualTest=source;auto& c=m_manualTest;const auto original=c.editor_text;
+  m_imageViewImage=cv::imread(c.image_file_path);cxgraymanual::ImageChanged(c,m_imageViewImage);
+  if(m_imageViewImage.empty())throw std::runtime_error("Missing gray image");
+  std::string previous;
+  for(int run=0;run<3;++run){
+   c.editor_text=original;c.editor_dirty=true;
+   if(run==1)cxgrayui::Set(c.editor_text,cxgrayparams::Find("minimum_contrast"),250);
+   if(run==2)c.editor_text+="\ng.nonexistent_method();";
+   if(!RequestGrayBoundaryRun(c,reason))return false;
+   std::string duplicate;if(RequestGrayBoundaryRun(c,duplicate))throw std::runtime_error("Duplicate gray request accepted");
+   auto frozen=c.editor_text;c.editor_text="later editor mutation must not execute";
+   if(!ConsumePendingManualScriptRun(c,"gray_pending_smoke")||c.has_pending_execution_snapshot||
+      c.gray_boundary.pending||ConsumePendingManualScriptRun(c,"gray_duplicate"))
+    throw std::runtime_error("Gray request not consumed exactly once");
+   if(c.editor_text!=frozen)throw std::runtime_error("Gray button-time script not restored");
+   if(run==2){
+    if(c.run_state!="failed"||c.gray_boundary.valid||!c.gray_boundary.receipt.empty()||!c.gray_boundary.raw.empty())
+     throw std::runtime_error("Failed gray run retained output");
+    continue;
+   }
+   if(!cxgraymanual::Current(c))throw std::runtime_error("Missing gray receipt: "+c.gray_boundary.summary);
+   auto j=nlohmann::json::parse(c.gray_boundary.receipt);
+   if(run==1&&j.at("accepted_point_count")!=0)throw std::runtime_error("Gray edited contrast was not executed");
+   if(previous==c.gray_boundary.output_path)throw std::runtime_error("Gray output directory reused");
+   previous=c.gray_boundary.output_path;std::ifstream in(std::filesystem::path(previous)/"gray_boundary_receipt.json");
+   if(nlohmann::json::parse(in)!=j)throw std::runtime_error("Gray persisted receipt differs");
+   const auto before=ImGui::GetWindowDrawList()->VtxBuffer.Size;
+   cxgraymanual::Draw(c,ImGui::GetWindowDrawList(),ImVec2(10,10),5);
+   if(ImGui::GetWindowDrawList()->VtxBuffer.Size<=before)throw std::runtime_error("Gray overlay missing");
+   c.editor_text+="\n";
+   if(cxgraymanual::Current(c))throw std::runtime_error("Gray edit did not stale result");
+   const auto after=ImGui::GetWindowDrawList()->VtxBuffer.Size;
+   cxgraymanual::Draw(c,ImGui::GetWindowDrawList(),ImVec2(10,10),5);
+   if(ImGui::GetWindowDrawList()->VtxBuffer.Size!=after)throw std::runtime_error("Stale gray overlay still rendered");
+  }
+  // Change in-memory image without changing pathname: actual pixels, not filenames, govern binding.
+  c.editor_text=original;c.editor_dirty=true;
+  m_imageViewImage.setTo(cv::Scalar(0,0,0));cxgraymanual::ImageChanged(c,m_imageViewImage);
+  if(!RequestGrayBoundaryRun(c,reason))return false;
+  ConsumePendingManualScriptRun(c,"gray_wrong_image");
+  if(c.gray_boundary.valid||c.run_state!="failed"||c.debug_reason.find("BINDING_MISMATCH")==std::string::npos)
+   throw std::runtime_error("Gray wrong Image View pixels not blocked");
+  m_imageViewImage=cv::imread(c.image_file_path);cxgraymanual::ImageChanged(c,m_imageViewImage);
+  for(int mode=0;mode<2;++mode){
+   c.editor_text=original;c.editor_dirty=true;
+   if(!RequestGrayBoundaryRun(c,reason))return false;
+   if(mode==0){c.active_case_id+="changed";}
+   else {m_imageViewImage.setTo(cv::Scalar(0,0,0));}
+   ConsumePendingManualScriptRun(c,"gray_queued_context_changed");
+   if(c.gray_boundary.valid||c.run_state!="failed")throw std::runtime_error("Gray queued context change not blocked");
+   c.active_case_id=source.active_case_id;
+  }
+  std::ifstream prior(std::filesystem::path(previous)/"status.json");
+  if(nlohmann::json::parse(prior).at("status")!="NO_REFINED_POINTS")
+   throw std::runtime_error("Queued failure overwrote prior successful audit");
+  std::cout<<"GRAY_PENDING_ENTRY_PASS "<<source.active_case_id<<" frozen/once/parameters/receipt/overlay/stale/failure/image/case-change\n";
+  return true;
+ }catch(const std::exception& e){reason=e.what();return false;}
+}
+bool RunGrayBoundaryGuiBridgeSmoke(ManualTestContext& c,std::string& reason){
+ auto controller=std::make_unique<ViewController>();return controller->RunGrayBoundaryPendingEntrySmoke(c,reason);
+}
+
 bool ViewController::RunPartialMatchPendingEntrySmoke(ManualTestContext& source,std::string& reason){
  try{
   m_parserOwner.ConfigureStreams(&m_os,&m_createcodeos);m_parserDebugBridge.Bind(&m_parserOwner);
@@ -762,6 +897,33 @@ bool ViewController::RunPartialMatchPendingEntrySmoke(ManualTestContext& source,
 }
 bool RunPartialMatchGuiBridgeSmoke(ManualTestContext& c,std::string& reason){
  auto controller=std::make_unique<ViewController>();return controller->RunPartialMatchPendingEntrySmoke(c,reason);
+}
+
+bool RequestRefinedArcRun(ManualTestContext& c,std::string& reason){
+ if(!cxpairui::IsCase(c.editor_text)){reason="No Refined Arc pair selected";return false;}
+ if(c.has_pending_execution_snapshot){reason="A run is already pending";return false;}
+ cxpairmanual::Invalidate(c);auto& r=c.refined_arc;r.output_path.clear();
+ try{
+  auto s=cxpairui::Read(c.editor_text);
+  for(int i:{0,1})r.pending_sha[i]=cxpairui::ImageSha(s["sides"][i]);
+ }catch(const std::exception& e){reason=e.what();return false;}
+ r.pending_script=c.editor_text;r.pending_case=c.active_case_id;r.pending=true;
+ c.pending_execution_gauge=c.current_gauge;c.pending_execution_globals=c.runtime_int_vars;
+ c.has_pending_execution_snapshot=true;c.debug_action="Key Parameter Controls Run Script";
+ c.debug_status="MANUAL_RUN_REQUESTED";c.run_state="running";r.summary="QUEUED";return true;
+}
+bool RequestGrayBoundaryRun(ManualTestContext& c,std::string& reason){
+ if(!cxgrayui::IsCase(c.editor_text)){reason="No Gray Boundary case selected";return false;}
+ if(c.has_pending_execution_snapshot){reason="A run is already pending";return false;}
+ cxgraymanual::Invalidate(c);auto& g=c.gray_boundary;g.output_path.clear();
+ try{cxgrayui::Values(c.editor_text);}
+ catch(const std::exception& e){reason=e.what();return false;}
+ if(g.view_sha.empty()){reason="Load an image in Image View before Run";return false;}
+ g.pending_script=c.editor_text;g.pending_case=c.active_case_id;
+ g.pending_image=c.image_file_path;g.pending_sha=g.view_sha;g.pending=true;
+ c.pending_execution_gauge=c.current_gauge;c.pending_execution_globals=c.runtime_int_vars;
+ c.has_pending_execution_snapshot=true;c.debug_action="Key Parameter Controls Run Script";
+ c.debug_status="MANUAL_RUN_REQUESTED";c.run_state="running";g.summary="QUEUED";return true;
 }
 bool RequestPartialMatchRun(ManualTestContext& c,std::string& reason){
  if(!cxpartialui::IsCase(c.editor_text)){reason="No Partial Match case selected";return false;}
@@ -1077,7 +1239,10 @@ bool ViewController::ConsumePendingManualScriptRun(ManualTestContext& context,
 
   auto clearPendingSnapshot = [&context]() {
     context.has_pending_execution_snapshot = false;
+    context.refined_arc.pending=false;context.refined_arc.pending_script.clear();context.refined_arc.pending_case.clear();
     context.partial_pending=false;context.partial_pending_script.clear();context.partial_pending_case.clear();
+    context.gray_boundary.pending=false;context.gray_boundary.pending_script.clear();context.gray_boundary.pending_case.clear();
+    context.gray_boundary.pending_image.clear();context.gray_boundary.pending_sha.clear();
     context.pending_evidence_selection_rehydrate = false;
     context.pending_execution_globals.clear();
     context.pending_execution_candidate_id.clear();
@@ -1089,6 +1254,18 @@ bool ViewController::ConsumePendingManualScriptRun(ManualTestContext& context,
   // Historical Evidence snapshots are immutable and may contain an older
   // FastMatch Normal-Trace binding order.  Migration belongs to the execution
   // boundary, not Evidence loading and not a separate prerequisite button.
+
+  if(context.refined_arc.pending){
+   if(context.refined_arc.pending_case!=context.active_case_id){cxpairmanual::Fail(context,"PAIR_GUI_QUEUED_CASE_CHANGED");clearPendingSnapshot();return true;}
+   context.editor_text=context.refined_arc.pending_script;context.editor_dirty=true;
+  }
+  if(context.gray_boundary.pending){
+    auto& g=context.gray_boundary;
+    if(g.pending_case!=context.active_case_id||g.pending_image!=context.image_file_path){
+      cxgraymanual::Fail(context,"GRAY_GUI_QUEUED_IMAGE_OR_CASE_CHANGED");clearPendingSnapshot();return true;
+    }
+    context.editor_text=g.pending_script;context.editor_dirty=true;
+  }
   if(context.partial_pending){
     if(context.partial_pending_case!=context.active_case_id){
       cxpartialmanual::Invalidate(context);context.run_state="failed";context.debug_status="run_failed";
@@ -1360,6 +1537,7 @@ bool ViewController::ConsumePendingManualScriptRun(ManualTestContext& context,
 
   std::string torchRequestReason;
   const bool torchRequestReady =
+      cxpairmanual::Prepare(context,torchRequestReason) && cxgraymanual::Prepare(context,m_imageViewImage,torchRequestReason) &&
       cxpartialmanual::Prepare(context,torchRequestReason) &&
       PrepareSetMatchRun(context,m_parserDebugBridge,torchRequestReason) &&
       PrepareHarmonicAuditRun(context,m_parserDebugBridge,torchRequestReason) &&
@@ -1385,7 +1563,7 @@ bool ViewController::ConsumePendingManualScriptRun(ManualTestContext& context,
   }
 
   context.run_state = "running";
-  const bool ran = imageBound && torchRequestReady &&
+  bool ran = imageBound && torchRequestReady &&
       m_parserDebugBridge.RunScript(context.editor_text);
   context.run_state = ran ? "runtime_finished" : "failed";
   context.debug_status = ran ? "runtime_executed" : "run_failed";
@@ -1457,6 +1635,12 @@ bool ViewController::ConsumePendingManualScriptRun(ManualTestContext& context,
     context.runtime_int_vars = frozenGlobals;
   }
 
+  ran=cxpairmanual::Collect(context,m_parserDebugBridge,ran);
+  ran=cxgraymanual::Collect(context,m_parserDebugBridge,m_imageViewImage,ran);
+  if(!ran&&cxgrayui::IsCase(context.editor_text)){
+    m_scriptResult.status="BLOCKED";m_scriptResult.reason=context.debug_reason;
+    m_scriptResult.runtime_fillback_status="gray_boundary_validation_failed";
+  }
   cxpartialmanual::Collect(context,m_parserDebugBridge,ran);
   CollectSetMatchReceipt(context,ran);
   CollectHarmonicAuditReceipt(context,ran);
@@ -1991,7 +2175,7 @@ void ViewController::DrawScriptDebugCompilerBlock(ManualTestContext& context)
       // context.  Keep this in the existing serial Parser-owner chain: the UI
       // action only requests a run, and this compiler block performs it.
       std::string torchRequestReason;
-      const bool harmonicRequestReady = cxpartialmanual::Prepare(context,torchRequestReason) &&
+      const bool harmonicRequestReady = cxpairmanual::Prepare(context,torchRequestReason) && cxgraymanual::Prepare(context,m_imageViewImage,torchRequestReason) && cxpartialmanual::Prepare(context,torchRequestReason) &&
           PrepareSetMatchRun(context,m_parserDebugBridge,torchRequestReason) && PrepareHarmonicAuditRun(
           context,m_parserDebugBridge,torchRequestReason);
       const bool torchRequestReady = harmonicRequestReady && PrepareTorchUiRequestContext(
@@ -2033,6 +2217,8 @@ void ViewController::DrawScriptDebugCompilerBlock(ManualTestContext& context)
       // it does not hide Torch status and artifact panels after a run.
 
 
+      ran=cxpairmanual::Collect(context,m_parserDebugBridge,ran);
+  ran=cxgraymanual::Collect(context,m_parserDebugBridge,m_imageViewImage,ran);
       cxpartialmanual::Collect(context,m_parserDebugBridge,ran);
       CollectSetMatchReceipt(context,ran);
       CollectHarmonicAuditReceipt(context,ran);

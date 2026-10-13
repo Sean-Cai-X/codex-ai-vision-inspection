@@ -1,4 +1,6 @@
 #include "CxUiFont.h"
+#include "CxGrayBoundaryManualRun.h"
+#include "CxRefinedArcManualRun.h"
 #include "CxSetMatchEvidenceParameters.h"
 #include "CxHarmonicEvidenceParameters.h"
 #include "ManualConsoleScriptDebugPanel.h"
@@ -5239,6 +5241,9 @@ void ViewController::drawScriptAcceptancePanels() {
     }
   };
 
+  if(baseImageValid)cxgraymanual::Draw(m_manualTest,drawList,imagePos,m_imageViewZoom);
+  if(baseImageValid)cxpairmanual::Draw(m_manualTest,drawList,imagePos,m_imageViewZoom);
+
   // Layer 2: Manual Element / Annotation Tool Layer.
 
   // Manual tools are not runtime result.
@@ -7155,6 +7160,7 @@ void ViewController::UpdateImageViewImage(const cv::Mat &image) {
     m_annotationStatus = "image size changed; annotation refs cleared";
   }
   image.copyTo(m_imageViewImage);
+  cxgraymanual::ImageChanged(m_manualTest,m_imageViewImage);
   if (!m_parserDebugBridge.StageGlobalMatInput(m_imageViewImage)) {
     m_manualTest.debug_status = "image_bind_failed";
     m_manualTest.debug_reason =
@@ -7228,6 +7234,7 @@ bool ViewController::LoadImageForEvidenceSelfTest(const std::string &imagePath,
   }
 
   image.copyTo(m_imageViewImage);
+  cxgraymanual::ImageChanged(m_manualTest,m_imageViewImage);
   m_annotationImageWidth = static_cast<float>(image.cols);
   m_annotationImageHeight = static_cast<float>(image.rows);
   if (!m_parserDebugBridge.SetGlobalMatInput(m_imageViewImage)) {

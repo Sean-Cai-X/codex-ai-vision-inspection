@@ -2762,11 +2762,17 @@ int RunBusinessWorkflowAcceptanceCli(int argc, char **argv) {
   return accepted ? 0 : 1;
 }
 
+int RunGrayBoundaryEvidenceCatalogSmoke();
+int RunRefinedArcEvidenceCatalogSmoke();
 int RunPartialMatchEvidenceCatalogSmoke();
 int RunSetMatchEvidenceCatalogSmoke();
 int RunHarmonicEvidenceCatalogSmoke();
 
 int RunCxVisionApplication(int argc, char **argv) {
+  if (HasCliArg(argc, argv, "--paired-evidence-catalog-smoke"))
+    return RunRefinedArcEvidenceCatalogSmoke();
+  if (HasCliArg(argc, argv, "--gray-evidence-catalog-smoke"))
+    return RunGrayBoundaryEvidenceCatalogSmoke();
   if (HasCliArg(argc, argv, "--partial-evidence-catalog-smoke"))
     return RunPartialMatchEvidenceCatalogSmoke();
   if (HasCliArg(argc, argv, "--setmatch-evidence-catalog-smoke"))

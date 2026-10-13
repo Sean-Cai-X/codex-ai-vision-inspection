@@ -1,5 +1,6 @@
 #include "CxHarmonicEvidenceParameters.h"
 #include "CxSetMatchEvidenceParameters.h"
+#include "CxGrayBoundaryAudit.h"
 #include "pch.h"
 #include "CxScriptHeadlessRunner.h"
 #include "imagemanager.h"
@@ -960,8 +961,10 @@ static bool WriteHeadlessManualReviewHandoff(
     const std::string target_id = !options.target_id.empty()
         ? options.target_id
         : (!options.stage25_target_id.empty() ? options.stage25_target_id : "headless_target");
-    const std::string tool = capture.partial_match_only ? "PartialMatchAudit" :
-        (capture.geometric_set_only ? "FindSetMatch" : InferHeadlessManualReviewTool(options));
+    const std::string tool = capture.refined_arc_only ? "RefinedArcAudit" :
+        capture.partial_match_only ? "PartialMatchAudit" :
+        (capture.geometric_set_only ? "FindSetMatch" :
+         (!capture.gray_boundary_receipts.empty() ? "GrayBoundaryAudit" : InferHeadlessManualReviewTool(options)));
 
     const std::string review_item =
         BuildManualReviewVisibleItemLabel(options, case_id);
@@ -979,6 +982,12 @@ static bool WriteHeadlessManualReviewHandoff(
     for (std::size_t index = 0; index < capture.partial_match_receipts.size(); ++index)
         append_artifact("partial_match_receipt_" + std::to_string(index),
             output_dir / ("partial_match_receipt_" + std::to_string(index) + ".json"));
+    for (std::size_t index = 0; index < capture.gray_boundary_receipts.size(); ++index)
+        append_artifact("gray_boundary_receipt_" + std::to_string(index),
+            output_dir / ("gray_boundary_receipt_" + std::to_string(index) + ".json"));
+    for (std::size_t index = 0; index < capture.refined_arc_receipts.size(); ++index)
+        append_artifact("refined_arc_receipt_" + std::to_string(index),
+            output_dir / ("refined_arc_receipt_" + std::to_string(index) + ".json"));
     append_artifact("segmentation_trace",
         output_dir / "segmentation_artifact_persist_trace.json");
     append_artifact("yolov8seg_evidence",
@@ -2070,6 +2079,17 @@ CxScriptResultPackage BuildCxScriptResultPackage(
 
     pkg.facts["execution_mode"] = "sequential";
     pkg.facts["algorithm_executed"] = capture.runtime_completed ? "true" : "false";
+    if (!capture.gray_boundary_receipts.empty()) {
+        pkg.facts["gray_boundary_mode"] = "DEVELOPMENT_BOUND_GRAY_AUDIT";
+        pkg.facts["gray_boundary_production_eligible"] = "false";
+        pkg.metrics["gray_boundary_receipt_count"] = static_cast<double>(capture.gray_boundary_receipts.size());
+    }
+    if (!capture.refined_arc_receipts.empty()) {
+        pkg.facts["refined_arc_mode"] = "DEVELOPMENT_PAIRED_BOUND_GRAY_AUDIT";
+        pkg.facts["refined_arc_image_binding"] = "two_owned_gray_snapshots_not_cli_carrier";
+        pkg.facts["refined_arc_production_eligible"] = "false";
+        pkg.metrics["refined_arc_receipt_count"] = static_cast<double>(capture.refined_arc_receipts.size());
+    }
     if (!capture.partial_match_receipts.empty()) {
         pkg.facts["partial_match_only"] = capture.partial_match_only ? "true" : "false";
         pkg.facts["partial_match_mode"] = "DEVELOPMENT_PARTIAL_AUDIT";
@@ -3090,6 +3110,25 @@ bool RunCxScriptHeadless(const CxScriptHeadlessOptions& options, CxScriptHeadles
         source_image,
         capture,
         reason);
+
+    if (execution_ok && !capture.gray_boundary_receipts.empty()) {
+        try {
+            // Hash the actual in-memory overlay source, not a second file read.
+            cv::Mat gray;
+            cv::cvtColor(source_image,gray,cv::COLOR_BGR2GRAY);
+            std::string bytes=std::to_string(gray.cols)+":"+std::to_string(gray.rows)+":CV_8UC1:";
+            for (int y=0;y<gray.rows;++y)
+                bytes.append(reinterpret_cast<const char*>(gray.ptr<unsigned char>(y)),size_t(gray.cols));
+            const auto sha=cxgeom::so2::Sha256Bytes(bytes);
+            for (const auto& text:capture.gray_boundary_receipts)
+                if(nlohmann::json::parse(text).at("binding").at("gray_sha256")!=sha)
+                    throw std::runtime_error("GRAY_HEADLESS_IMAGE_BINDING_MISMATCH");
+        } catch(const std::exception& e) {
+            execution_ok=false;
+            reason=e.what();
+            capture.failure_stage="gray_image_binding";
+        }
+    }
 
     if (!execution_ok)
     {
@@ -4320,6 +4359,32 @@ bool RunCxScriptHeadless(const CxScriptHeadlessOptions& options, CxScriptHeadles
         log_file.close();
     }
 
+    bool refined_arc_receipts_ok = !capture.refined_arc_receipts.empty();
+    for (std::size_t index = 0; index < capture.refined_arc_receipts.size(); ++index) {
+        const auto path = output_dir / ("refined_arc_receipt_" + std::to_string(index) + ".json");
+        std::ofstream file(path, std::ios::binary | std::ios::trunc);
+        file << capture.refined_arc_receipts[index];file.close();
+        if (!file) {
+            refined_arc_receipts_ok = false;result.runtime_ok = false;
+            result.reason = "refined arc receipt export failed: " + path.string();
+        }
+    }
+    bool gray_receipts_ok = !capture.gray_boundary_receipts.empty();
+    for (std::size_t index = 0; index < capture.gray_boundary_receipts.size(); ++index) {
+        try {
+            auto receipt = nlohmann::json::parse(capture.gray_boundary_receipts[index]);
+            const auto path=output_dir/("gray_boundary_receipt_"+std::to_string(index)+".json");
+            std::ofstream file(path,std::ios::binary|std::ios::trunc);
+            file << receipt.dump(2);file.close();
+            if (!file) throw std::runtime_error("GRAY_HEADLESS_RECEIPT_WRITE_FAILED");
+        } catch (const std::exception& e) {
+            gray_receipts_ok=false;
+            result.runtime_ok=false;
+            result.reason=e.what();
+        }
+    }
+
+
     bool partial_receipts_ok = !capture.partial_match_receipts.empty();
     for (std::size_t index = 0; index < capture.partial_match_receipts.size(); ++index)
     {
@@ -4377,13 +4442,16 @@ bool RunCxScriptHeadless(const CxScriptHeadlessOptions& options, CxScriptHeadles
     // Mixed image-tool runs retain all existing visual asset requirements.
     const bool structured_geometry_assets =
         ((capture.geometric_set_only && geometric_receipts_ok) ||
-         (capture.partial_match_only && partial_receipts_ok)) &&
+         (capture.partial_match_only && partial_receipts_ok) ||
+         (capture.refined_arc_only && refined_arc_receipts_ok)) &&
         snapshot_ok && summary_ok && manual_review_handoff_asset_ok;
 
     result.assets_complete = options.contract_context_enabled
         ? (snapshot_ok && summary_ok)
         : ((capture.geometric_set_receipts.empty() || geometric_receipts_ok) &&
            (capture.partial_match_receipts.empty() || partial_receipts_ok) &&
+           (capture.gray_boundary_receipts.empty() || gray_receipts_ok) &&
+           (capture.refined_arc_receipts.empty() || refined_arc_receipts_ok) &&
            (structured_geometry_assets ||
             (snapshot_ok && summary_ok && evidence_ok && result_ok &&
              tool_display_ok && manual_review_handoff_asset_ok)));

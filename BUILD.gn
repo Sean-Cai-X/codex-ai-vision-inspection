@@ -148,3 +148,21 @@ executable("cxvision_partial_headless_candidate") {
   configs = [ "//build/config:common", "//build/config:platform" ]
   libs = [ "torch", "torch_cpu", "c10" ]
 }
+
+executable("harmonic_observed_boundary_input_test") {
+  sources = [ "tests/fastmatch_harmonic/native_observed_boundary_test.cpp" ]
+  deps = [ ":cxgeom_polar_discrete_harmonic" ]
+  configs = [ ":geometric_set_platform" ]
+}
+
+executable("harmonic_boundary_bundle_test") {
+  sources = [ "tests/fastmatch_harmonic/native_boundary_bundle_test.cpp" ]
+  deps = [ ":cxgeom_polar_discrete_harmonic" ]
+  configs = [ ":geometric_set_platform" ]
+}
+
+executable("harmonic_boundary_order_test") {
+  sources = [ "tests/fastmatch_harmonic/native_boundary_order_test.cpp" ]
+  deps = [ ":cxgeom_polar_discrete_harmonic" ]
+  configs = [ ":geometric_set_platform" ]
+}

@@ -174,6 +174,8 @@ public:
 
   bool RunHarmonicPendingEntrySmoke(ManualTestContext& source,std::string& reason);
     bool RunSetMatchPendingEntrySmoke(ManualTestContext& source,std::string& reason);
+    bool RunGrayBoundaryPendingEntrySmoke(ManualTestContext& source,std::string& reason);
+    bool RunRefinedArcPendingEntrySmoke(ManualTestContext& source,std::string& reason);
     bool RunPartialMatchPendingEntrySmoke(ManualTestContext& source,std::string& reason);
 
     bool WriteEvidenceChainCatalogSemanticSelfTest(

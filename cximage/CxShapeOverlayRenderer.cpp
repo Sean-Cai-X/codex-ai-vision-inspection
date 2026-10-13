@@ -215,6 +215,26 @@ bool RenderCxShapeOverlay(
 
         result.rendered_element_count++;
 
+
+        if (shape.owner_type == "GrayBoundaryAudit") {
+            // Gray-derived open spans must not use the legacy always-closed ROI renderer.
+            const bool rejected=shape.semantic_role=="measure_points";
+            const bool raw=shape.stable_ref.size()>=4 &&
+                shape.stable_ref.compare(shape.stable_ref.size()-4,4,":raw")==0;
+            const cv::Scalar color=rejected?cv::Scalar(0,0,255):
+                (raw?cv::Scalar(255,255,0):cv::Scalar(0,220,0));
+            std::vector<cv::Point> points;
+            for(size_t i=0;i+1<shape.points.size();i+=2)
+                points.emplace_back(cvRound(shape.points[i]*16),cvRound(shape.points[i+1]*16));
+            if(rejected) {
+                for(const auto& p:points)cv::circle(output,p,16,color,1,cv::LINE_AA,4);
+                result.rendered_measure_points_count+=static_cast<int>(points.size());
+            } else if(points.size()>1) {
+                cv::polylines(output,points,false,color,1,cv::LINE_AA,4);
+                result.rendered_result_count++;
+            }
+            continue;
+        }
         if (shape.semantic_role == "roi")
         {
             result.rendered_roi_count++;
