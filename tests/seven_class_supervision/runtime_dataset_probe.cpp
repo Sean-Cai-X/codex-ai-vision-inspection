@@ -7,6 +7,7 @@
 #include "unified_budget_runner.h"
 #include "unified_logits_diagnostic.h"
 #include "coverage_budget_runner.h"
+#include "partial_upgrade_replay.h"
 #include "ownership_gradient_audit.h"
 #include "candidate_provenance_audit.h"
 #include "score_mode_audit.h"
@@ -15,7 +16,9 @@
 int main(int argc,char** argv) {
     using namespace supervision_fixture;
     try {
+        if(argc>1&&std::string(argv[1])=="--partial-replay")return partial_upgrade_replay::run(argc,argv);
         if(argc>1&&std::string(argv[1])=="--classification-update-audit")return classification_update_audit::run(argc,argv);
+        if(argc>1&&(std::string(argv[1])=="--coverage-circle-bias-budget"||std::string(argv[1])=="--coverage-circle-bias2-budget"))return coverage_budget::run(argc,argv);
         if(argc==2&&std::string(argv[1])=="--classification-update-audit-test") {
             classification_update_audit::self_test();std::cout<<"PASS optimizer coverage, actual accumulated gradients and Adam updates\n";return 0;
         }

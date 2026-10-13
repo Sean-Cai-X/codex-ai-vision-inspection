@@ -28,11 +28,13 @@ inline J evaluate(YoloV8Segment& model,const TorchModelManifest& manifest,const 
 }
 inline int run(int argc,char** argv){
     const bool geometry_only=std::string(argv[1])=="--coverage-geometry-budget";
+    const bool bias_calibration=std::string(argv[1])=="--coverage-circle-bias-budget"||std::string(argv[1])=="--coverage-circle-bias2-budget";
+    const double bias_lr_multiplier=std::string(argv[1])=="--coverage-circle-bias2-budget"?2000:1000;
     const bool stratified_background=std::string(argv[1])=="--coverage-stratified-background-budget";
-    const bool sigmoid_background=std::string(argv[1])=="--coverage-sigmoid-background-budget"||stratified_background;
+    const bool sigmoid_background=std::string(argv[1])=="--coverage-sigmoid-background-budget"||stratified_background||bias_calibration;
     const bool competition=std::string(argv[1])=="--coverage-competition-budget"||sigmoid_background;
     const bool controlled=geometry_only||competition;
-    check(argc==(stratified_background?11:sigmoid_background?10:controlled?9:8),"usage: --coverage[-geometry|-competition|-sigmoid-background|-stratified-background]-budget binding parent_root rules prior_experiment transfer_audit_root output_base [covered_v5_root] [covered_v12_root] [covered_v13_root for stratified background]");
+    check(argc==((stratified_background||bias_calibration)?11:sigmoid_background?10:controlled?9:8),"usage: --coverage[-geometry|-competition|-sigmoid-background|-stratified-background|-circle-bias]-budget binding parent_root rules prior_experiment transfer_audit_root output_base [covered_v5_root] [covered_v12_root] [covered_v13_root]");
     auto binding=mode_budget::json(argv[2]),rules=mode_budget::json(argv[4]);auto parent=fs::canonical(argv[3]);
     auto prior=fs::canonical(argv[5]),audit=fs::canonical(argv[6]);auto parent_manifest=mode_budget::json(parent/"model_manifest.json");
     check(parent_manifest.at("classes")==binding.at("geometry_contract"),"COVERAGE_CLASS_ORDER_MISMATCH");
@@ -49,12 +51,13 @@ inline int run(int argc,char** argv){
     fs::path competition_root;J competition_inventory;
     if(sigmoid_background){competition_root=fs::canonical(argv[9]);competition_inventory=mode_budget::inventory(competition_root);}
     fs::path sigmoid_root;J sigmoid_inventory;
-    if(stratified_background){sigmoid_root=fs::canonical(argv[10]);sigmoid_inventory=mode_budget::inventory(sigmoid_root);}
+    if(stratified_background||bias_calibration){sigmoid_root=fs::canonical(argv[10]);sigmoid_inventory=mode_budget::inventory(sigmoid_root);}
     TorchModelManifest manifest;std::string reason;check(LoadTorchModelManifest((parent/"model_manifest.json").string(),parent.string(),manifest,reason),"COVERAGE_MANIFEST");
     auto policy=coverage_augmentation::policy();const auto policy_sha="sha256:"+Sha256Bytes(policy.dump());
     write_new(root/"coverage_policy.json",policy.dump(2));J results=J::array();auto started=std::chrono::steady_clock::now();
     auto budget=[&](){check(std::chrono::steady_clock::now()-started<std::chrono::minutes(20),"COVERAGE_EXECUTION_BUDGET");};
     for(const std::string shape:{"circle","ellipse"}){
+        if(bias_calibration&&shape!="circle")continue;
         auto data_binding=make_case(root/shape,rules,shape,"none",3);const auto original_inventory=mode_budget::inventory(root/shape);
         BusinessTrialSettings settings;settings.case_id=data_binding.at("case_id");settings.dataset_revision_id=data_binding.at("dataset_revision_id");
         settings.dataset_manifest_sha256=data_binding.at("dataset_manifest_sha256");settings.project_geometry_class=shape;settings.project_geometry_class_id=shape=="circle"?1:2;
@@ -97,7 +100,7 @@ inline int run(int argc,char** argv){
             {"annotation_sha256",mode_budget::hash(valid_mask)},{"target_class_id",settings.project_geometry_class_id},{"independent_accuracy_evidence",false}});
         for(int version=controlled?1:0;version<2;++version){
             const std::string baseline_loss=version?"unified_v5_hard_negative_experimental":"legacy_v1";
-            const std::string loss_name=stratified_background?"unified_v14_stratified_background_experimental":sigmoid_background?"unified_v13_sigmoid_background_experimental":competition?"unified_v12_foreground_competition_experimental":geometry_only?"unified_v11_geometry_assignment_experimental":baseline_loss;
+            const std::string loss_name=bias_calibration?(bias_lr_multiplier==2000?"unified_v16_output_bias_lr2000_experimental":"unified_v15_output_bias_lr1000_experimental"):stratified_background?"unified_v14_stratified_background_experimental":sigmoid_background?"unified_v13_sigmoid_background_experimental":competition?"unified_v12_foreground_competition_experimental":geometry_only?"unified_v11_geometry_assignment_experimental":baseline_loss;
             auto old_root=prior/(shape+"-"+baseline_loss);auto old=mode_budget::json(old_root/"result.json");
             check(old.at("parent_sha256")==binding.at("checkpoint_sha256")&&old.at("dataset_revision")==data_binding.at("dataset_revision_id")&&
                 old.at("epochs")==40&&old.at("updates")==40&&old.at("batch_size")==2&&old.at("seed")==20261012&&
@@ -133,7 +136,7 @@ inline int run(int argc,char** argv){
                 for(std::size_t i=0;i<evaluated.size();++i)check(evaluated[i].at("metrics")==base.at("observations")[i].at("metrics"),"SIGMOID_CONTROL_NOT_REPRODUCED");
                 base["observations"]=evaluated;results.push_back(base);
             }
-            if(stratified_background){auto base_dir=sigmoid_root/(shape+"-unified_v13_sigmoid_background_experimental-coverage-v1");auto base=mode_budget::json(base_dir/"result.json");
+            if(stratified_background||bias_calibration){auto base_dir=sigmoid_root/(shape+"-unified_v13_sigmoid_background_experimental-coverage-v1");auto base=mode_budget::json(base_dir/"result.json");
                 check(base.at("coverage_revision_sha256")==revision_sha&&base.at("coverage_policy_sha256")==policy_sha&&base.at("parent_sha256")==binding.at("checkpoint_sha256")&&
                     base.at("epochs")==40&&base.at("updates")==40&&base.at("batch_size")==2&&base.at("microbatch_size")==1&&base.at("gradient_accumulation_steps")==2&&
                     base.at("seed")==20261012&&base.at("classification_policy")=="foreground_competition_sigmoid_background_v1"&&mode_budget::hash(base_dir/"weights.pt")==base.at("checkpoint_sha256"),"STRATIFIED_CONTROL_NOT_MATCHED");
@@ -143,6 +146,20 @@ inline int run(int argc,char** argv){
                 base["observations"]=evaluated;results.push_back(base);}
             budget();torch::manual_seed(20261012);YoloV8Segment model(7);check(model->load_state_dict_strict(weights.string()).complete(),"COVERAGE_PARENT_LOAD");model->train();
             torch::optim::Adam optimizer(model->parameters(),torch::optim::AdamOptions(1e-4).weight_decay(0));
+            std::vector<torch::Tensor> bias_parameters,bias_initial;
+            if(bias_calibration){
+                std::set<const c10::TensorImpl*> bias_ids;
+                for(const auto& p:model->head()->named_parameters())
+                    if(p.key()=="cv3.0.2.bias"||p.key()=="cv3.1.2.bias"||p.key()=="cv3.2.2.bias"){
+                        check(p.value().numel()==7&&p.value().requires_grad(),"BIAS_CALIBRATION_SHAPE");
+                        bias_parameters.push_back(p.value());bias_initial.push_back(p.value().detach().clone());bias_ids.insert(p.value().unsafeGetTensorImpl());}
+                check(bias_ids.size()==3,"BIAS_CALIBRATION_HEAD_IDENTITY");
+                auto& groups=optimizer.param_groups();std::vector<torch::Tensor> rest;
+                for(const auto& p:groups[0].params())if(!bias_ids.count(p.unsafeGetTensorImpl()))rest.push_back(p);
+                check(rest.size()+3==model->parameters().size(),"BIAS_CALIBRATION_OPTIMIZER_COVERAGE");
+                groups[0].params()=rest;
+                optimizer.add_param_group(torch::optim::OptimizerParamGroup(bias_parameters,std::make_unique<torch::optim::AdamOptions>(torch::optim::AdamOptions(.1).weight_decay(0))));
+            }
             foreground_competition::Terms terms;
             std::vector<int64_t> last_hard_counts(3);
             auto compute=[&](const YoloV8SegDatasetSample& s,int64_t& positives){auto image=cv::imread(s.image_ref);SegLetterbox lb;auto in=MakeSegInput(image,manifest,lb);auto raw=model->forward(in);
@@ -154,6 +171,7 @@ inline int run(int argc,char** argv){
             std::ofstream progress(dir/"progress.jsonl");check(bool(progress),"COVERAGE_PROGRESS_OPEN");
             for(int epoch=0;epoch<40;++epoch){budget();double lr=1e-6+(1e-4-1e-6)*.5*(1+std::cos(std::acos(-1.)*epoch/39.));
                 for(auto& group:optimizer.param_groups())static_cast<torch::optim::AdamOptions&>(group.options()).lr(lr);optimizer.zero_grad();
+                if(bias_calibration)static_cast<torch::optim::AdamOptions&>(optimizer.param_groups()[1].options()).lr(bias_lr_multiplier*lr);
                 double total=0,cls=0,box=0,mask=0,dfl=0,fg=0,bg=0,hard_bg=0;int64_t positives=0;
                 std::vector<int64_t> hard_counts(3,0);
                 for(int micro=0;micro<2;++micro){int i=epoch*2+micro;check(mode_budget::hash(augmented[i].image_ref)==exposures[i].at("image_sha256"),"COVERAGE_TRAIN_BYTES_CHANGED");
@@ -167,6 +185,9 @@ inline int run(int argc,char** argv){
                     {"mask_loss",mask/2},{"dfl_loss",dfl/2},{"validation_loss",valid_loss},{"positive_assignments",version?J(positives):J(nullptr)}};
                 if(competition)point["classification_terms"]={{"foreground",fg/2},{"background",bg/2},{"hard_background",hard_bg/2},{"hard_background_weight",2}};
                 if(stratified_background)point["hard_background_selections_by_level"]=hard_counts;
+                if(bias_calibration){point["classifier_output_bias_lr"]=bias_lr_multiplier*lr;point["classifier_output_bias_values"]=J::array();point["classifier_output_bias_delta_l2"]=J::array();
+                    for(std::size_t l=0;l<bias_parameters.size();++l){J channels=J::array();for(int c=0;c<7;++c)channels.push_back(bias_parameters[l][c].item<double>());
+                        point["classifier_output_bias_values"].push_back(channels);point["classifier_output_bias_delta_l2"].push_back((bias_parameters[l].detach()-bias_initial[l]).norm().item<double>());}}
                 trace.push_back(point);progress<<point.dump()<<'\n';progress.flush();check(bool(progress),"COVERAGE_PROGRESS_WRITE");
                 if(epoch%5==4)std::cout<<shape<<' '<<loss_name<<" coverage update="<<epoch+1<<" loss="<<total/2<<" valid="<<valid_loss<<std::endl;
             }
@@ -184,6 +205,7 @@ inline int run(int argc,char** argv){
                 {"hard_background_policy",stratified_background?"stratified_20_20_60_global_mean_v1":"global_topk"},
                 {"probe_executable_sha256",mode_budget::hash(fs::canonical(argv[0]))},
                 {"observations",evaluated},{"model_quality_accepted",false},{"production_allowed",false}};
+            if(bias_calibration){result["classifier_output_bias_lr_multiplier"]=bias_lr_multiplier;result["classifier_output_bias_tensor_count"]=3;result["remaining_lr_multiplier"]=1;}
             write_new(dir/"result.json",result.dump(2));results.push_back(result);
             write_new(root/(shape+"-"+loss_name+"-partial-results.json"),results.dump(2));
         }
@@ -192,7 +214,7 @@ inline int run(int argc,char** argv){
     check(mode_budget::inventory(parent)==parent_inventory&&mode_budget::hash(audit/"transfer_error_audit.json")==audit_digest,"COVERAGE_SOURCE_CHANGED");
     if(controlled)check(mode_budget::inventory(covered_root)==covered_inventory,"GEOMETRY_CONTROL_CHANGED");
     if(sigmoid_background)check(mode_budget::inventory(competition_root)==competition_inventory,"SIGMOID_CONTROL_CHANGED");
-    if(stratified_background)check(mode_budget::inventory(sigmoid_root)==sigmoid_inventory,"STRATIFIED_CONTROL_CHANGED");
+    if(stratified_background||bias_calibration)check(mode_budget::inventory(sigmoid_root)==sigmoid_inventory,"STRATIFIED_CONTROL_CHANGED");
     write_new(root/"comparison.json",J({{"schema","visionai.rd.coverage_budget_comparison.v1"},{"source_audit_sha256",audit_digest},
         {"coverage_policy_sha256",policy_sha},{"results",results},{"execution_status","PASS"},{"model_quality_accepted",false},{"production_allowed",false}}).dump(2));
     std::cout<<"PASS execution, NOT quality: "<<root.generic_string()<<std::endl;return 0;

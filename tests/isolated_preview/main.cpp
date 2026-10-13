@@ -166,6 +166,7 @@ int main(int argc,char** argv) {
             }
             auto staging=local.controlled_trial_output_root/local.trial_output_scope/receipt.task_id/"staging";
             auto raw=json(staging/"instances.json"), mapping=json(staging/"weight_mapping_report.json");
+            const auto actual_metrics=json(staging/"segmentation_metrics.json");
             check(mapping.at("complete")==true&&mapping.at("loaded_count")==mapping.at("target_count"),"STRICT_TENSOR_MAPPING_FAILED");
             check(raw.at("weights_hash")==model&&raw.at("transform").at("original_width")==64&&
                 raw.at("transform").at("original_height")==64,"RAW_IDENTITY_OR_SIZE_MISMATCH");
@@ -176,9 +177,12 @@ int main(int argc,char** argv) {
                 check(found!=receipt.predictions.end()&&found->class_id==name,"TYPED_RAW_INSTANCE_MISMATCH");
             }
             check(raw_counts==counts&&raw.at("instances").size()==receipt.predictions.size(),"TYPED_RAW_COUNTS_MISMATCH");
-            const auto prior=json(package/"evidence/experimental_training_receipt.json").at("observations")[seed];
+            const bool partial=delivery.contains("partial_upgrade");
+            const auto prior=partial?json(package/"evidence/nominal_replay.json").at("candidate")[seed]:
+                json(package/"evidence/experimental_training_receipt.json").at("observations")[seed];
             // Same generated source, candidate, preprocessing and decoder must reproduce class counts.
-            check(prior.at("class_counts")==counts,"EXPERIMENT_TYPED_COUNTS_MISMATCH");
+            check((partial?prior.at("metrics").at("class_counts"):prior.at("class_counts"))==counts,"EXPERIMENT_TYPED_COUNTS_MISMATCH");
+            if(partial)check(prior.at("image_sha256")==asset.image_sha256,"PARTIAL_REPLAY_IMAGE_MISMATCH");
             J row={{"sample_id",id},{"source_split",local.source_split},{"image_sha256",asset.image_sha256},
                 {"task_id",receipt.task_id},{"dataset_revision",receipt.dataset_revision},{"candidate_sha256",model},
                 {"verified",receipt.verified},{"typed_conclusion",receipt.conclusion_code},{"class_counts",counts},
@@ -186,7 +190,8 @@ int main(int argc,char** argv) {
                 {"predictions",predictions},{"model_quality_accepted",false},
                 {"strict_loaded_tensors",mapping.at("loaded_count")},{"raw_typed_counts_equal",true},
                 {"target_count",counts[shape]},{"wrong_class_count",receipt.predictions.size()-counts[shape].get<unsigned>()},
-                {"nms_cap_reached",prior.at("cap_reached")},{"full_post_nms_count",nullptr},
+                {"nms_cap_reached",actual_metrics.at("output_cap_reached")},{"full_post_nms_count",actual_metrics.at("full_post_nms_count")},
+                {"actual_runtime_count_diagnostics",actual_metrics},
                 {"prior_same_input_geometric_metrics",prior},{"independent_accuracy_evidence",false}};
             observations.push_back(row);write_new(run/(id+"-typed-receipt.json"),row.dump(2));
             std::cout<<id<<" typed inference PASS; counts "<<counts.dump()<<std::endl;
