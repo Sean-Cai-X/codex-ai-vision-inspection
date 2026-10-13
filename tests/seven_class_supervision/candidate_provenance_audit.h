@@ -116,7 +116,9 @@ inline J inspect(YoloV8Segment& model,const TorchModelManifest& manifest,const c
         {"below_threshold_masks_checked",false},{"selection_with_without_audit_equal",true}};
 }
 inline int run(int argc,char** argv){
-    check(argc==8,"usage: --candidate-audit binding parent_root covered_v5_root geometry_root transfer_root output_base");
+    check(argc==8||argc==9,"usage: --candidate-audit binding parent_root covered_v5_root candidate_root transfer_root output_base [candidate_arm]");
+    const std::string candidate_arm=argc==9?argv[8]:"unified_v11_geometry_assignment_experimental";
+    check(candidate_arm=="unified_v11_geometry_assignment_experimental"||candidate_arm=="unified_v12_foreground_competition_experimental","CANDIDATE_ARM_INVALID");
     auto binding=mode_budget::json(argv[2]);auto parent=fs::canonical(argv[3]),v5=fs::canonical(argv[4]),geo=fs::canonical(argv[5]),transfer=fs::canonical(argv[6]);
     auto pm=mode_budget::json(parent/"model_manifest.json");check(mode_budget::hash(parent/"model_manifest.json")==binding.at("parent_manifest_sha256")&&
         mode_budget::hash(parent/pm.at("weights").get<std::string>())==binding.at("checkpoint_sha256")&&
@@ -127,7 +129,7 @@ inline int run(int argc,char** argv){
     auto root=fs::canonical(fresh_root(argv[7]));std::cout<<"Candidate audit: "<<root<<std::endl;J summary=J::array();
     const auto start=std::chrono::steady_clock::now();
     for(const std::string shape:{"circle","ellipse"})for(bool geometry:{false,true}){
-        const std::string arm=geometry?"unified_v11_geometry_assignment_experimental":"unified_v5_hard_negative_experimental";auto source=geometry?geo:v5;
+        const std::string arm=geometry?candidate_arm:"unified_v5_hard_negative_experimental";auto source=geometry?geo:v5;
         auto dir=source/(shape+"-"+arm+"-coverage-v1");auto receipt=mode_budget::json(dir/"result.json");auto weight_sha=mode_budget::hash(dir/"weights.pt");
         check(weight_sha==receipt.at("checkpoint_sha256")&&receipt.at("parent_sha256")==binding.at("checkpoint_sha256"),"CANDIDATE_RECEIPT");
         YoloV8Segment model(7);check(model->load_state_dict_strict((dir/"weights.pt").string()).complete(),"CANDIDATE_STRICT_LOAD");
@@ -149,7 +151,7 @@ inline int run(int argc,char** argv){
     }
     check(mode_budget::inventory(v5)==before_v5&&mode_budget::inventory(geo)==before_geo&&mode_budget::inventory(transfer)==before_transfer,"CANDIDATE_SOURCE_CHANGED");
     write_new(root/"candidate_audit.json",J({{"schema","visionai.rd.candidate_provenance_audit.v1"},{"observations",summary},
-        {"covered_v5_comparison_sha256",mode_budget::hash(v5/"comparison.json")},{"geometry_comparison_sha256",mode_budget::hash(geo/"comparison.json")},
+        {"covered_v5_comparison_sha256",mode_budget::hash(v5/"comparison.json")},{"candidate_comparison_sha256",mode_budget::hash(geo/"comparison.json")},{"candidate_arm",candidate_arm},
         {"parent_manifest_sha256",binding.at("parent_manifest_sha256")},{"class_order",manifest.class_names},
         {"probe_executable_sha256",mode_budget::hash(fs::canonical(argv[0]))},
         {"confidence",manifest.confidence_threshold},{"nms_iou",manifest.iou_threshold},{"mask_threshold",manifest.mask_threshold},

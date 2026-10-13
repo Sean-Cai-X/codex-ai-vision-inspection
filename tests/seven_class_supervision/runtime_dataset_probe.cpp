@@ -13,6 +13,9 @@
 int main(int argc,char** argv) {
     using namespace supervision_fixture;
     try {
+        if(argc==2&&std::string(argv[1])=="--foreground-competition-test") {
+            foreground_competition::self_test();std::cout<<"PASS competitive class/background gradients, empty partitions, loss descent and invalid labels\n";return 0;
+        }
         if(argc>1&&std::string(argv[1])=="--candidate-audit")return candidate_audit::run(argc,argv);
         if(argc==2&&std::string(argv[1])=="--candidate-provenance-test") {
             candidate_audit::self_test();std::cout<<"PASS candidate identity, suppression parent, cap state and unchanged selection\n";return 0;
@@ -21,7 +24,7 @@ int main(int argc,char** argv) {
         if(argc==2&&std::string(argv[1])=="--ownership-gradient-test") {
             ownership_audit::self_test();std::cout<<"PASS unified output gradients: seven classes, competing GT, class sign and geometry owner support\n";return 0;
         }
-        if(argc>1&&(std::string(argv[1])=="--coverage-budget"||std::string(argv[1])=="--coverage-geometry-budget"))return coverage_budget::run(argc,argv);
+        if(argc>1&&(std::string(argv[1])=="--coverage-budget"||std::string(argv[1])=="--coverage-geometry-budget"||std::string(argv[1])=="--coverage-competition-budget"))return coverage_budget::run(argc,argv);
         if(argc==2&&std::string(argv[1])=="--coverage-test") {
             coverage_augmentation::self_test();std::cout<<"PASS paired augmentation: 80 deterministic plans, image/polygon/box alignment, no clipping or mutation\n";return 0;
         }
