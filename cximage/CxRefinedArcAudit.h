@@ -20,6 +20,8 @@ public:
  void revision(const char* id){invalidate();clear_anchor();sides_[side_].revision(id);}
  void grayparameter(double v,const char* key){invalidate();clear_anchor();sides_[side_].parameter(v,key);}
  void span(int index){invalidate();clear_anchor();if(index<0||index>127)throw std::invalid_argument("REFINED_ARC_SPAN_INDEX");span_[side_]=index;}
+ void endpointparameter(double value,const char* key){invalidate();clear_anchor();sides_[side_].endpointparameter(value,key);}
+ void endpointprovenance(const char* source){invalidate();clear_anchor();sides_[side_].endpointprovenance(source);}
  void anchor(double begin,double end){
   invalidate();clear_anchor();cxgeom::polar::RawArcAnchors a{begin,end};cxgeom::polar::ValidateRawArcAnchors(a);
   (side_==0?common_.reference:common_.observation)=a;anchor_set_[side_]=true;
@@ -38,6 +40,8 @@ public:
   else if(key=="maximum_endpoint_error_px")c.maximum_endpoint_error_px=v;
   else if(key=="maximum_support_endpoint_fraction_delta")settings_.maximum_support_endpoint_fraction_delta=v;
   else if(key=="minimum_common_anchor_fraction")common_.minimum_common_anchor_fraction=v;
+  else if(key=="endpoint_projection_enabled"){if(v!=0&&v!=1)throw std::invalid_argument("REFINED_ARC_BOOLEAN");common_.endpoint_projection_enabled=v!=0;}
+  else if(key=="maximum_projection_normal_residual_px")common_.maximum_projection_normal_residual_px=v;
   else if(key=="common_support_enabled"){if(v!=0&&v!=1)throw std::invalid_argument("REFINED_ARC_BOOLEAN");common_enabled_=v!=0;}
   else if(key=="allow_reversed"){if(v!=0&&v!=1)throw std::invalid_argument("REFINED_ARC_BOOLEAN");c.allow_reversed=v!=0;}
   else throw std::invalid_argument("REFINED_ARC_UNKNOWN_PARAMETER");
@@ -45,7 +49,10 @@ public:
  void run(){
   invalidate();
   if(span_[0]<0||span_[1]<0)throw std::invalid_argument("REFINED_ARC_EXPLICIT_SPANS_REQUIRED");
-  if(common_enabled_&&(!anchor_set_[0]||!anchor_set_[1]||common_.correspondence_id.empty()))
+  if(common_.endpoint_projection_enabled&&!common_enabled_)
+   throw std::invalid_argument("ENDPOINT_PROJECTION_COMMON_MODE_REQUIRED");
+  if(common_enabled_&&(common_.correspondence_id.empty()||
+     (!common_.endpoint_projection_enabled&&(!anchor_set_[0]||!anchor_set_[1]))))
    throw std::invalid_argument("COMMON_ARC_EXPLICIT_ANCHOR_PAIR_REQUIRED");
   sides_[0].run();sides_[1].run();
   const auto& a=sides_[0].spans();const auto& b=sides_[1].spans();
@@ -68,6 +75,8 @@ template<class Parser> void RegisterRefinedArcAudit(Parser& parser){
  parser.DefineClassFun("RefinedArcAudit",p,"grayparameter",&CxRefinedArcAudit::grayparameter);
  parser.DefineClassFun("RefinedArcAudit",p,"span",&CxRefinedArcAudit::span);
  parser.DefineClassFun("RefinedArcAudit",p,"parameter",&CxRefinedArcAudit::parameter);
+ parser.DefineClassFun("RefinedArcAudit",p,"endpointparameter",&CxRefinedArcAudit::endpointparameter);
+ parser.DefineClassFun("RefinedArcAudit",p,"endpointprovenance",&CxRefinedArcAudit::endpointprovenance);
  parser.DefineClassFun("RefinedArcAudit",p,"anchor",&CxRefinedArcAudit::anchor);
  parser.DefineClassFun("RefinedArcAudit",p,"correspondence",&CxRefinedArcAudit::correspondence);
  parser.DefineClassFun("RefinedArcAudit",p,"run",&CxRefinedArcAudit::run);

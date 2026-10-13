@@ -1,6 +1,7 @@
 #pragma once
 #include "CxObservedGrayBoundary.h"
 #include "CxPartialBoundaryMaskInput.h"
+#include <optional>
 namespace cxpartialimage {
 // Immutable values, not an ObservedBoundaryInput: derived coordinates must never
 // enter raw-only APIs by implicit conversion.
@@ -10,9 +11,10 @@ class BoundRefinedSpan {
  size_t begin_=0,end_=0;
  std::string evidence_;
  cxgeom::polar::ObservedBoundaryInput source_raw_;
+ std::optional<cxgeom::polar::BoundaryEndpointAnchors> endpoint_anchors_;
  BoundRefinedSpan(const GrayBoundaryResult& result,const std::vector<size_t>& indices,const std::string& binding,
-  const cxgeom::polar::ObservedBoundaryInput& raw):
-  begin_(indices.front()),end_(indices.back()),source_raw_(raw){
+  const cxgeom::polar::ObservedBoundaryInput& raw,const std::optional<cxgeom::polar::BoundaryEndpointAnchors>& anchors):
+  begin_(indices.front()),end_(indices.back()),source_raw_(raw),endpoint_anchors_(anchors){
   std::ostringstream o;o.imbue(std::locale::classic());o<<std::setprecision(17);
   o<<"{\"schema\":\"bound_refined_span.v1\",\"representation\":\"gray_derived_not_raw\",\"closed\":false,\"production_eligible\":false";
   o<<",\"source_run_begin\":"<<begin_<<",\"source_run_end\":"<<end_<<",\"binding\":"<<binding;
@@ -29,6 +31,7 @@ class BoundRefinedSpan {
  friend class BoundGrayFrame;
 public:
  const cxgeom::polar::ObservedBoundaryInput& source_raw()const{return source_raw_;}
+ const std::optional<cxgeom::polar::BoundaryEndpointAnchors>& endpoint_anchors()const{return endpoint_anchors_;}
  size_t source_begin()const{return begin_;}
  size_t source_end()const{return end_;}
  const std::vector<std::complex<double>>& raw_points()const{return raw_;}
@@ -40,8 +43,11 @@ class BoundGrayFrame {
  cv::Mat gray_;
  MaskBoundaryInput mask_;
  std::string image_id_,revision_,sha_,binding_;
- BoundGrayFrame(cv::Mat gray,MaskBoundaryInput mask,std::string image_id,std::string revision,std::string sha,int threshold):
+ std::optional<cxgeom::polar::BoundaryEndpointAnchors> endpoint_anchors_;
+ BoundGrayFrame(cv::Mat gray,MaskBoundaryInput mask,std::string image_id,std::string revision,std::string sha,int threshold,
+  const cxgeom::polar::BoundaryEndpointAnchors* endpoints):
   gray_(std::move(gray)),mask_(std::move(mask)),image_id_(std::move(image_id)),revision_(std::move(revision)),sha_(std::move(sha)){
+  if(endpoints)endpoint_anchors_=*endpoints;
   using cxgeom::polar::receipt_detail::quote;
   std::ostringstream o;o.imbue(std::locale::classic());
   o<<"{\"schema\":\"bound_gray_frame.v1\",\"binding_method\":\"owned_gray_snapshot_threshold_mask_extraction\"";
@@ -63,7 +69,7 @@ public:
   auto sha=cxgeom::so2::Sha256Bytes(bytes);
   cv::Mat mask;cv::threshold(snapshot,mask,double(threshold),255,cv::THRESH_BINARY);
   auto input=FromBinaryMask(mask,anchor,image_id+":gray_sha256="+sha+":threshold="+std::to_string(threshold),revision,"bound_span",128,3,endpoints);
-  return BoundGrayFrame(std::move(snapshot),std::move(input),image_id,revision,sha,threshold);
+  return BoundGrayFrame(std::move(snapshot),std::move(input),image_id,revision,sha,threshold,endpoints);
  }
  const cxgeom::polar::ObservedBoundaryInput& raw()const{return mask_.boundary;}
  const std::string& receipt()const{return binding_;}
@@ -75,7 +81,7 @@ public:
  std::vector<BoundRefinedSpan> refined_spans(const cxgeom::polar::BoundaryNormalConfig& normal={},
   const GrayBoundaryConfig& gray={},size_t minimum=3)const{
   auto result=refine(normal,gray);std::vector<BoundRefinedSpan> spans;
-  for(const auto& indices:AcceptedGrayRuns(result,minimum))spans.push_back(BoundRefinedSpan(result,indices,binding_,raw()));
+  for(const auto& indices:AcceptedGrayRuns(result,minimum))spans.push_back(BoundRefinedSpan(result,indices,binding_,raw(),endpoint_anchors_));
   return spans;
  }
 };

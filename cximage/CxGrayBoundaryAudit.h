@@ -15,15 +15,18 @@ class CxGrayBoundaryAudit {
  cxpartialimage::GrayBoundaryResult result_;
  std::vector<cxpartialimage::BoundRefinedSpan> spans_;
  cv::Mat image_;bool ran_=false;
+ cxgeom::polar::BoundaryEndpointAnchors endpoints_;
+ bool endpoint_set_[6]={false,false,false,false,false,false};
+ void clear_endpoints(){for(auto& v:endpoint_set_)v=false;endpoints_.provenance.clear();}
  void invalidate(){ran_=false;receipt_.clear();result_={};spans_.clear();image_.release();}
  static std::string text(const char* s){if(!s||!*s)throw std::invalid_argument("GRAY_SCRIPT_MISSING_TEXT");return s;}
 public:
  CxGrayBoundaryAudit(){for(const auto& p:cxgrayparams::Parameters())parameter(p.initial,p.key);}
- void image(const char* path){invalidate();path_=text(path);}
- void caseid(const char* id){invalidate();case_id_=text(id);}
- void revision(const char* value){invalidate();revision_=text(value);}
+ void image(const char* path){invalidate();clear_endpoints();path_=text(path);}
+ void caseid(const char* id){invalidate();clear_endpoints();case_id_=text(id);}
+ void revision(const char* value){invalidate();clear_endpoints();revision_=text(value);}
  void parameter(double value,const char* name){
-  invalidate();const auto key=text(name);cxgrayparams::Validate(cxgrayparams::Find(key),value);
+  invalidate();clear_endpoints();const auto key=text(name);cxgrayparams::Validate(cxgrayparams::Find(key),value);
   auto integer=[&](int lo,int hi){if(value<lo||value>hi||std::floor(value)!=value)throw std::invalid_argument("GRAY_SCRIPT_INTEGER_RANGE");return int(value);};
   if(key=="threshold")threshold_=integer(0,254);
   else if(key=="anchor_x")anchor_.x=integer(0,100000);
@@ -41,6 +44,35 @@ public:
   else if(key=="noise_floor_dn")gray_.noise_floor_dn=value;
   else throw std::invalid_argument("GRAY_SCRIPT_UNKNOWN_PARAMETER");
  }
+ void endpointpoint(double x,double y,const char* role){
+  invalidate();const auto key=text(role);
+  const int i=key=="start"?0:key=="end"?1:key=="via"?2:-1;
+  if(i<0)throw std::invalid_argument("GRAY_SCRIPT_ENDPOINT_ROLE");
+  endpoint_set_[2*i]=false;endpoint_set_[2*i+1]=false;
+  if(!std::isfinite(x)||!std::isfinite(y))throw std::invalid_argument("GRAY_SCRIPT_NONFINITE_ENDPOINT");
+  (i==0?endpoints_.start:i==1?endpoints_.end:endpoints_.via)={x,y};endpoint_set_[2*i]=true;endpoint_set_[2*i+1]=true;
+ }
+ void endpointparameter(double value,const char* name){
+  invalidate();const auto key=text(name);
+  if(!std::isfinite(value))throw std::invalid_argument("GRAY_SCRIPT_NONFINITE_ENDPOINT");
+  if(key=="maximum_snap_px"){if(value<0)throw std::invalid_argument("BOUNDARY_ENDPOINT_SNAP_CONFIG");endpoints_.maximum_snap_px=value;return;}
+  if(key=="tie_epsilon_px"){if(value<0)throw std::invalid_argument("BOUNDARY_ENDPOINT_SNAP_CONFIG");endpoints_.tie_epsilon_px=value;return;}
+  const std::string keys[6]={"start_x","start_y","end_x","end_y","via_x","via_y"};
+  int index=-1;for(int i=0;i<6;++i)if(key==keys[i])index=i;
+  if(index<0)throw std::invalid_argument("GRAY_SCRIPT_ENDPOINT_PARAMETER");
+  auto& p=index<2?endpoints_.start:index<4?endpoints_.end:endpoints_.via;
+  if(index%2==0)p.real(value);else p.imag(value);
+  endpoint_set_[index]=true;
+ }
+ void endpointprovenance(const char* source){invalidate();endpoints_.provenance=text(source);}
+ void endpointconfig(double maximum_snap_px,double tie_epsilon_px,const char* provenance){
+  invalidate();endpoints_.provenance.clear();
+  if(!std::isfinite(maximum_snap_px)||maximum_snap_px<0||!std::isfinite(tie_epsilon_px)||
+     tie_epsilon_px<0||tie_epsilon_px>maximum_snap_px)
+   throw std::invalid_argument("BOUNDARY_ENDPOINT_SNAP_CONFIG");
+  endpoints_.maximum_snap_px=maximum_snap_px;endpoints_.tie_epsilon_px=tie_epsilon_px;
+  endpoints_.provenance=text(provenance);
+ }
  void run(){
   invalidate();if(path_.empty())throw std::invalid_argument("GRAY_SCRIPT_IMAGE_REQUIRED");
   std::filesystem::path path(path_);
@@ -56,7 +88,11 @@ public:
   const auto color=cv::imread(path.string(),cv::IMREAD_COLOR);
   if(color.empty())throw std::invalid_argument("GRAY_SCRIPT_IMAGE_UNREADABLE");
   cv::cvtColor(color,image_,cv::COLOR_BGR2GRAY);
-  auto frame=cxpartialimage::BoundGrayFrame::Capture(image_,case_id_,revision_,threshold_,anchor_);
+  bool has_endpoints=false,complete=true;for(bool set:endpoint_set_){has_endpoints=has_endpoints||set;complete=complete&&set;}
+  if(has_endpoints&&(!complete||endpoints_.provenance.empty()))
+   throw std::invalid_argument("GRAY_SCRIPT_ENDPOINT_TRIPLE_REQUIRED");
+  auto frame=cxpartialimage::BoundGrayFrame::Capture(image_,case_id_,revision_,threshold_,anchor_,
+   has_endpoints?&endpoints_:nullptr);
   result_=frame.refine(normal_,gray_);
   spans_=frame.refined_spans(normal_,gray_);
   J serialized=J::array();for(const auto& span:spans_)serialized.push_back(J::parse(span.receipt()));
@@ -94,6 +130,8 @@ template<class Parser> void RegisterGrayBoundaryAudit(Parser& parser){
  parser.DefineClassFun("GrayBoundaryAudit",p,"caseid",&CxGrayBoundaryAudit::caseid);
  parser.DefineClassFun("GrayBoundaryAudit",p,"revision",&CxGrayBoundaryAudit::revision);
  parser.DefineClassFun("GrayBoundaryAudit",p,"parameter",&CxGrayBoundaryAudit::parameter);
+ parser.DefineClassFun("GrayBoundaryAudit",p,"endpointparameter",&CxGrayBoundaryAudit::endpointparameter);
+ parser.DefineClassFun("GrayBoundaryAudit",p,"endpointprovenance",&CxGrayBoundaryAudit::endpointprovenance);
  parser.DefineClassFun("GrayBoundaryAudit",p,"run",&CxGrayBoundaryAudit::run);
  parser.DefineClassFun("GrayBoundaryAudit",p,"expectaccepted",&CxGrayBoundaryAudit::expectaccepted);
  parser.DefineClassFun("GrayBoundaryAudit",p,"save",&CxGrayBoundaryAudit::save);

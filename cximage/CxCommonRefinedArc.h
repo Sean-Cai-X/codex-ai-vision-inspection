@@ -1,11 +1,13 @@
 #pragma once
 #include "CxRefinedBoundaryArc.h"
-#include "../cxgeom/polar_discrete_harmonic/common_arc_support.h"
+#include "../cxgeom/polar_discrete_harmonic/endpoint_projected_arc.h"
 namespace cxpartialimage {
 struct CommonRefinedArcConfig {
  cxgeom::polar::ArcCorrespondenceConfig pose;
  cxgeom::polar::RawArcAnchors reference,observation;
  double minimum_common_anchor_fraction=.25;
+ bool endpoint_projection_enabled=false;
+ double maximum_projection_normal_residual_px=.3;
  std::string correspondence_id; // caller assertion, never proof of correspondence
 };
 inline RefinedArcComparison MatchCommonRefinedArc(const BoundRefinedSpan& reference,
@@ -20,7 +22,17 @@ inline RefinedArcComparison MatchCommonRefinedArc(const BoundRefinedSpan& refere
   return std::pair<double,double>{f.at(s.source_begin()),f.at(s.source_end())};
  };
  const auto rs=support(reference),os=support(observation);
- const auto d=IntersectCommonArcDomain(config.reference,config.observation,rs,os,config.minimum_common_anchor_fraction);
+ EndpointProjectionCoordinates rpcoords,opcoords;
+ if(config.endpoint_projection_enabled){
+  if(!reference.endpoint_anchors()||!observation.endpoint_anchors())
+   throw std::invalid_argument("ENDPOINT_PROJECTION_SOURCE_ANCHORS_REQUIRED");
+  const auto& r=*reference.endpoint_anchors();const auto& o=*observation.endpoint_anchors();
+  rpcoords=ProjectEndpointCoordinates(reference.refined_points(),r.start,r.end,config.maximum_projection_normal_residual_px);
+  opcoords=ProjectEndpointCoordinates(observation.refined_points(),o.start,o.end,config.maximum_projection_normal_residual_px);
+ }
+ const auto d=config.endpoint_projection_enabled?
+  IntersectProjectedSupport(rpcoords,opcoords,config.minimum_common_anchor_fraction):
+  IntersectCommonArcDomain(config.reference,config.observation,rs,os,config.minimum_common_anchor_fraction);
  RefinedArcComparison out;
  out.refined.config=config.pose;out.refined.reference_receipt=reference.receipt();out.refined.observation_receipt=observation.receipt();
  out.matched_raw=out.refined;
@@ -32,7 +44,10 @@ inline RefinedArcComparison MatchCommonRefinedArc(const BoundRefinedSpan& refere
    {"source_ids",s.source_ids()},{"full_raw_point_count",s.source_raw().ordered_run().points.size()},
    {"closed",false},{"gap_bridging",false}};
  };
- J evidence={{"schema","refined_boundary_arc_comparison.v1"},{"mode","explicit_common_raw_arc"},
+ J evidence={{"schema","refined_boundary_arc_comparison.v1"},
+  {"mode",config.endpoint_projection_enabled?"explicit_endpoint_projection":"explicit_common_raw_arc"},
+  {"maximum_projection_normal_residual_px",config.maximum_projection_normal_residual_px},
+  {"raw_fraction_anchors_used",!config.endpoint_projection_enabled},
   {"production_eligible",false},{"whole_contour_approved",false},{"raw_modified",false},
   {"uncertainty_calibrated",false},{"scope","conditional_on_caller_asserted_endpoint_correspondence"},
   {"pose_parameters",pose_parameters},{"correspondence_id",config.correspondence_id},{"anchor_correspondence_verified",false},
@@ -43,6 +58,24 @@ inline RefinedArcComparison MatchCommonRefinedArc(const BoundRefinedSpan& refere
     {"coverage_semantics","fraction_of_caller_anchor_interval_not_whole_shape_quality"}}},
   {"reference",input(reference,config.reference,rs)},{"observation",input(observation,config.observation,os)},
   {"full_raw_under_refined_pose",J::array()}};
+ if(config.endpoint_projection_enabled){
+  auto projection=[](const BoundRefinedSpan& span,const EndpointProjectionCoordinates& p){
+   const auto& a=*span.endpoint_anchors();
+   return J{{"source","immutable_owned_gray_snapshot_endpoint_selection"},{"provenance",a.provenance},
+    {"start",{a.start.real(),a.start.imag()}},{"end",{a.end.real(),a.end.imag()}},{"via",{a.via.real(),a.via.imag()}},
+    {"maximum_snap_px",a.maximum_snap_px},{"tie_epsilon_px",a.tie_epsilon_px},
+    {"coordinates",p.values},{"status",p.status},{"parent_reversed",p.reversed},
+    {"maximum_normal_residual_px",p.maximum_normal_residual_px},{"support_interval",{p.minimum,p.maximum}}};
+  };
+  evidence["reference"]["endpoint_projection"]=projection(reference,rpcoords);
+  evidence["observation"]["endpoint_projection"]=projection(observation,opcoords);
+  evidence["common_support"]["coordinate_basis"]="continuous_requested_endpoints_projected_on_retained_refined_vertices";
+  evidence["raw_control_coordinate_source"]="same_refined_vertex_endpoint_projection_not_independent_raw_parameterization";
+  evidence["scope"]="straight_support_conditional_on_caller_asserted_continuous_endpoint_correspondence";
+  evidence["pose_constraint_source"]="caller_endpoint_pair_constrains_longitudinal_origin_scale_and_direction";
+  evidence["image_evidence_role"]="gray_boundary_refinement_and_observed_support_consistency";
+  evidence["image_only_pose_recovery"]=false;
+ }
  auto empty=[&](const char* basis){return J{{"status",d.status},{"config",pose_parameters},{"coordinate_basis",basis},{"candidates",J::array()},{"accepted_indices",J::array()}};};
  if(!d.accepted()){
   out.refined.status=d.status;out.matched_raw.status=d.status;
@@ -50,10 +83,16 @@ inline RefinedArcComparison MatchCommonRefinedArc(const BoundRefinedSpan& refere
   evidence["refined"]=empty("no_common_refined_fit");evidence["matched_raw"]=empty("no_common_raw_fit");
   out.evidence=evidence.dump(2);return out;
  }
- const auto r=common_arc_detail::SampleCommonSlice(reference.source_raw().ordered_run().points,
-  reference.refined_points(),reference.source_begin(),reference.source_end(),config.reference,d,config.pose.samples);
- const auto o=common_arc_detail::SampleCommonSlice(observation.source_raw().ordered_run().points,
-  observation.refined_points(),observation.source_begin(),observation.source_end(),config.observation,d,config.pose.samples);
+ const auto r=config.endpoint_projection_enabled?
+  common_arc_detail::SampleProjectedSlice(reference.source_raw().ordered_run().points,reference.refined_points(),
+   reference.source_begin(),reference.source_end(),rpcoords,d,config.pose.samples):
+  common_arc_detail::SampleCommonSlice(reference.source_raw().ordered_run().points,
+   reference.refined_points(),reference.source_begin(),reference.source_end(),config.reference,d,config.pose.samples);
+ const auto o=config.endpoint_projection_enabled?
+  common_arc_detail::SampleProjectedSlice(observation.source_raw().ordered_run().points,observation.refined_points(),
+   observation.source_begin(),observation.source_end(),opcoords,d,config.pose.samples):
+  common_arc_detail::SampleCommonSlice(observation.source_raw().ordered_run().points,
+   observation.refined_points(),observation.source_begin(),observation.source_end(),config.observation,d,config.pose.samples);
  out.refined=arc_detail::MatchArcPoints(r.refined,o.refined,reference.receipt(),observation.receipt(),config.pose,
   &r.refined_samples,&o.refined_samples);
  out.matched_raw=arc_detail::MatchArcPoints(r.raw,o.raw,reference.receipt(),observation.receipt(),config.pose,
@@ -79,7 +118,8 @@ inline RefinedArcComparison MatchCommonRefinedArc(const BoundRefinedSpan& refere
  for(auto& c:out.refined.candidates)if(c.accepted)c.reason="COMMON_REFINED_ARC_CONDITIONAL_NOT_PRODUCTION";
  auto refined=J::parse(out.refined.receipt());
  refined["schema"]="refined_arc_pose_assessment.v1";
- refined["coordinate_basis"]="derived_refined_points_at_common_raw_arc_coordinates";
+ refined["coordinate_basis"]=config.endpoint_projection_enabled?
+  "derived_refined_points_at_explicit_continuous_endpoint_projection":"derived_refined_points_at_common_raw_arc_coordinates";
  refined["sampling"]="shared_anchor_coordinate_not_independent_refined_length";
  for(auto& c:refined["candidates"]){
   c["reference_refined"]=c["reference_observed"];c.erase("reference_observed");
@@ -92,8 +132,8 @@ inline RefinedArcComparison MatchCommonRefinedArc(const BoundRefinedSpan& refere
   {"maximum_error_px",a.maximum_error_px},{"weighted_vertex_support",a.weighted_vertex_support},{"monotonic",a.monotonic}};};
  for(const auto& c:out.refined.candidates){
   auto rp=reference.source_raw().ordered_run().points,op=observation.source_raw().ordered_run().points;
-  if(config.reference.begin>config.reference.end)std::reverse(rp.begin(),rp.end());
-  if(config.observation.begin>config.observation.end)std::reverse(op.begin(),op.end());
+  if(config.endpoint_projection_enabled?rpcoords.reversed:config.reference.begin>config.reference.end)std::reverse(rp.begin(),rp.end());
+  if(config.endpoint_projection_enabled?opcoords.reversed:config.observation.begin>config.observation.end)std::reverse(op.begin(),op.end());
   for(auto& p:rp)p=c.factor*p+c.translation;
   J a={{"diagnostic_only",true},{"used_for_common_fit_acceptance",false},
    {"reference",nullptr},{"observation",nullptr}};
