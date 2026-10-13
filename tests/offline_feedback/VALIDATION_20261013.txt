@@ -1,0 +1,40 @@
+Native offline feedback contract validation -- 2026-10-13
+
+Scope: R&D protocol foundation for Vision-AI N4/N5/N7 and RD2.
+Not a model release, actual received business ticket, production admission,
+runtime integration, GUI acceptance or business issue closure.
+
+Source contract SHA256 (original file bytes):
+sha256:cf33c3526ed5ef9913423c16452ccc7258ee3b2062bde0333fc9213a5786eb87
+Local developer CLI SHA256 (not a replacement for the runtime DLL):
+sha256:1e62dfc35a4a67d54c11d4138d69dfa1a60a4cf648a23b7678467c0bda4d1887
+
+Build: VS2022 17 / MSVC 19.39, Windows x64, Release, C++17.
+Build directory: ../build_offline_feedback
+Both offline_feedback_test and offline_feedback_validate built successfully.
+No Python, gateway, business image access or remote execution used.
+
+CTest: 3/3 PASS, 1.30 seconds final run.
+- OfflineFeedback_Strict_Privacy_And_Link_Guards: 61 native checks.
+  Fixed seven classes, unknown fields at nested levels, common private text,
+  malformed/duplicate/oversized/deep JSON, bounds, missing GT, error vs quality,
+  count conservation, cap truncation, issue SHA and repair linkage, no R&D closure.
+- OfflineFeedback_CLI_Original_Byte_Digest_Links: PASS / CONTRACT_ONLY.
+  Original synthetic issue bytes SHA256:
+  sha256:f35485c3f99584a23b0ffb59038893d36b95768078ce56ef2bed4fb1138d3b51
+- OfflineFeedback_CLI_Rejects_Wrong_Digest: expected nonzero exit, stable
+  FEEDBACK_ISSUE_BINDING_MISMATCH; no private input echoed.
+Synthetic protocol fixtures live only under the development build directory.
+Their placeholder artifact hashes do not refer to registered business models.
+
+Existing native runtime regression: 12/12 PASS, 7.26 seconds.
+ctest --test-dir ../build_supervision_runtime -C Release --output-on-failure
+      -R "libtorch_module_(business_|comparison_metrics|image_error_metrics)"
+PATH used installed D:/libtorch/lib and D:/opencv/build/x64/vc16/bin.
+These are existing runtime binaries; this step does not rebuild/change the DLL.
+
+Remaining: business adapter linking and manual export/receive flow, actual typed
+diagnostic field integration, independently verified repair packages, original
+sample retest and human conclusion. Existing NOT_SENT tickets remain unchanged.
+Default configuration, old delivery package, frozen data, parent/checkpoint and
+model selection were not changed. Rejected experiments were not republished.
