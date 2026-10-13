@@ -48,13 +48,16 @@ inline void Expose(std::string& script){
 inline nlohmann::json Values(const std::string& script){
  const auto obj=Object(script);nlohmann::json values=nlohmann::json::object();
  for(const auto& p:Parameters()){
-  auto v=Read(script,obj,p);if(!v.present)throw std::invalid_argument("Expose all parameters before Run");
+  auto v=Read(script,obj,p);if(!v.present&&(cxgrayparams::OptionalLegacy(p.key)))continue;if(!v.present)throw std::invalid_argument("Expose all parameters before Run");
   cxgrayparams::Validate(p,v.value);values[p.key]=v.value;
  }
  const double radius=values.at("scan_radius_px"),step=values.at("scan_step_px");
  const double samples=2*radius/step;
  if(samples<8||samples>256||std::abs(samples-std::round(samples))>=1e-8||values.at("maximum_shift_px").get<double>()>radius)
   throw std::invalid_argument("Profile constraint: shift <= radius; 2*radius/step integer in [8,256]");
+ if(values.value("full_boundary_enabled",0.)!=0&&
+    values.value("chunk_core_points",100.)+2*values.at("normal_half_window").get<double>()>128)
+  throw std::invalid_argument("Full boundary: core + 2*normal_half_window must be <=128");
  return values;
 }
 }

@@ -91,3 +91,67 @@ parameter restoration, and SHA rejection with actual persisted receipts. Screens
 run records stay outside the source repository. Initial auxiliary-panel overlap still needs
 workspace focusing; Windows desktop acceptance remains unperformed.
 Set CXVISION_TEST_CJK_FONT at CMake configure time to include the local CJK glyph test.
+
+### Continuous matching-landmark arc mode
+ROI selection endpoints and physical matching landmarks are separate controls.
+Matching start/end, projection distance limit, tie tolerance and provenance are shown per side.
+The optional matching_landmark_arc_enabled mode is off by default; legacy recipe tokens
+remain byte-for-byte readable when this field is absent. Straight projection and curved
+matching-arc modes are mutually exclusive. Raw fraction anchors apply to legacy mode only.
+Draw matching landmarks as yellow circles/text on the actual source-bound Image View.
+New Linux desktop screenshots verify a combined rotation/scale run, source-SHA rejection,
+and the visible wrong-identity counterexample. A local fit may still accept a tangentially
+misidentified landmark; production remains false and controlled truth scoring is separate.
+Do not represent the test scorer as a runtime physical-identity detector.
+
+### Landmark identity and conditional uncertainty controls (2026-10-13)
+CxLandmarkQualityParameters.h is the shared default/range source for fourteen controls.
+Keep the existing parameter widgets in a separate collapsible identity/bounds group.
+Old canonical scripts without these fields retain exact text and disabled gates.
+identity_required and uncertainty_required are explicit development gates, never production approval.
+Require matching-arc mode plus image/source binding before enabling either gate.
+Separate absolute context mismatch from the near-best-score ambiguity tolerance.
+A score is unavailable if no search ran; do not display a budget rejection as a zero-error match.
+Freeze executed quality parameters with the image hashes and verify them on actual receipt collection.
+Results show both-direction identity statuses and conditional angle/scale/origin/center bounds.
+Changing any control invalidates results; no automatic rerun or overwriting prior evidence.
+Linux desktop verified Evidence search/selection, visible controls, successful paired Run,
+editing uncertainty_required, stale-result invalidation, rejected rerun and actual bounds.
+Native catalog/owner tests additionally verify parameter edits change actual execution/gate results.
+The initial overlapping utility windows still require workspace focus / window selection.
+Windows visual verification and localization-error calibration remain outstanding.
+
+### Boundary input refusal evidence (2026-10-13)
+Optional input_rejection_receipt_enabled defaults to off, preserving legacy exception behavior.
+When enabled, expected selection/span failures archive the actual decoded image hashes,
+executed parameters, candidate indices/coordinates and reasons, with pose_evaluated=false.
+This is successful evidence collection, not successful matching; accepted pose candidates remain empty.
+Never automatically resolve equal-distance anchors, bridge disconnected components, or draw stale matches.
+Results expose refusal details under Executed pose / observed error / fallback; both original source images remain bound.
+Linux desktop verified Boundary Stress - roi_snap_ambiguous selection, Run and visible two-alternative refusal.
+Ten native-generated stress cases run through the real CxScript/headless path; full suite 115/115 passed.
+Moderate blur still causes identity rejection in legacy mode; Windows visual checks and physical error calibration remain open.
+
+### Optional gray-window recentering (2026-10-13)
+Expose recenter_iterations (0..16, default 0) and recenter_tolerance_px (default .001 px) in the existing per-side Gray extraction / refinement controls.
+Zero/absent iterations preserves legacy scripts and receipts. Editing invalidates results; runtime receipts record the optional method, convergence offsets and final profile center.
+No automatic fallback from failed convergence, no quality threshold relaxation, no Raw mutation.
+Use the two Gray Localization - Blur legacy/recenter8 Evidence cases for review. Results remain development-only.
+Native parameter and legacy-script checks passed; new controls have not received desktop click acceptance.
+Moderate blur improves in the controlled fixture; noisy pose error increases and severe blur can fail convergence. Do not enable globally by default.
+
+
+### Explicit gray foreground polarity (2026-10-13)
+foreground_polarity uses the existing shared parameter model: 0 bright > threshold,
+1 dark <= threshold. Default/absent stays bright for old scripts and recipes.
+Use a two-option combo in standalone and per-side gray controls, without new layout.
+No source image inversion; decoded-gray SHA remains unchanged while mask identity changes.
+Changing the control invalidates current results and requires an explicit rerun.
+Runtime binding records the actual threshold mode. Legacy bright receipt omits the new
+parameter for compatibility; requested/actual comparison normalizes absent to zero.
+Gray Polarity Evidence cases select a frozen observed open segment then reextract it
+from the original image; they do not claim full-contour matching or pose acceptance.
+Native and actual headless replay are verified separately from desktop click acceptance.
+
+### Full observed gray contour mode (2026-10-13)
+Reuse GrayBoundaryAudit controls; full_boundary_enabled defaults off. chunk_core_points=100 and maximum_chunks=64 are exposed in existing groups; halo derives from normal_half_window and core+2*halo<=128. Optional fields preserve old scripts. Show open accepted runs, never bridge rejected points or silently imply pose-ready closure. Paired pose UI/runtime rejects this mode explicitly. New Gray Full Boundary cases use full_case_* IDs and self-contained assets. Headless ImGui/bridge verified; fresh desktop click acceptance pending.

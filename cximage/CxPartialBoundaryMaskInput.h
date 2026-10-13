@@ -6,6 +6,12 @@
 #include <algorithm>
 #include <cstdint>
 namespace cxpartialimage {
+class MaskBoundaryRejection:public std::invalid_argument{
+ std::string evidence_;
+public:
+ MaskBoundaryRejection(const char* reason,std::string evidence):std::invalid_argument(reason),evidence_(std::move(evidence)){}
+ const std::string& receipt()const{return evidence_;}
+};
 struct MaskBoundaryInput {
  cxgeom::polar::ObservedBoundaryInput boundary;
  std::string mask_sha256;
@@ -63,15 +69,33 @@ inline MaskBoundaryInput FromBinaryMask(const cv::Mat& mask,const cv::Rect& anch
    chosen=int(i);++candidates;
   }
  }
- need(candidates>0,"MASK_BOUNDARY_NO_ANCHORED_CONTOUR");
- need(candidates==1,"MASK_BOUNDARY_AMBIGUOUS_CONTOURS");
+ if(candidates!=1){
+  const char* reason=candidates?"MASK_BOUNDARY_AMBIGUOUS_CONTOURS":"MASK_BOUNDARY_NO_ANCHORED_CONTOUR";
+  std::ostringstream o;o.imbue(std::locale::classic());
+  o<<"{\"schema\":\"mask_boundary_rejection.v1\",\"status\":"<<cxgeom::polar::receipt_detail::quote(reason)
+   <<",\"mask_sha256\":"<<cxgeom::polar::receipt_detail::quote(sha)<<",\"candidate_count\":"<<candidates
+   <<",\"outer_count\":"<<outer<<",\"hole_count\":"<<holes<<",\"selected\":false,\"gap_bridging\":false,\"candidate_contours\":[";
+  bool comma=false;for(size_t i=0;i<contours.size();++i)if(hierarchy[i][3]<0&&
+   std::any_of(contours[i].begin(),contours[i].end(),[&](const cv::Point& p){return anchor.contains(p);})){
+   if(comma)o<<',';comma=true;auto box=cv::boundingRect(contours[i]);
+   o<<"{\"contour_index\":"<<i<<",\"point_count\":"<<contours[i].size()<<",\"bounds\":["
+    <<box.x<<','<<box.y<<','<<box.width<<','<<box.height<<"]}";
+  }o<<"]}";throw MaskBoundaryRejection(reason,o.str());
+ }
  std::vector<std::complex<double>> parent;
  for(const auto& p:contours[size_t(chosen)])parent.emplace_back(p.x,p.y);
  cxgeom::OpenBoundaryRun run;std::string selection="null";
  if(endpoints){
   // In endpoint mode the rectangle selects a component, not the segment extent.
-  auto selected=cxgeom::polar::SelectBoundaryEndpoints(parent,*endpoints,size_t(minimum_points));
-  run=std::move(selected.run);selection=selected.receipt();
+  try{
+   auto selected=cxgeom::polar::SelectBoundaryEndpoints(parent,*endpoints,size_t(minimum_points));
+   run=std::move(selected.run);selection=selected.receipt();
+  }catch(const cxgeom::polar::BoundaryEndpointRejection& e){
+   auto evidence=e.receipt();evidence.pop_back();
+   evidence+=",\"mask_sha256\":"+cxgeom::polar::receipt_detail::quote(sha)+",\"contour_index\":"+std::to_string(chosen)+
+    ",\"parent_point_count\":"+std::to_string(parent.size())+"}";
+   throw cxgeom::polar::BoundaryEndpointRejection(e.what(),evidence);
+  }
  }else{
   run=cxgeom::ExtractOpenBoundaryRun(parent,anchor.x,anchor.y,anchor.width,anchor.height,minimum_points);
  }

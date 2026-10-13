@@ -35,6 +35,12 @@ int main()try{
  reject([&]{SelectBoundaryEndpoints(p,bad);},"BOUNDARY_ENDPOINT_OUT_OF_RANGE");
  bad=a;bad.start={1.5,0};bad.maximum_snap_px=2;
  reject([&]{SelectBoundaryEndpoints(p,bad);},"BOUNDARY_ENDPOINT_AMBIGUOUS_SNAP");
+ try{SelectBoundaryEndpoints(p,bad);throw std::runtime_error("typed rejection missing");}
+ catch(const BoundaryEndpointRejection& e){
+  const auto detail=nlohmann::json::parse(e.receipt());
+  check(detail["selected"]==false&&detail["role"]=="start"&&detail["candidates"].size()==2,"unselected competing endpoints");
+  check(detail["candidates"][0]["parent_index"]==0&&detail["candidates"][1]["parent_index"]==1,"parent identity evidence");
+ }
  bad=a;bad.provenance.clear();
  reject([&]{SelectBoundaryEndpoints(p,bad);},"BOUNDARY_ENDPOINT_MISSING_PROVENANCE");
  bad=a;bad.start=p[0];bad.end=p[5];bad.via=p[2];

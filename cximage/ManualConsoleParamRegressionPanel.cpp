@@ -9159,9 +9159,21 @@ static void DrawRefinedArcControls(ManualTestContext& context){
     }
     changed=text("Source case",side["case_id"])||changed;changed=text("Dataset revision",side["revision"])||changed;
     int span=side["span"];if(ImGui::InputInt("Explicit span",&span)){side["span"]=span;changed=true;}
+    ImGui::TextWrapped("Selection endpoints: capture the observed ROI run, not physical matching identity.");
     changed=text("Endpoint source",side["endpoint_provenance"])||changed;
     for(const char* key:{"raw_anchor_begin","raw_anchor_end"}){double value=side[key];if(ImGui::InputDouble(key,&value,0,0,"%.12g")){side[key]=value;changed=true;}}
     for(auto it=side["endpoints"].begin();it!=side["endpoints"].end();++it){double value=it.value();if(ImGui::InputDouble(it.key().c_str(),&value,0,0,"%.12g")){it.value()=value;changed=true;}}
+    if(s["parameters"].value("matching_landmark_arc_enabled",0.)!=0){
+     if(!side.contains("matching"))side["matching"]=cxpairui::MatchingDefaults();
+     ImGui::SeparatorText("Matching landmarks / continuous curve arc");
+     ImGui::TextWrapped("Interior physical correspondences, separate from ROI endpoints. No extrapolation or gap bridging.");
+     ImGui::PushID("matching");
+     for(const char* key:{"start_x","start_y","end_x","end_y","maximum_distance_px","tie_epsilon_px"}){
+      double value=side["matching"][key];
+      if(ImGui::InputDouble(key,&value,0,0,"%.12g")){side["matching"][key]=value;changed=true;}
+     }
+     changed=text("Matching landmark provenance",side["matching"]["provenance"])||changed;ImGui::PopID();
+    }
     const char* sources[]={"UNVERIFIED","MANUAL_CONFIRMED","UPSTREAM_VERIFIED","CONTROLLED_REFERENCE"};int selected=0;
     for(int k=0;k<4;++k)if(side["landmark"]["source"]==sources[k])selected=k;
     if(ImGui::Combo("Landmark source",&selected,sources,4)){side["landmark"]["source"]=sources[selected];changed=true;}
@@ -9176,14 +9188,34 @@ static void DrawRefinedArcControls(ManualTestContext& context){
     ImGui::TextWrapped("SHA binding records image bytes. It does not confirm landmark identity or calibrate the declared error.");
     if(ImGui::TreeNode("Gray extraction / refinement parameters")){
      for(const auto& p:cxgrayparams::Parameters()){
-      double value=side["gray"][p.key];if(ImGui::InputDouble(p.key,&value,0,0,"%.12g")){side["gray"][p.key]=value;changed=true;}
+      double value=side["gray"].value(p.key,p.initial);
+      if(std::string(p.key)=="foreground_polarity"){int selected=int(value);if(ImGui::Combo(p.key,&selected,"Bright: > threshold\0Dark: <= threshold\0")){side["gray"][p.key]=selected;changed=true;}}
+      else if(ImGui::InputDouble(p.key,&value,0,0,"%.12g")){side["gray"][p.key]=value;changed=true;}
+      if(ImGui::IsItemHovered())ImGui::SetTooltip("%s",p.description);
      }ImGui::TreePop();
     }
    }ImGui::PopID();
   }
   if(ImGui::CollapsingHeader("Pair solver / quality gates",ImGuiTreeNodeFlags_DefaultOpen)){
    for(const auto& p:cxpairui::Parameters()){
-    double value=s["parameters"][p.key];if(ImGui::InputDouble(p.key,&value,0,0,"%.12g")){s["parameters"][p.key]=value;changed=true;}
+    if(cxpairui::IsQualityParameter(p.key))continue;
+    double value=s["parameters"].value(p.key,p.initial);if(ImGui::InputDouble(p.key,&value,0,0,"%.12g")){
+     s["parameters"][p.key]=value;
+     if(std::string(p.key)=="matching_landmark_arc_enabled"&&value==1){
+      s["parameters"]["endpoint_projection_enabled"]=0;
+      for(auto& side:s["sides"])if(!side.contains("matching"))side["matching"]=cxpairui::MatchingDefaults();
+     }
+     changed=true;
+    }
+    if(ImGui::IsItemHovered())ImGui::SetTooltip("Default %.9g | %.9g .. %.9g | %s",p.initial,p.minimum,p.maximum,p.integer?"integer":"real");
+   }
+  }
+  if(ImGui::CollapsingHeader("Landmark identity / conditional pose bounds")){
+   ImGui::TextWrapped("Development gates only. Defaults keep legacy diagnostics. Enable matching-arc mode and source binding before requiring gates.");
+   ImGui::TextWrapped("Identity searches retained boundary context outside the fitting interval. Repeated shapes may remain ambiguous. Error floor is an assumption, not calibration.");
+   for(const auto& p:cxpairui::Parameters())if(cxpairui::IsQualityParameter(p.key)){
+    double value=s["parameters"].value(p.key,p.initial);
+    if(ImGui::InputDouble(p.key,&value,0,0,"%.12g")){s["parameters"][p.key]=value;changed=true;}
     if(ImGui::IsItemHovered())ImGui::SetTooltip("Default %.9g | %.9g .. %.9g | %s",p.initial,p.minimum,p.maximum,p.integer?"integer":"real");
    }
   }
@@ -9197,8 +9229,40 @@ static void DrawRefinedArcControls(ManualTestContext& context){
   if(ImGui::TreeNode("Executed pose / observed error / fallback")){
    auto j=nlohmann::json::parse(context.refined_arc.receipt);
    ImGui::BeginChild("pair_results",ImVec2(0,250),true,ImGuiWindowFlags_HorizontalScrollbar);
+   if(j.value("input_rejected",false)){
+    ImGui::TextWrapped("Input rejected before pose matching. No candidate, automatic selection or gap bridging.");
+    ImGui::TextUnformatted(j.at("input_rejections").dump(2).c_str());
+    for(const char* side:{"reference","observation"}){
+     const auto& input=j.at(side).at("input");
+     ImGui::TextWrapped("%s | gray audit completed: %s",side,input.at("gray_audit_completed").get<bool>()?"yes":"no");
+     if(input.contains("gray_audit"))ImGui::TextWrapped("Raw %d | accepted %d | rejected %d | retained spans %d",
+      input["gray_audit"]["raw_point_count"].get<int>(),input["gray_audit"]["accepted_point_count"].get<int>(),
+      input["gray_audit"]["rejected_point_count"].get<int>(),int(input["gray_audit"]["refined_spans"].size()));
+    }
+   }
    ImGui::TextUnformatted(j["landmark_gate"].dump(2).c_str());
    ImGui::TextUnformatted(j["common_support"].dump(2).c_str());
+   if(j.contains("landmark_quality_parameters"))ImGui::TextUnformatted(j["landmark_quality_parameters"].dump(2).c_str());
+   if(j.contains("identity_diagnostics"))for(const auto& d:j["identity_diagnostics"]){
+    ImGui::TextWrapped("Candidate %d | geometry identity supported: %s | semantic identity: unverified",
+     d["candidate"].get<int>(),d["geometric_identity_supported_within_search"].get<bool>()?"yes":"no");
+    for(const auto& q:d["queries"]){
+     if(q["searched_arc_positions_px"].empty()){
+      ImGui::TextWrapped("Side %d / endpoint %d: %s | search score unavailable",
+       q["reference_side"].get<int>(),q["endpoint"].get<int>(),q["status"].get<std::string>().c_str());continue;
+     }
+     ImGui::TextWrapped("Side %d / endpoint %d: %s | best arc %.6g px | score %.6g px | near-best [%.6g, %.6g] px",
+      q["reference_side"].get<int>(),q["endpoint"].get<int>(),q["status"].get<std::string>().c_str(),
+      q["best_arc_px"].get<double>(),q["best_score_px"].get<double>(),
+      q["plausible_arc_interval_px"][0].get<double>(),q["plausible_arc_interval_px"][1].get<double>());
+    }
+   }
+   if(j.contains("pose_uncertainty_diagnostics"))for(const auto& d:j["pose_uncertainty_diagnostics"])
+    ImGui::TextUnformatted(d.dump(2).c_str());
+   if(j.contains("inputs"))for(const auto& input:j["inputs"]){
+    ImGui::TextUnformatted(input["matching_landmarks"].dump(2).c_str());
+    ImGui::TextUnformatted(input["projection"].dump(2).c_str());
+   }
    for(const auto& c:j["refined"]["candidates"])ImGui::TextUnformatted(c.dump(2).c_str());
    ImGui::TextUnformatted(j["full_raw_under_refined_pose"].dump(2).c_str());
    ImGui::TextUnformatted(j["fallback"].dump().c_str());ImGui::EndChild();ImGui::TreePop();
@@ -9232,7 +9296,10 @@ static void DrawGrayBoundaryControls(ManualTestContext& context) {
       auto v=cxgrayui::Read(context.editor_text,obj,p);
       if(!v.present)ImGui::TextUnformatted("Missing: expose defaults");
       else {ImGui::SetNextItemWidth(-1);
-       if(ImGui::InputDouble("##value",&v.value,0,0,"%.12g")){
+       bool edited=false;
+       if(std::string(p.key)=="foreground_polarity"){int selected=int(v.value);edited=ImGui::Combo("##value",&selected,"Bright: > threshold\0Dark: <= threshold\0");v.value=selected;}
+       else edited=ImGui::InputDouble("##value",&v.value,0,0,"%.12g");
+       if(edited){
         cxgrayui::Set(context.editor_text,p,v.value);context.editor_dirty=true;cxgraymanual::Invalidate(context);
         context.debug_reason="Gray parameters changed; rerun to obtain a new receipt.";
        }

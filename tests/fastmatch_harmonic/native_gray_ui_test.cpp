@@ -9,15 +9,18 @@ int main(int argc,char** argv)try{
  need(argc==2,"source image required");
  std::string script="GrayBoundaryAudit g;\ng.run();\n";
  cxgrayui::Expose(script);const auto exposed=script;cxgrayui::Expose(script);
- need(script==exposed,"expose not idempotent");need(cxgrayui::Values(script).size()==14,"fourteen parameters");
+ need(script==exposed,"expose not idempotent");need(cxgrayui::Values(script).size()==20,"twenty parameters");
  CxGrayBoundaryAudit tool;tool.image(argv[1]);tool.run();auto receipt=nlohmann::json::parse(tool.receipt());
+ tool.parameter(0,"foreground_polarity");tool.run();need(nlohmann::json::parse(tool.receipt())==receipt,"explicit bright must preserve legacy receipt");
  for(const auto& p:cxgrayparams::Parameters()){
-  need(receipt.at("parameters").at(p.key)==p.initial,"UI/runtime default drift");
+  need(receipt.at("parameters").value(p.key,p.initial)==p.initial,"UI/runtime default drift");
   rejects([&]{tool.parameter(p.maximum+1,p.key);},"runtime upper range");
   rejects([&]{auto s=script;cxgrayui::Set(s,p,p.maximum+1);},"UI upper range");
   rejects([&]{tool.parameter(std::numeric_limits<double>::quiet_NaN(),p.key);},"runtime NaN");
   if(p.integer){rejects([&]{tool.parameter(p.initial+.5,p.key);},"runtime integer");}
  }
+ auto legacy=script;for(const char* key:{"recenter_iterations","recenter_tolerance_px","foreground_polarity","full_boundary_enabled","chunk_core_points","maximum_chunks"}){auto p=cxgrayparams::Find(key);auto value=cxgrayui::Read(legacy,"g",p);legacy.erase(value.position,value.length);}
+ need(cxgrayui::Values(legacy).size()==14,"legacy gray settings preserved");
  need(!cxgrayui::IsCase("// GrayBoundaryAudit fake;\n"),"comment classified as case");
  need(!cxgrayui::IsCase("message(\"GrayBoundaryAudit fake;\");"),"string classified as case");
  const auto contrast=cxgrayparams::Find("minimum_contrast");
@@ -33,6 +36,6 @@ int main(int argc,char** argv)try{
  rejects([&]{auto s=script;cxgrayui::Set(s,cxgrayparams::Find("scan_step_px"),.3);cxgrayui::Values(s);},"fractional sample count");
  rejects([&]{auto s=script;cxgrayui::Set(s,cxgrayparams::Find("scan_step_px"),.0001);cxgrayui::Values(s);},"sample budget");
  std::string ignored="message(\"g.run();\");\n"+script;
- need(cxgrayui::Values(ignored).size()==14,"quoted run interfered");
+ need(cxgrayui::Values(ignored).size()==20,"quoted run interfered");
  std::cout<<"GRAY_UI_PARAMETERS_PASS defaults / literal edits / range / integer / NaN / stale-safe / cross-constraints\n";return 0;
 }catch(const std::exception& e){std::cerr<<e.what()<<"\n";return 1;}

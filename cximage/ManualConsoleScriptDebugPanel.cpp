@@ -736,7 +736,34 @@ bool ViewController::RunRefinedArcPendingEntrySmoke(ManualTestContext& source,st
   nlohmann::json persisted;in>>persisted;if(persisted!=nlohmann::json::parse(expected))throw std::runtime_error("Pair receipt differs");
   const auto before=ImGui::GetWindowDrawList()->VtxBuffer.Size;
   cxpairmanual::Draw(c,ImGui::GetWindowDrawList(),ImVec2(10,10),3);
+  const bool input_rejected=persisted.value("input_rejected",false);
+  if(input_rejected){
+   if(ImGui::GetWindowDrawList()->VtxBuffer.Size!=before)throw std::runtime_error("Rejected input drew invented matched geometry");
+   auto legacy=cxpairui::Read(original);legacy["parameters"]["input_rejection_receipt_enabled"]=0;
+   c.editor_text=cxpairui::Build(legacy);cxpairmanual::Invalidate(c);
+   if(!RequestRefinedArcRun(c,reason))return false;
+   ConsumePendingManualScriptRun(c,"input_rejection_legacy_exception");
+   if(cxpairmanual::Current(c)||c.run_state!="failed")throw std::runtime_error("Uncaptured rejection must fail and clear current receipt");
+   std::ifstream prior(std::filesystem::path(output)/"refined_arc_receipt.json");nlohmann::json prior_json;prior>>prior_json;
+   if(prior_json!=persisted)throw std::runtime_error("Input rejection archive overwritten");
+   std::cout<<"PAIRED_INPUT_REJECTION_ENTRY_PASS "<<source.active_case_id<<" captured/sha/frozen/no-pose/legacy-failure/evidence\n";
+   return true;
+  }
   if(ImGui::GetWindowDrawList()->VtxBuffer.Size<=before)throw std::runtime_error("Pair source overlay absent");
+  if(source.active_case_id=="asymmetric_combined"||source.active_case_id=="repeated_boundary"){
+   auto edited=cxpairui::Read(original);
+   edited["parameters"]["identity_step_px"]=.125;
+   if(source.active_case_id=="asymmetric_combined")edited["parameters"]["uncertainty_required"]=1;
+   else edited["parameters"]["identity_required"]=0;
+   c.editor_text=cxpairui::Build(edited);cxpairmanual::Invalidate(c);
+   if(cxpairmanual::Current(c)||!RequestRefinedArcRun(c,reason))throw std::runtime_error("Quality edit invalidation/request");
+   ConsumePendingManualScriptRun(c,"identity_quality_parameter_edit");
+   if(!cxpairmanual::Current(c))throw std::runtime_error("Quality edited receipt missing");
+   auto actual=nlohmann::json::parse(c.refined_arc.receipt);
+   if(actual["landmark_quality_parameters"]!=cxpairui::QualityValues(edited))throw std::runtime_error("Quality edited parameters not executed");
+   const bool accepted=!actual["refined"]["accepted_indices"].empty();
+   if(accepted!=(source.active_case_id=="repeated_boundary"))throw std::runtime_error("Quality gate edit had no expected effect");
+  }
   auto changed=cxpairui::Read(original);changed["sides"][1]["landmark"]["source"]="UNVERIFIED";
   c.editor_text=cxpairui::Build(changed);cxpairmanual::Invalidate(c);
   if(cxpairmanual::Current(c))throw std::runtime_error("Pair mutation retained result");

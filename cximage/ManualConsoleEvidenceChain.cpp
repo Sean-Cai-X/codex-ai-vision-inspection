@@ -5430,13 +5430,19 @@ int RunRefinedArcEvidenceCatalogSmoke(){
     ImGui::Begin("Key Parameter Controls");DrawKeyParameterControlPanel(*c,nullptr);ImGui::End();ImGui::Render();
    }
    if(!ImGui::GetDrawData()||ImGui::GetDrawData()->TotalVtxCount<=0)throw std::runtime_error("PAIR_PANEL_EMPTY");
-   if(item.case_id=="curve_identity"||item.case_id=="curve_combined"){
+   if(item.case_id=="curve_identity"||item.case_id=="curve_combined"||item.case_id=="asymmetric_combined"||item.case_id=="repeated_boundary"||item.case_id=="uncertainty_rejected"||item.case_id=="clean_control"||item.case_id=="roi_snap_ambiguous"||item.case_id=="low_contrast"||item.case_id=="boundary_gap"){
     ImGui::NewFrame();ImGui::Begin("Pair bridge");
     bool ok=RunRefinedArcGuiBridgeSmoke(*c,reason);ImGui::End();ImGui::Render();if(!ok)throw std::runtime_error(reason);
    }
    found.insert(item.case_id);std::cout<<"paired_evidence_case="<<item.case_id<<"\n";
   }
-  for(const char* id:{"curve_identity","curve_combined","s_curve_missing"})if(!found.count(id))throw std::runtime_error(std::string("PAIR_CASE_MISSING:")+id);
+  if(found.count("clean_control")){
+   for(const char* id:{"blur_3p2","blur_8","low_contrast","missing_boundary","boundary_gap","local_contrast_dropout","noise_4","sharpen_0p8","roi_snap_ambiguous"})
+    if(!found.count(id))throw std::runtime_error(std::string("STRESS_CASE_MISSING:")+id);
+  }else if(found.count("asymmetric_combined")){
+   for(const char* id:{"asymmetric_identity","asymmetric_negative","repeated_boundary","uncertainty_rejected","conditional_one_pixel_budget","shifted_identity","context_mismatch","search_budget_rejected"})
+    if(!found.count(id))throw std::runtime_error(std::string("IDENTITY_CASE_MISSING:")+id);
+  }else for(const char* id:{"curve_identity","curve_combined","s_curve_missing"})if(!found.count(id))throw std::runtime_error(std::string("PAIR_CASE_MISSING:")+id);
  }catch(const std::exception& e){std::cerr<<e.what()<<"\n";return 1;}
  std::cout<<"PAIRED_EVIDENCE_CATALOG_PASS native ImGui/real owner chain; desktop clicks remain separate\n";return 0;
 }
@@ -5471,7 +5477,7 @@ int RunGrayBoundaryEvidenceCatalogSmoke() {
    context->editor_text=source;context->active_case_id=item.case_id;
    context->image_file_path=item.image_path;context->loaded_script_path=item.script_path;context->editor_dirty=true;
    if(!IsGeometryAuditKeyParameterContext(*context))throw std::runtime_error("Gray outer parameter gate rejected");
-   if(cxgrayui::Values(source).size()!=14)throw std::runtime_error("Gray parameters missing");
+   (void)cxgrayui::Values(source); // validates required fields and optional versioned parameters; no frozen field count
    for(int frame=0;frame<2;++frame){
     ImGui::NewFrame();ImGui::SetNextWindowPos(ImVec2(0,0));ImGui::SetNextWindowSize(ImVec2(900,1500));
     ImGui::Begin("Key Parameter Controls");DrawKeyParameterControlPanel(*context,nullptr);ImGui::End();ImGui::Render();

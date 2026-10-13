@@ -9,6 +9,13 @@ struct BoundaryEndpointAnchors {
  double maximum_snap_px=2.0,tie_epsilon_px=1e-8;
  std::string provenance;
 };
+// Typed data rejection retains competing pixels without choosing an identity.
+class BoundaryEndpointRejection:public std::invalid_argument{
+ std::string evidence_;
+public:
+ BoundaryEndpointRejection(const char* reason,std::string evidence):std::invalid_argument(reason),evidence_(std::move(evidence)){}
+ const std::string& receipt()const{return evidence_;}
+};
 struct EndpointBoundarySelection {
  cxgeom::OpenBoundaryRun run;
  BoundaryEndpointAnchors anchors;
@@ -37,18 +44,33 @@ inline EndpointBoundarySelection SelectBoundaryEndpoints(
  need(std::isfinite(a.maximum_snap_px)&&a.maximum_snap_px>=0&&std::isfinite(a.tie_epsilon_px)&&
   a.tie_epsilon_px>=0&&a.tie_epsilon_px<=a.maximum_snap_px,"BOUNDARY_ENDPOINT_SNAP_CONFIG");
  for(auto p:parent)need(std::isfinite(p.real())&&std::isfinite(p.imag()),"BOUNDARY_ENDPOINT_NONFINITE_PARENT");
- auto snap=[&](std::complex<double> p,size_t& index,double& distance){
+ auto snap=[&](const char* role,std::complex<double> p,size_t& index,double& distance){
   need(std::isfinite(p.real())&&std::isfinite(p.imag()),"BOUNDARY_ENDPOINT_NONFINITE_ANCHOR");
   distance=std::numeric_limits<double>::infinity();double second=distance;
   for(size_t i=0;i<parent.size();++i){
    double d=std::abs(p-parent[i]);
    if(d<distance){second=distance;distance=d;index=i;}else if(d<second)second=d;
   }
-  need(distance<=a.maximum_snap_px,"BOUNDARY_ENDPOINT_OUT_OF_RANGE");
-  need(second-distance>a.tie_epsilon_px,"BOUNDARY_ENDPOINT_AMBIGUOUS_SNAP");
+  const char* reason=distance>a.maximum_snap_px?"BOUNDARY_ENDPOINT_OUT_OF_RANGE":
+   second-distance<=a.tie_epsilon_px?"BOUNDARY_ENDPOINT_AMBIGUOUS_SNAP":nullptr;
+  if(reason){
+   std::ostringstream o;o.imbue(std::locale::classic());o<<std::setprecision(17);
+   o<<"{\"schema\":\"boundary_endpoint_rejection.v1\",\"status\":"<<receipt_detail::quote(reason)
+    <<",\"role\":"<<receipt_detail::quote(role)<<",\"requested\":["<<p.real()<<','<<p.imag()<<']'
+    <<",\"nearest_distance_px\":"<<distance<<",\"second_distance_px\":"<<second
+    <<",\"maximum_snap_px\":"<<a.maximum_snap_px<<",\"tie_epsilon_px\":"<<a.tie_epsilon_px
+    <<",\"provenance\":"<<receipt_detail::quote(a.provenance)
+    <<",\"selected\":false,\"production_eligible\":false,\"candidates\":[";
+   bool comma=false;for(size_t i=0;i<parent.size();++i){
+    const double d=std::abs(p-parent[i]);if(d>second+a.tie_epsilon_px)continue;
+    if(comma)o<<',';comma=true;
+    o<<"{\"parent_index\":"<<i<<",\"point\":["<<parent[i].real()<<','<<parent[i].imag()
+     <<"],\"distance_px\":"<<d<<",\"selected\":false}";
+   }o<<"]}";throw BoundaryEndpointRejection(reason,o.str());
+  }
  };
  EndpointBoundarySelection out;out.anchors=a;
- snap(a.start,out.start_index,out.start_snap);snap(a.end,out.end_index,out.end_snap);snap(a.via,out.via_index,out.via_snap);
+ snap("start",a.start,out.start_index,out.start_snap);snap("end",a.end,out.end_index,out.end_snap);snap("via",a.via,out.via_index,out.via_snap);
  need(out.start_index!=out.end_index,"BOUNDARY_ENDPOINT_COLLAPSED");
  need(out.via_index!=out.start_index&&out.via_index!=out.end_index,"BOUNDARY_ENDPOINT_VIA_AT_ENDPOINT");
  const size_t n=parent.size();

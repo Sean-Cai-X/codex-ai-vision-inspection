@@ -78,6 +78,31 @@ int main(int argc,char** argv)try{
   rejected=false;try{RefineGrayBoundary(binary,raw,std::vector<std::complex<double>>(3,{2,0}),"badnormal","v1");}catch(const std::invalid_argument&){rejected=true;}check(rejected,"normal guard");
   GrayBoundaryConfig invalid;invalid.step_px=0;
   rejected=false;try{RefineGrayBoundary(binary,raw,normals,"invalid","v1",invalid);}catch(const std::invalid_argument&){rejected=true;}check(rejected,"config guard");
+ // Recentered midpoint: independent analytic profiles, phase/angle/blur sweep.
+ size_t recenter_cases=0;double recenter_worst=0;
+ for(double angle:{0.,37.,90.,125.})for(double phase:{.1,.35,.7})for(double width:{1.6,3.2}){
+  auto normal=std::polar(1.,angle*std::acos(-1.)/180.),tangent=normal*std::complex<double>(0,1);
+  auto center=std::complex<double>(32,32)+phase*normal;cv::Mat gray(64,64,CV_8UC1);
+  for(int y=0;y<64;++y)for(int x=0;x<64;++x)gray.at<unsigned char>(y,x)=cv::saturate_cast<unsigned char>(128+100*std::erf(std::real(std::conj(normal)*(std::complex<double>(x,y)-center))/width));
+  std::vector<std::complex<double>> pts;for(int k=-2;k<=2;++k){auto p=center+.6*normal+double(k)*4.*tangent;pts.emplace_back(std::round(p.real()),std::round(p.imag()));}
+  auto input=rawinput(pts,"recenter");auto before=input.receipt();GrayBoundaryConfig cfg;cfg.recenter_iterations=8;
+  auto r=RefineGrayBoundary(gray,input,std::vector<std::complex<double>>(5,normal),"recenter","v1",cfg);
+  auto inv=RefineGrayBoundary(255-gray,input,std::vector<std::complex<double>>(5,normal),"inverse","v1",cfg);
+  for(size_t i=0;i<r.points.size();++i){const auto& p=r.points[i];check(p.accepted,"recenter analytic rejected");
+   double error=std::abs(std::real(std::conj(normal)*(p.refined-center)));recenter_worst=std::max(recenter_worst,error);
+   check(error<.1,"recenter controlled error");check(inv.points[i].accepted&&std::abs(inv.points[i].refined-p.refined)<1e-10,"recenter polarity");
+   check(!p.recenter_offsets.empty()&&p.recenter_offsets.size()<=9,"recenter trace");
+   check(std::abs(p.shift_px-p.profile_center_px)<=cfg.recenter_tolerance_px,"recenter convergence");}
+  check(input.receipt()==before,"recenter raw mutation");
+  save(out/("recenter_"+std::to_string(recenter_cases++)+".json"),Json::parse(r.receipt()));
+ }
+ GrayBoundaryConfig rc;rc.recenter_iterations=8;
+ for(const auto& img:std::vector<cv::Mat>{binary,low,multiple}){
+  auto r=RefineGrayBoundary(img,raw,normals,"negative_recenter","v1",rc);
+  for(const auto& p:r.points)check(!p.accepted,"recenter negative accepted");
+ }
+ summary["recenter_cases"]=recenter_cases;summary["recenter_worst_px"]=recenter_worst;
+
   summary["polarity_tests"]=48;
  summary["case_count"]=cases;summary["worst_refined_normal_error_px"]=worst;summary["negative_profile_cases"]=5;
  save(out/"matrix.json",summary);

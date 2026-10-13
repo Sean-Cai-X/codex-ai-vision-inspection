@@ -52,10 +52,18 @@ inline bool Collect(ManualTestContext& c,ParserDebugBridge& bridge,bool ran){
   auto* tool=static_cast<CxRefinedArcAudit*>(bridge.QueryClassObject("RefinedArcAudit","a"));if(!tool)throw std::runtime_error("PAIR_GUI_RUNTIME_OBJECT_MISSING");
   const auto text=tool->receipt();auto j=nlohmann::json::parse(text);
   if(j["production_eligible"]!=false||j["pose_parameters"]!=cxpairui::PoseValues(s))throw std::runtime_error("PAIR_GUI_EXECUTED_CONFIG_MISMATCH");
+  if(j.value("input_rejection_receipt_enabled",false)!=(s["parameters"].value("input_rejection_receipt_enabled",0.)!=0))
+   throw std::runtime_error("PAIR_GUI_INPUT_REJECTION_POLICY_MISMATCH");
+  if(s["parameters"].value("matching_landmark_arc_enabled",0.)!=0&&j.at("landmark_quality_parameters")!=cxpairui::QualityValues(s))
+   throw std::runtime_error("PAIR_GUI_LANDMARK_QUALITY_CONFIG_MISMATCH");
   for(int i:{0,1}){
    const auto& side=j.at(i==0?"reference":"observation");
-   if(side.at("span").at("binding").at("gray_sha256")!=r.sha[i]||cxpairui::ImageSha(s["sides"][i])!=r.sha[i]||
-      side.at("span").at("binding").at("image_id")!=s["sides"][i]["case_id"])
+   const bool rejected=j.value("input_rejected",false);
+   if(rejected&&(s["parameters"].value("input_rejection_receipt_enabled",0.)!=1||j.at("pose_evaluated")!=false||
+      !j["refined"]["accepted_indices"].empty()))throw std::runtime_error("PAIR_GUI_INVALID_INPUT_REJECTION");
+   const auto& binding=rejected?side.at("input").at("binding"):side.at("span").at("binding");
+   if(binding.at("gray_sha256")!=r.sha[i]||cxpairui::ImageSha(s["sides"][i])!=r.sha[i]||
+      binding.at("image_id")!=s["sides"][i]["case_id"])
     throw std::runtime_error("PAIR_GUI_SOURCE_BINDING_MISMATCH");
    if(!cv::imwrite((std::filesystem::path(r.output_path)/(i==0?"reference_overlay.png":"observation_overlay.png")).string(),tool->sideoverlay(i)))
     throw std::runtime_error("PAIR_GUI_OVERLAY_WRITE_FAILED");
@@ -73,16 +81,26 @@ inline bool Collect(ManualTestContext& c,ParserDebugBridge& bridge,bool ran){
 }
 inline void Draw(const ManualTestContext& c,ImDrawList* draw,const ImVec2& origin,float zoom){
  if(!Current(c)||!draw||zoom<=0)return;
- const auto j=nlohmann::json::parse(c.refined_arc.receipt);int side=-1;
+ const auto j=nlohmann::json::parse(c.refined_arc.receipt);
+ if(j.value("input_rejected",false))return; // no matched geometry exists; never draw a stale/partial pose
+ int side=-1;
  for(int i:{0,1})if(c.gray_boundary.view_sha==c.refined_arc.sha[i])side=i;
  if(side<0)return;
- const auto& span=j.at(side==0?"reference":"observation").at("span");
+ const auto& input=j.at(side==0?"reference":"observation");
+ const auto& span=input.at("span");
  auto point=[&](const nlohmann::json& p){return ImVec2(origin.x+p[0].get<float>()*zoom,origin.y+p[1].get<float>()*zoom);};
  const auto& full=span.at("refinement").at("points");
  for(size_t i=1;i<full.size();++i)draw->AddLine(point(full[i-1]["raw"]),point(full[i]["raw"]),IM_COL32(0,255,255,255),1.5f);
  const auto& refined=span.at("ordered_points");
  for(size_t i=1;i<refined.size();++i)draw->AddLine(point(refined[i-1]["refined"]),point(refined[i]["refined"]),IM_COL32(0,220,0,255),1.5f);
  for(const auto& p:full)if(!p["accepted"].get<bool>())draw->AddCircle(point(p["raw"]),3,IM_COL32(255,0,0,255),8,1.5f);
+ if(input.contains("matching_landmarks")){
+  for(const char* key:{"start","end"}){
+   const auto xy=point(input["matching_landmarks"][key]);
+   draw->AddCircle(xy,5,IM_COL32(255,220,0,255),12,1.5f);
+   draw->AddText(ImVec2(xy.x+6,xy.y-12),IM_COL32(255,220,0,255),key);
+  }
+ }
 }
 
 }

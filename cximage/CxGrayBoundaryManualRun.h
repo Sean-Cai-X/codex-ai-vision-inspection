@@ -80,7 +80,9 @@ inline bool Collect(ManualTestContext& c,ParserDebugBridge& bridge,const cv::Mat
   if(j.at("schema")!="gray_boundary_audit.v1"||j.at("production_eligible")!=false||
      j.at("case_id")!=c.active_case_id||j.at("binding").at("gray_sha256")!=g.executed_sha)
    throw std::runtime_error("GRAY_GUI_IMAGE_OR_CASE_BINDING_MISMATCH");
-  if(j.at("parameters")!=cxgrayui::Values(c.editor_text))throw std::runtime_error("GRAY_GUI_PARAMETER_MISMATCH");
+  auto actual_parameters=j.at("parameters"),requested_parameters=cxgrayui::Values(c.editor_text);
+  for(const auto& p:cxgrayparams::Parameters())if(cxgrayparams::OptionalLegacy(p.key)){if(!actual_parameters.contains(p.key))actual_parameters[p.key]=p.initial;if(!requested_parameters.contains(p.key))requested_parameters[p.key]=p.initial;}
+  if(actual_parameters!=requested_parameters)throw std::runtime_error("GRAY_GUI_PARAMETER_MISMATCH");
   const auto dir=std::filesystem::path(g.output_path);
   Write(dir/"gray_boundary_receipt.json",text);
   if(!cv::imwrite((dir/"overlay.png").string(),tool->overlay()))throw std::runtime_error("GRAY_GUI_OVERLAY_WRITE_FAILED");
@@ -89,7 +91,7 @@ inline bool Collect(ManualTestContext& c,ParserDebugBridge& bridge,const cv::Mat
    g.raw.insert(g.raw.end(),{p.raw.real(),p.raw.imag()});
    if(!p.accepted)g.rejected.insert(g.rejected.end(),{p.raw.real(),p.raw.imag()});
   }
-  for(const auto& run:cxpartialimage::AcceptedGrayRuns(r,2)){
+  for(const auto& run:tool->displayruns()){
    std::vector<double> xy;for(auto i:run)xy.insert(xy.end(),{r.points[i].refined.real(),r.points[i].refined.imag()});
    g.refined.push_back(std::move(xy));
   }

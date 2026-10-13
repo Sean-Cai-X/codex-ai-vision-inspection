@@ -6,7 +6,7 @@ using J=nlohmann::json;
 struct Parameter{const char* key;double initial,minimum,maximum;bool integer;};
 inline std::vector<Parameter> Parameters(){
  const cxpartialimage::CommonRefinedArcConfig c;const auto& p=c.pose;
- return {{"samples",double(p.samples),3,128,true},{"minimum_scale",p.minimum_scale,1e-9,1e6,false},
+ std::vector<Parameter> result={{"samples",double(p.samples),3,128,true},{"minimum_scale",p.minimum_scale,1e-9,1e6,false},
  {"maximum_scale",p.maximum_scale,1e-9,1e6,false},{"maximum_fit_rms_px",p.maximum_fit_rms_px,1e-9,1e6,false},
  {"maximum_observed_error_px",p.maximum_observed_error_px,1e-9,1e6,false},{"support_distance_px",p.support_distance_px,1e-9,1e6,false},
  {"minimum_weighted_support",p.minimum_weighted_support,1e-9,1,false},{"maximum_endpoint_error_px",p.maximum_endpoint_error_px,1e-9,1e6,false},
@@ -14,7 +14,19 @@ inline std::vector<Parameter> Parameters(){
  {"minimum_common_anchor_fraction",c.minimum_common_anchor_fraction,1e-9,1,false},
  {"maximum_projection_normal_residual_px",c.maximum_projection_normal_residual_px,1e-9,1e6,false},
  {"reliable_landmarks_required",1,0,1,true},{"maximum_landmark_localization_error_px",c.maximum_landmark_localization_error_px,0,1e6,false},
- {"maximum_landmark_pose_error_px",c.maximum_landmark_pose_error_px,1e-9,1e6,false}};
+ {"maximum_landmark_pose_error_px",c.maximum_landmark_pose_error_px,1e-9,1e6,false},
+ {"matching_landmark_arc_enabled",0,0,1,true},{"input_rejection_receipt_enabled",0,0,1,true}};
+ for(const auto& q:cxlandmarkquality::Parameters())result.push_back({q.key,q.initial,q.minimum,q.maximum,q.integer});
+ return result;
+}
+inline bool IsQualityParameter(const std::string& key){return key.rfind("identity_",0)==0||key.rfind("uncertainty_",0)==0;}
+inline J QualityValues(const J& s){
+ cxlandmarkquality::Config config;
+ for(const auto& p:cxlandmarkquality::Parameters())cxlandmarkquality::Set(config,p.key,s.at("parameters").value(p.key,p.initial));
+ return cxlandmarkquality::Values(config);
+}
+inline J MatchingDefaults(){
+ return {{"start_x",0.},{"start_y",0.},{"end_x",1.},{"end_y",0.},{"maximum_distance_px",.25},{"tie_epsilon_px",1e-8},{"provenance",""}};
 }
 inline J Default(){
  J p=J::object(),gray=J::object();for(const auto& v:Parameters())p[v.key]=v.initial;
@@ -31,24 +43,40 @@ inline bool IsCase(const std::string& script){
 }
 inline void Validate(const J& s){
  if(s.size()!=4||s.at("schema")!="refined_arc_gui_config.v1"||s.at("sides").size()!=2)throw std::invalid_argument("PAIR_UI_SCHEMA");
- const auto& p=s.at("parameters");if(p.size()!=Parameters().size())throw std::invalid_argument("PAIR_UI_UNKNOWN_PARAMETER");
+ const auto& p=s.at("parameters");
+ size_t recognized=0;
  for(const auto& v:Parameters()){
+  if(!p.contains(v.key)&&(IsQualityParameter(v.key)||std::string(v.key)=="matching_landmark_arc_enabled"||std::string(v.key)=="input_rejection_receipt_enabled"))continue;
+  ++recognized;
   double x=p.at(v.key).get<double>();if(!std::isfinite(x)||x<v.minimum||x>v.maximum||(v.integer&&std::floor(x)!=x))
    throw std::invalid_argument(std::string("PAIR_UI_PARAMETER:")+v.key);
  }
+ if(recognized!=p.size())throw std::invalid_argument("PAIR_UI_UNKNOWN_PARAMETER");
+ if((p.value("identity_required",0.)!=0||p.value("uncertainty_required",0.)!=0)&&
+    (p.value("matching_landmark_arc_enabled",0.)==0||p.at("reliable_landmarks_required").get<double>()==0))
+  throw std::invalid_argument("LANDMARK_QUALITY_REQUIRES_MATCHING_MODE_AND_SOURCE_BINDING");
  if(p.at("minimum_scale").get<double>()>p.at("maximum_scale").get<double>())throw std::invalid_argument("PAIR_UI_SCALE_RANGE");
+ if(p.value("matching_landmark_arc_enabled",0.)!=0&&p.at("endpoint_projection_enabled").get<double>()!=0)
+  throw std::invalid_argument("MATCHING_ARC_MODE_CONFLICT");
  for(const auto& side:s.at("sides")){
   for(const char* key:{"image","case_id","revision","endpoint_provenance"})
    if(side.at(key).get<std::string>().size()>4095)throw std::invalid_argument("PAIR_UI_TEXT_LENGTH");
   if(side.at("span").get<double>()<0||side.at("span").get<double>()>127||std::floor(side.at("span").get<double>())!=side.at("span").get<double>())throw std::invalid_argument("PAIR_UI_SPAN");
   cxgeom::polar::ValidateRawArcAnchors({side.at("raw_anchor_begin"),side.at("raw_anchor_end")});
-  for(const auto& v:cxgrayparams::Parameters())cxgrayparams::Validate(v,side.at("gray").at(v.key));
-  const auto& g=side.at("gray");double count=2*g.at("scan_radius_px").get<double>()/g.at("scan_step_px").get<double>();
+  for(const auto& v:cxgrayparams::Parameters()){if(!side.at("gray").contains(v.key)&&(cxgrayparams::OptionalLegacy(v.key)))continue;cxgrayparams::Validate(v,side.at("gray").at(v.key));}
+  const auto& g=side.at("gray");if(g.value("full_boundary_enabled",0.)!=0)throw std::invalid_argument("FULL_GRAY_POSE_SPANS_UNSUPPORTED");double count=2*g.at("scan_radius_px").get<double>()/g.at("scan_step_px").get<double>();
   if(count<8||count>256||std::abs(count-std::round(count))>1e-8||g.at("maximum_shift_px").get<double>()>g.at("scan_radius_px").get<double>())
    throw std::invalid_argument("PAIR_UI_GRAY_PROFILE");
   for(auto it=side.at("endpoints").begin();it!=side.at("endpoints").end();++it)if(!std::isfinite(it.value().get<double>()))throw std::invalid_argument("PAIR_UI_ENDPOINT");
   double snap=side.at("endpoints").at("maximum_snap_px"),tie=side.at("endpoints").at("tie_epsilon_px");
   if(snap<0||tie<0||tie>snap)throw std::invalid_argument("BOUNDARY_ENDPOINT_SNAP_CONFIG");
+  if(side.contains("matching")){
+   const auto& m=side.at("matching");if(m.size()!=7)throw std::invalid_argument("PAIR_UI_MATCHING_FIELDS");
+   for(const char* key:{"start_x","start_y","end_x","end_y","maximum_distance_px","tie_epsilon_px"})
+    if(!std::isfinite(m.at(key).get<double>()))throw std::invalid_argument("PAIR_UI_MATCHING_NONFINITE");
+   if(m.at("maximum_distance_px").get<double>()<=0||m.at("tie_epsilon_px").get<double>()<0||
+      m.at("provenance").get<std::string>().size()>512)throw std::invalid_argument("PAIR_UI_MATCHING_CONFIG");
+  }
   const auto& l=side.at("landmark");double error=l.at("localization_error_px");
   if(!std::isfinite(error)||(error<0&&error!=-1))throw std::invalid_argument("PAIR_UI_LANDMARK_ERROR");
   for(const char* key:{"source","trace","image_sha256"})if(l.at(key).get<std::string>().size()>512)throw std::invalid_argument("PAIR_UI_LANDMARK_TEXT");
@@ -72,7 +100,7 @@ inline std::string Build(const J& s){
   for(const auto& item:std::vector<std::pair<const char*,const char*>>{{"caseid","case_id"},{"revision","revision"},{"image","image"}})
    out<<"a."<<item.first<<"("<<b.at(item.second).dump()<<");\n";
   out<<"a.span("<<b.at("span")<<");\n";
-  for(const auto& v:cxgrayparams::Parameters())out<<"a.grayparameter("<<b.at("gray").at(v.key)<<",\""<<v.key<<"\");\n";
+  for(const auto& v:cxgrayparams::Parameters())if(b.at("gray").contains(v.key))out<<"a.grayparameter("<<b.at("gray").at(v.key)<<",\""<<v.key<<"\");\n";
   if(!b.at("endpoint_provenance").get<std::string>().empty()){
    for(auto it=b.at("endpoints").begin();it!=b.at("endpoints").end();++it)out<<"a.endpointparameter("<<it.value()<<","<<J(it.key()).dump()<<");\n";
    out<<"a.endpointprovenance("<<b.at("endpoint_provenance").dump()<<");\n";
@@ -82,8 +110,14 @@ inline std::string Build(const J& s){
   for(const auto& item:std::vector<std::pair<const char*,const char*>>{{"landmarksource","source"},{"landmarktrace","trace"},{"landmarksha","image_sha256"}})
    if(!l.at(item.second).get<std::string>().empty())out<<"a."<<item.first<<"("<<l.at(item.second).dump()<<");\n";
   if(l.at("localization_error_px").get<double>()>=0)out<<"a.landmarkerror("<<l.at("localization_error_px")<<");\n";
+  if(b.contains("matching")){
+   const auto& m=b.at("matching");
+   for(const char* key:{"start_x","start_y","end_x","end_y","maximum_distance_px","tie_epsilon_px"})
+    out<<"a.matchingparameter("<<m.at(key)<<","<<J(key).dump()<<");\n";
+   if(!m.at("provenance").get<std::string>().empty())out<<"a.matchingprovenance("<<m.at("provenance").dump()<<");\n";
+  }
  }
- for(const auto& v:Parameters())out<<"a.parameter("<<s.at("parameters").at(v.key)<<",\""<<v.key<<"\");\n";
+ for(const auto& v:Parameters())if(s.at("parameters").contains(v.key))out<<"a.parameter("<<s.at("parameters").at(v.key)<<",\""<<v.key<<"\");\n";
  if(!s.at("correspondence_id").get<std::string>().empty())out<<"a.correspondence("<<s.at("correspondence_id").dump()<<");\n";
  out<<"a.guiconfig(\""<<Hex(s.dump())<<"\");\na.run();\n";return out.str();
 }

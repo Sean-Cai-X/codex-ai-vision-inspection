@@ -45,13 +45,13 @@ class BoundGrayFrame {
  std::string image_id_,revision_,sha_,binding_;
  std::optional<cxgeom::polar::BoundaryEndpointAnchors> endpoint_anchors_;
  BoundGrayFrame(cv::Mat gray,MaskBoundaryInput mask,std::string image_id,std::string revision,std::string sha,int threshold,
-  const cxgeom::polar::BoundaryEndpointAnchors* endpoints):
+  const cxgeom::polar::BoundaryEndpointAnchors* endpoints,int polarity):
   gray_(std::move(gray)),mask_(std::move(mask)),image_id_(std::move(image_id)),revision_(std::move(revision)),sha_(std::move(sha)){
   if(endpoints)endpoint_anchors_=*endpoints;
   using cxgeom::polar::receipt_detail::quote;
   std::ostringstream o;o.imbue(std::locale::classic());
   o<<"{\"schema\":\"bound_gray_frame.v1\",\"binding_method\":\"owned_gray_snapshot_threshold_mask_extraction\"";
-  o<<",\"same_pixel_frame\":true,\"transform\":\"identity\",\"threshold_mode\":\"BINARY_GREATER_THAN\",\"threshold\":"<<threshold;
+  o<<",\"same_pixel_frame\":true,\"transform\":\"identity\",\"threshold_mode\":"<<quote(polarity?"BINARY_LESS_OR_EQUAL":"BINARY_GREATER_THAN")<<",\"threshold\":"<<threshold;
   o<<",\"image_id\":"<<quote(image_id_)<<",\"dataset_revision\":"<<quote(revision_)<<",\"gray_sha256\":"<<quote(sha_);
   o<<",\"width\":"<<gray_.cols<<",\"height\":"<<gray_.rows<<",\"mask\":"<<mask_.receipt()<<",\"production_eligible\":false}";
   binding_=o.str();
@@ -60,16 +60,17 @@ public:
  // Establishes correspondence by construction, not by trusting a supplied mask,
  // caller SHA, image_id, or mutable refinement receipt.
  static BoundGrayFrame Capture(const cv::Mat& gray,const std::string& image_id,const std::string& revision,
-  int threshold,const cv::Rect& anchor,const cxgeom::polar::BoundaryEndpointAnchors* endpoints=nullptr){
+  int threshold,const cv::Rect& anchor,const cxgeom::polar::BoundaryEndpointAnchors* endpoints=nullptr,int foreground_polarity=0){
   if(gray.empty()||gray.type()!=CV_8UC1||gray.total()>16777216)throw std::invalid_argument("BOUND_FRAME_IMAGE");
   if(image_id.empty()||revision.empty())throw std::invalid_argument("BOUND_FRAME_PROVENANCE");
   if(threshold<0||threshold>254)throw std::invalid_argument("BOUND_FRAME_THRESHOLD");
+  if(foreground_polarity!=0&&foreground_polarity!=1)throw std::invalid_argument("BOUND_FRAME_POLARITY");
   auto snapshot=gray.clone();std::string bytes=std::to_string(gray.cols)+":"+std::to_string(gray.rows)+":CV_8UC1:";
   for(int y=0;y<snapshot.rows;++y)bytes.append(reinterpret_cast<const char*>(snapshot.ptr<unsigned char>(y)),size_t(snapshot.cols));
   auto sha=cxgeom::so2::Sha256Bytes(bytes);
-  cv::Mat mask;cv::threshold(snapshot,mask,double(threshold),255,cv::THRESH_BINARY);
+  cv::Mat mask;cv::threshold(snapshot,mask,double(threshold),255,foreground_polarity?cv::THRESH_BINARY_INV:cv::THRESH_BINARY);
   auto input=FromBinaryMask(mask,anchor,image_id+":gray_sha256="+sha+":threshold="+std::to_string(threshold),revision,"bound_span",128,3,endpoints);
-  return BoundGrayFrame(std::move(snapshot),std::move(input),image_id,revision,sha,threshold,endpoints);
+  return BoundGrayFrame(std::move(snapshot),std::move(input),image_id,revision,sha,threshold,endpoints,foreground_polarity);
  }
  const cxgeom::polar::ObservedBoundaryInput& raw()const{return mask_.boundary;}
  const std::string& receipt()const{return binding_;}
