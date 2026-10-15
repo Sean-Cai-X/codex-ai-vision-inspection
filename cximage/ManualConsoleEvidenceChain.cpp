@@ -37,7 +37,11 @@
 #include "RectShape.h"
 #include "pch.h"
 
+#if __has_include(<glad/gl.h>)
 #include <glad/gl.h>
+#else
+#include <glad/glad.h>
+#endif
 
 #include <algorithm>
 #include <array>
@@ -6901,6 +6905,23 @@ bool ViewController::ApplyEvidenceSelectionSnapshotToManualContext(
   }
 
   ManualTestContext staged = m_manualTest;
+  const bool readOnlyReference =
+      resolved.tool == "GeometryReference" && effectiveScriptPath.empty() &&
+      !resolved.is_candidate;
+  if (readOnlyReference) {
+    staged.editor_text.clear();
+    staged.loaded_script_path.clear();
+    staged.script_file_path.clear();
+    staged.editor_source = "read_only_evidence";
+    staged.editor_dirty = false;
+    staged.active_script_case_name.clear();
+    staged.active_script_case_path.clear();
+    staged.active_script_case_purpose = "read_only_evidence";
+    staged.has_pending_execution_snapshot = false;
+    staged.pending_evidence_selection_rehydrate = false;
+    staged.pending_execution_globals.clear();
+    staged.run_state = "idle";
+  }
   staged.runtime_int_vars.clear();
   staged.setmatch_output_path.clear();
   staged.setmatch_receipt.clear();
@@ -7170,6 +7191,12 @@ bool ViewController::ApplyEvidenceSelectionSnapshotToManualContext(
       !resolved.dataset_images.empty();
 
   m_manualTest = std::move(staged);
+  if (IsReadOnlyEvidenceReview()) {
+    m_selectedScript = -1;
+    m_scriptRunRequested = false;
+    m_enableAnnotationToolV2 = false;
+    m_annotationLayer.Clear();
+  }
   m_runtimeShapeSyncPending = false;
   m_runtimeShapeSyncReason.clear();
   m_runtimeShapeSyncDeferCount = 0;
@@ -7205,6 +7232,10 @@ bool ViewController::ApplyEvidenceSelectionSnapshotToManualContext(
     m_scriptResult.image_ref = resolvedImagePath.string();
     m_scriptResult.reason = "image loaded from evidence selection transaction";
     m_annotationStatus = "image loaded from evidence selection transaction";
+    if (IsReadOnlyEvidenceReview()) {
+      m_enableAnnotationToolV2 = false;
+      m_annotationLayer.Clear();
+    }
     m_imageViewZoom = 1.0f;
     m_imageViewPanX = 0.0f;
     m_imageViewPanY = 0.0f;
@@ -7214,7 +7245,8 @@ bool ViewController::ApplyEvidenceSelectionSnapshotToManualContext(
                    " image_path=" + resolvedImagePath.string());
 
     std::string previewReason;
-    const bool previewOk = ProjectCurrentGaugeToImageViewPreview(previewReason);
+    const bool previewOk = !IsReadOnlyEvidenceReview() &&
+                           ProjectCurrentGaugeToImageViewPreview(previewReason);
     if (previewOk) {
       m_annotationStatus =
           "evidence image and input gauge loaded: " + previewReason;
@@ -12800,6 +12832,114 @@ static void DrawModelLineageTopologyLocal(ManualTestContext &context) {
     ImGui::BulletText("%s | %s | %s", node.display_name.c_str(),
                       node.node_kind.c_str(), node.gate_status.c_str());
 }
+bool ViewController::IsReadOnlyEvidenceReview() const {
+  const auto &selection = m_manualTest.current_evidence_selection;
+  return selection.valid && selection.tool == "GeometryReference" &&
+         selection.script_path.empty() &&
+         selection.working_script_snapshot_path.empty() &&
+         !selection.is_candidate;
+}
+
+bool ViewController::LoadRegisteredEvidenceReviewImage(
+    const std::string &imagePath, std::string &reason) {
+  if (!IsReadOnlyEvidenceReview()) {
+    reason = "Select a read-only reference Evidence case first";
+    return false;
+  }
+  const auto &selection = m_manualTest.current_evidence_selection;
+  bool registered = imagePath == selection.image_path;
+  for (const auto &item : selection.dataset_images)
+    registered = registered || item.image_path == imagePath;
+  const std::filesystem::path path = ResolveWorkspaceFile(imagePath);
+  if (!registered ||
+      !IsAssetCasePathWithinRootLocal(selection.evidence_output_root, path)) {
+    reason = "Image is not registered inside the selected Evidence case";
+    return false;
+  }
+  cv::Mat image = cv::imread(path.string(), cv::IMREAD_COLOR);
+  if (image.empty()) {
+    reason = "Registered review image cannot be decoded: " + path.string();
+    return false;
+  }
+  UpdateImageViewImage(image);
+  m_annotationLayer.Clear();
+  m_enableAnnotationToolV2 = false;
+  m_scriptResult.image_ref = path.string();
+  m_scriptResult.reason = "Read-only Evidence observation; no model execution";
+  m_annotationStatus = "Read-only review: " + path.filename().string();
+  m_imageViewZoom = 1.0f;
+  m_imageViewPanX = 0.0f;
+  m_imageViewPanY = 0.0f;
+  // The execution source and immutable case binding are deliberately retained.
+  reason = "Displayed registered image: " + path.string();
+  CXLOG_INFO("EvidenceChain", "registered_review_image", "loaded",
+             "case_id=" + selection.case_id + " review_image=" + path.string() +
+                 " source_image=" + selection.image_path);
+  return true;
+}
+
+void ViewController::DrawReadOnlyEvidenceReview() {
+  const auto &selection = m_manualTest.current_evidence_selection;
+  ImGui::SeparatorText("Read-only Evidence Review");
+  ImGui::TextWrapped("%s", selection.review_item.c_str());
+  ImGui::TextWrapped("Historical observations. Model execution and training are unavailable for this reference case.");
+  auto show = [&](const std::string &label, const std::string &path) {
+    ImGui::PushID(path.c_str());
+    if (ImGui::Button(label.c_str())) {
+      std::string reason;
+      const bool ok = LoadRegisteredEvidenceReviewImage(path, reason);
+      m_manualTest.debug_status = ok ? "EVIDENCE_REVIEW_IMAGE_READY"
+                                    : "EVIDENCE_REVIEW_IMAGE_FAILED";
+      m_manualTest.debug_reason = reason;
+    }
+    ImGui::PopID();
+  };
+  show("Original image", selection.image_path);
+  for (const auto &item : selection.dataset_images) {
+    ImGui::SameLine();
+    show(std::filesystem::path(item.image_path).filename().string(),
+         item.image_path);
+  }
+  ImGui::TextWrapped("Source binding: %s", selection.image_path.c_str());
+  ImGui::TextWrapped("Observation parameters: %s", selection.parameter_summary.c_str());
+  const std::filesystem::path summary =
+      std::filesystem::path(selection.evidence_output_root) / selection.expected_result;
+  static std::string cachedPath;
+  static nlohmann::json cachedSummary;
+  static std::string summaryError;
+  if (cachedPath != summary.string()) {
+    cachedPath = summary.string();
+    cachedSummary = nlohmann::json();
+    summaryError.clear();
+    std::string text;
+    if (!IsAssetCasePathWithinRootLocal(selection.evidence_output_root, summary) ||
+        !ReadTextFile(summary.string(), text)) {
+      summaryError = "Observation summary is unavailable";
+    } else {
+      try { cachedSummary = nlohmann::json::parse(text); }
+      catch (const std::exception &error) { summaryError = error.what(); }
+    }
+  }
+  if (!summaryError.empty())
+    ImGui::TextWrapped("%s", summaryError.c_str());
+  for (const char *arm : {"baseline", "candidate"}) {
+    if (!cachedSummary.is_object() || !cachedSummary.contains(arm))
+      continue;
+    const auto &observation = cachedSummary[arm];
+    ImGui::SeparatorText(arm);
+    if (!observation.is_object() || !observation.contains("metrics"))
+      continue;
+    const auto &metrics = observation["metrics"];
+    for (const char *key : {"class_counts", "target_count", "other_class_count",
+                            "duplicate_candidate_pairs", "best_target_iou",
+                            "error_tags"}) {
+      if (metrics.is_object() && metrics.contains(key))
+        ImGui::TextWrapped("%s: %s", key, metrics[key].dump().c_str());
+    }
+  }
+  ImGui::TextWrapped("Human review remains separate. Use the Evidence review action to record your assessment.");
+}
+
 void ViewController::drawTorchTrainingImageSetWindow() {
   PollYoloTrainingProcessLocal(m_manualTest);
   const ImGuiViewport *viewport = ImGui::GetMainViewport();
@@ -12815,6 +12955,12 @@ void ViewController::drawTorchTrainingImageSetWindow() {
       ImGuiCond_Appearing);
   if (!ImGui::Begin("Torch Training Image Set", nullptr,
                     ImGuiWindowFlags_None)) {
+    ImGui::End();
+    return;
+  }
+
+  if (IsReadOnlyEvidenceReview()) {
+    DrawReadOnlyEvidenceReview();
     ImGui::End();
     return;
   }
@@ -15962,6 +16108,24 @@ void ViewController::DrawOneScriptEvidenceRow(int groupIndex, int thumbIndex,
         }
         rowStateReplaced = true;
       }
+    }
+
+    if (IsReadOnlyEvidenceReview() &&
+        m_manualTest.current_evidence_selection.case_id == thumb.case_id &&
+        ImGui::BeginMenu("View Registered Image")) {
+      const auto images = m_manualTest.current_evidence_selection.dataset_images;
+      for (const auto &item : images) {
+        const std::string label =
+            std::filesystem::path(item.image_path).filename().string();
+        if (ImGui::MenuItem(label.c_str())) {
+          std::string reason;
+          const bool ok = LoadRegisteredEvidenceReviewImage(item.image_path, reason);
+          m_manualTest.debug_status = ok ? "EVIDENCE_REVIEW_IMAGE_READY"
+                                        : "EVIDENCE_REVIEW_IMAGE_FAILED";
+          m_manualTest.debug_reason = reason;
+        }
+      }
+      ImGui::EndMenu();
     }
 
     if (ImGui::MenuItem("Select Image File...")) {

@@ -108,6 +108,7 @@ set(CXIMAGE_CORE_SOURCES
   cxgeom/polar_discrete_harmonic/partial_assessment.cpp
   cxgeom/polar_discrete_harmonic/partial_search.cpp
   cxgeom/src/CxGeoSO2Harmonic.cpp
+  cxgeom/src/CxGeoSO2StagedSearch.cpp
   cxgeom/src/CxGeoSO2ReferenceAsset.cpp
   cximage/CxFastMatchRuntimeCapture.cpp
   cximage/Run.cpp

@@ -21,7 +21,11 @@
 #include "ManualStateTestConsole.h"
 #include "RegionPatternTool.h"
 #include "ViewController.h"
+#if __has_include(<glad/gl.h>)
 #include <glad/gl.h>
+#else
+#include <glad/glad.h>
+#endif
 
 #include "occtinclude.h"
 #include <GLFW/glfw3.h>
@@ -6640,7 +6644,11 @@ void ViewController::drawScriptAcceptancePanels() {
   ImGui::Checkbox("Business Workflow Acceptance Analysis",
                   &m_showBusinessWorkflowPanel);
   const bool setMatchEvidence=cxsetmatchui::IsCase(m_manualTest.editor_text);
-  if(setMatchEvidence) {
+  if (IsReadOnlyEvidenceReview()) {
+    ImGui::TextWrapped("Read-only Evidence: %s",
+                      m_manualTest.current_evidence_selection.review_item.c_str());
+    ImGui::TextWrapped("Historical observations. No executable script is bound.");
+  } else if(setMatchEvidence) {
     ImGui::TextWrapped("Evidence Set Match: %s",m_manualTest.active_case_id.c_str());
     std::string reason;
     const bool valid=cxsetmatchui::Validate(m_manualTest.runtime_int_vars,reason);
@@ -7055,7 +7063,12 @@ void ViewController::initWindow(int theWidth, int theHeight,
   glfwMakeContextCurrent(glfwWindow);
   glfwSwapInterval(1);
 
-  if (!gladLoadGL((GLADloadfunc)glfwGetProcAddress)) {
+#if __has_include(<glad/gl.h>)
+  const bool glLoaded = gladLoadGL((GLADloadfunc)glfwGetProcAddress) != 0;
+#else
+  const bool glLoaded = gladLoadGLLoader((GLADloadproc)glfwGetProcAddress) != 0;
+#endif
+  if (!glLoaded) {
     cleanup();
     throw std::runtime_error(
         "Failed to initialize GLAD/OpenGL loader after creating the GLFW "

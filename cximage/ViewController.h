@@ -262,6 +262,10 @@ private:
   void DrawTorchTrainingImageRail(const char* split, const char* label);
     void DrawTorchEvidenceTrainingPanel();
     void DrawEvidenceWorkflowPanel();
+  bool IsReadOnlyEvidenceReview() const;
+  bool LoadRegisteredEvidenceReviewImage(const std::string& imagePath,
+                                          std::string& reason);
+  void DrawReadOnlyEvidenceReview();
   bool LoadImageIntoImageView(const std::string& imagePath,
                               std::string& reason);
   bool LoadImageForEvidenceSelfTest(const std::string& imagePath,
