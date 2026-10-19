@@ -2620,6 +2620,15 @@ void WriteJsonFindLineScanDiagnostics(
              << d.rejected_min_edge_run_width << ',' << '\n';
         file << "      " << '"' << "boundary_response_used" << '"' << ": "
              << (d.boundary_response_used ? "true" : "false") << ',' << '\n';
+        file << "      \"observation_capture_status\": \""
+             << JsonEscape(d.observation_capture_status) << "\",\n";
+        file << "      \"boundary_observation\": "
+             << (d.boundary_observation_json.empty() ? "null" : d.boundary_observation_json) << ",\n";
+        file << "      \"observation_budget\": "
+             << (d.observation_budget_json.empty() ? "null" : d.observation_budget_json) << ",\n";
+        if (d.observation_capture_status != "NOT_SUPPORTED")
+            file << "      \"scan_geometry_available\": "
+                 << (d.scan_geometry_available ? "true" : "false") << ",\n";
         file << "      " << '"' << "boundary_response_mode" << '"' << ": "
              << d.boundary_response_mode << ',' << '\n';
         file << "      " << '"' << "boundary_response_candidate_count" << '"' << ": "

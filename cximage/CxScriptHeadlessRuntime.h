@@ -234,6 +234,10 @@ struct CxOcrGlyphCandidateEvidence
 
 struct CxFindLineScanDiagnosticSnapshot
 {
+    std::string observation_capture_status = "NOT_SUPPORTED";
+    std::string boundary_observation_json; // Native snapshot serialized once; empty means absent.
+    std::string observation_budget_json;
+    bool scan_geometry_available = false;
     int scan_index = -1;
     int scan_type = 0;
     double x0 = 0.0;

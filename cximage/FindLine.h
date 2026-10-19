@@ -13,6 +13,29 @@
 #include <cstdint>
 #include <chrono>
 #include <vector>
+#include <memory>
+
+// Execution evidence only: candidate indices are local to this scan/run, not
+// physical identities across images. Capture is opt-in and budget bounded.
+struct FindLineBoundaryObservation
+{
+    struct SourceSample { double x = 0, y = 0; int pixel_x = 0, pixel_y = 0; bool in_bounds = false; };
+    std::uint64_t measure_revision = 0;
+    int scan_type = 0;
+    int scan_index = -1;
+    bool evaluated = false;
+    std::string identity_status = "UNKNOWN";
+    std::string position_semantics = "BOUNDARY_CANDIDATE";
+    std::string gray_sha256, gray_binding_status;
+    int gray_width = 0, gray_height = 0;
+    std::uint64_t geometry_version = 0, geometry_built_version = 0;
+    bool geometry_request_valid = false;
+    std::array<double, 6> geometry_request = {}; // x0,y0,x1,y1,scale,half-width
+    cxvision::metrology_analytics::CxBoundaryResponseConfig requested_config;
+    cxvision::metrology_analytics::CxBoundaryResponseConfig effective_config;
+    cxvision::metrology_analytics::CxBoundaryResponseResult response;
+    std::vector<SourceSample> source_samples;
+};
 
 
 class FindObject;
@@ -231,6 +254,26 @@ struct FindLineMeasureInputDebug
         int min_edge_run_width_px = 1;
         int rejected_min_edge_run_width = 0;
         bool boundary_response_used = false;
+        std::string observation_capture_status = "DISABLED";
+        std::size_t observation_max_scans = 0, observation_max_units = 0;
+        std::size_t observation_used_scans_before = 0, observation_used_units_before = 0;
+        std::size_t observation_required_units = 0;
+        bool observation_budget_checked = false;
+        std::shared_ptr<const FindLineBoundaryObservation> boundary_observation;
+        bool observation_point_emitted = false;
+        double observation_emitted_x = 0.0, observation_emitted_y = 0.0;
+        int observation_emission_slot = -1;
+        int observation_measure_filter_output_slot = -1;
+        std::string observation_measure_filter_decision = "NOT_EVALUATED";
+        int observation_fit_input_slot = -1, observation_fit_final_slot = -1;
+        int observation_fit_attempt_slot = -1;
+        int observation_pair_partner_input_slot = -1, observation_pair_output_slot = -1;
+        double observation_pair_x = 0.0, observation_pair_y = 0.0;
+        bool observation_fit_rolled_back = false;
+        std::string observation_fit_filter_decision = "NOT_EVALUATED";
+        std::string observation_fit_membership = "UNVERIFIED";
+        bool observation_consistency_reconciled = false;
+        double observation_reconciliation_tolerance = 0.0;
         int boundary_response_mode = 0;
         int boundary_response_candidate_count = 0;
         int boundary_response_selected_index = -1;
@@ -629,6 +672,14 @@ public:
     {
         return m_lastMeasureInputDebug;
     }
+    // Zero disables capture. Units count retained scalar samples/candidates,
+    // including reference profiles; these are not a calibrated byte budget.
+    void setboundaryobservationbudget(int max_scans, int max_units);
+    // Legacy CxScript two-int dispatch passes stack arguments in reverse order.
+    // Keep native callers in (scans, units) order; adapt only this new binding.
+    void setboundaryobservationbudgetscript(int max_units, int max_scans) {
+        setboundaryobservationbudget(max_scans, max_units);
+    }
     const FindLineMeasureGeometryRequest& measuregeometryrequest() const
     {
         return m_measure_geometry_request;
@@ -822,6 +873,10 @@ private:
     std::vector<EdgeBandCandidate> m_bestEdgeChain;
     FindLineMeasureProfileStats m_lastMeasureProfile;
     FindLineMeasureInputDebug m_lastMeasureInputDebug;
+    std::size_t m_observationMaxScans = 0, m_observationMaxUnits = 0;
+    std::size_t m_observationScans = 0, m_observationUnits = 0;
+    std::uint64_t m_observationRevision = 0;
+    bool m_observationFitConsumed = false;
 
     FindLineBoundaryAnalysisSnapshot m_boundaryAnalysis;
     int m_measure_fallback_mode = 0;

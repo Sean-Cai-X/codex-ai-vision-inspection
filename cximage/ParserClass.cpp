@@ -1209,6 +1209,9 @@ void CxParserRuntime::ParserInitialClassFunction(int iusing) {
                             "setboundarynthcandidate",
                             &FindLine::setboundarynthcandidate);
     m_parser.DefineClassFun(findline_type_name.data(), pfindline,
+                            "setboundaryobservationbudget",
+                            &FindLine::setboundaryobservationbudgetscript);
+    m_parser.DefineClassFun(findline_type_name.data(), pfindline,
                             "setboundaryreferencepositionpermille",
                             &FindLine::setboundaryreferencepositionpermille);
     m_parser.DefineClassFun(findline_type_name.data(), pfindline,

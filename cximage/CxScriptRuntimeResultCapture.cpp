@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "CxScriptRuntimeResultCapture.h"
 #include "FindLine.h"
+#include "../cxgeom/include/CxGeoSO2ReferenceAsset.h"
 #include "FindCircle.h"
 #include "FindEllipse.h"
 #include "FindObject.h"
@@ -26,6 +27,97 @@
 
 namespace
 {
+nlohmann::json ObservationConfigJson(
+    const cxvision::metrology_analytics::CxBoundaryResponseConfig& c)
+{
+    return {{"baseline_mode", int(c.baseline_mode)}, {"denoise_mode", int(c.denoise_mode)},
+        {"response_mode", int(c.response_mode)}, {"polarity", int(c.polarity)},
+        {"selection_mode", int(c.selection_mode)}, {"subpixel_mode", int(c.subpixel_mode)},
+        {"smoothing_radius", c.smoothing_radius}, {"baseline_window", c.baseline_window},
+        {"wavelet_scale", c.wavelet_scale}, {"trigger_threshold_permille", c.trigger_threshold_permille},
+        {"level_permille", c.level_permille}, {"hysteresis_permille", c.hysteresis_permille},
+        {"gate_start_permille", c.gate_start_permille}, {"gate_end_permille", c.gate_end_permille},
+        {"nth_candidate", c.nth_candidate}, {"min_plateau_width", c.min_plateau_width},
+        {"min_amplitude_permille", c.min_amplitude_permille}, {"pair_min_width", c.pair_min_width},
+        {"pair_max_width", c.pair_max_width}, {"pair_anchor_mode", int(c.pair_anchor_mode)},
+        {"reference_position_permille", c.reference_position_permille}, {"reference_profile", c.reference_profile}};
+}
+
+std::string ObservationJson(const FindLineBoundaryObservation& o,
+                            const FindLineMeasureInputDebug::ScanDiagnostic& diag)
+{
+    const auto& r = o.response;
+    nlohmann::json j = {{"schema", "cxvision.findline.observation.v1"},
+        {"measure_revision", o.measure_revision}, {"scan_type", o.scan_type},
+        {"scan_index", o.scan_index}, {"evaluated", o.evaluated},
+        {"identity_status", o.identity_status}, {"position_semantics", o.position_semantics},
+        {"requested_config", ObservationConfigJson(o.requested_config)},
+        {"passed_config", ObservationConfigJson(o.effective_config)},
+        {"config_semantics", "passed_config includes FindLine overrides; evaluator may clamp internally"},
+        {"source_semantics", "nearest rounded pixel in converted 8-bit grayscale; out-of-bounds is zero padding"},
+        {"raw", r.raw}, {"conditioned", r.conditioned}, {"response", r.response},
+        {"trigger_level", r.trigger_level}, {"selected_candidate", r.selected_candidate},
+        {"effective_response_mode", int(r.effective_response_mode)},
+        {"noise_sigma", r.noise_sigma}, {"status", r.status}, {"reason", r.reason}};
+    j["candidates"] = nlohmann::json::array();
+    j["input_binding"] = {{"status", o.gray_binding_status}, {"gray_sha256", o.gray_sha256},
+        {"width", o.gray_width}, {"height", o.gray_height},
+        {"encoding", "ascii(width):ascii(height):CV_8UC1: followed by row-major gray bytes"},
+        {"geometry_request_version", o.geometry_version}, {"geometry_built_version", o.geometry_built_version},
+        {"geometry_request_valid", o.geometry_request_valid},
+        {"geometry_request_x0_y0_x1_y1_scale_halfwidth", o.geometry_request},
+        {"response_config_sha256", cxgeom::so2::Sha256Bytes(
+            j["requested_config"].dump() + "\n" + j["passed_config"].dump())},
+        {"parameter_digest_scope", "requested_config newline passed_config; canonical nlohmann JSON; not all tool parameters"}};
+    for (std::size_t i = 0; i < r.candidates.size(); ++i) {
+        const auto& c = r.candidates[i];
+        j["candidates"].push_back({{"candidate_index", i}, {"sample_index", c.sample_index},
+            {"position_samples", c.position_samples}, {"score", c.score}, {"polarity", c.polarity},
+            {"scale", c.scale}, {"width_samples", c.width_samples}, {"accepted", c.accepted},
+            {"reject_reason", c.reject_reason}});
+    }
+    j["source_samples"] = nlohmann::json::array();
+    j["selection_provenance"] = {
+        {"scope", "single boundary-response emission; run-local scan/candidate identity only"},
+        {"emitted", diag.observation_point_emitted},
+        {"emitted_xy", diag.observation_point_emitted
+            ? nlohmann::json::array({diag.observation_emitted_x, diag.observation_emitted_y})
+            : nlohmann::json(nullptr)},
+        {"selected_candidate_index", r.selected_candidate},
+        {"emission_id", std::to_string(o.measure_revision) + ":" +
+            std::to_string(o.scan_type) + ":" + std::to_string(o.scan_index) + ":" +
+            std::to_string(r.selected_candidate)},
+        {"emission_input_slot", diag.observation_emission_slot},
+        {"measurement_filter", {{"association", "exact_input_slot"},
+            {"decision", diag.observation_measure_filter_decision},
+            {"output_slot", diag.observation_measure_filter_output_slot},
+            {"scope", "first measurement consistency filter only; not final fit membership"}}},
+        {"consistency_reconciled", diag.observation_consistency_reconciled},
+        {"association_method", diag.observation_consistency_reconciled
+            ? "coordinate_tolerance_not_stable_identity" : "NOT_RECONCILED"},
+        {"association_tolerance_px", diag.observation_reconciliation_tolerance},
+        {"diagnostic_accepted", diag.accepted},
+        {"diagnostic_retained_points_xy", diag.accepted_points_xy},
+        {"diagnostic_reject_reason", diag.reject_reason},
+        {"fit_membership", diag.observation_fit_membership},
+        {"fit_trace", {{"scope", "first complete-capture direct/SingleEdge TLS or positional EdgePairCenter; input_slot indexes pre-filter source pool"},
+            {"input_slot", diag.observation_fit_input_slot},
+            {"attempt_output_slot_in_group", diag.observation_fit_attempt_slot},
+            {"attempt_decision", diag.observation_fit_filter_decision},
+            {"rolled_back", diag.observation_fit_rolled_back},
+            {"final_tls_input_slot", diag.observation_fit_final_slot},
+            {"pair_derivation", {{"rule", "positional_index_midpoint"},
+                {"physical_identity", "UNKNOWN"},
+                {"partner_input_slot", diag.observation_pair_partner_input_slot},
+                {"derived_output_slot", diag.observation_pair_output_slot},
+                {"derived_xy", diag.observation_pair_output_slot >= 0
+                    ? nlohmann::json::array({diag.observation_pair_x, diag.observation_pair_y}) : nlohmann::json(nullptr)}}}}}};
+    for (const auto& p : o.source_samples)
+        j["source_samples"].push_back({{"x", p.x}, {"y", p.y}, {"pixel_x", p.pixel_x},
+            {"pixel_y", p.pixel_y}, {"in_bounds", p.in_bounds}});
+    return j.dump();
+}
+
 bool ReadTextFileForRuntimeCapture(
     const std::string& path,
     std::string& text)
@@ -269,17 +361,24 @@ bool CaptureFindLineResult(
         FindLineMeasureInputDebug::ScanDiagnostic diag;
         CxShapePoint p0;
         CxShapePoint p1;
-        if (!tool.getscandiagnostic(i, diag) ||
-            !tool.getscandiagnosticline(
-                diag.scan_type,
-                diag.scan_index,
-                p0,
-                p1))
+        if (!tool.getscandiagnostic(i, diag))
         {
             continue;
         }
 
         CxFindLineScanDiagnosticSnapshot snap;
+        snap.scan_geometry_available = tool.getscandiagnosticline(
+            diag.scan_type, diag.scan_index, p0, p1);
+        snap.observation_capture_status = diag.observation_capture_status;
+        snap.observation_budget_json = nlohmann::json({
+            {"unit_semantics", "retained_elements_not_bytes"},
+            {"checked", diag.observation_budget_checked},
+            {"max_scans", diag.observation_max_scans}, {"max_units", diag.observation_max_units},
+            {"used_scans_before", diag.observation_used_scans_before},
+            {"used_units_before", diag.observation_used_units_before},
+            {"required_units", diag.observation_required_units}}).dump();
+        if (diag.boundary_observation)
+            snap.boundary_observation_json = ObservationJson(*diag.boundary_observation, diag);
         snap.scan_index = diag.scan_index;
         snap.scan_type = diag.scan_type;
         snap.x0 = p0.x;

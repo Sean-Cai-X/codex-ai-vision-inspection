@@ -6,6 +6,8 @@
 #include "ImageAnnotationLayer.h"
 #include "CxUnifiedLog.h"
 #include "../cxgeom/include/CxSetLineBuild.h"
+#include "../cxgeom/include/CxGeoSO2ReferenceAsset.h"
+#include "../cxgeom/include/CxIndexedNormalFilter.h"
 #include "occtinclude.h"
 #include "imagemanager.h"
 
@@ -15,6 +17,7 @@
 #include <iostream>
 #include <limits>
 #include <sstream>
+#include <stdexcept>
 #include <vector>
 
 
@@ -1397,6 +1400,11 @@ void FindLine::SyncMeasureGeometryCacheAfterNativeBuild(
 void FindLine::InvalidateMeasureAndFitAfterParamChange(
     const char* reason)
 {
+    for (auto& scan : m_lastMeasureInputDebug.scan_diagnostics) {
+        scan.boundary_observation.reset();
+        scan.observation_capture_status = "INVALIDATED";
+        scan.observation_budget_checked = false; // Historical usage is not a current budget decision.
+    }
     m_measurepoints_w.clear();
     m_measurepoints_h.clear();
 
@@ -2017,8 +2025,27 @@ void FindLine::MeasureT(void *pimage)
     g_pbackimage->setroi(0, 0, iprocessw, binaryRoiHeight);
     g_pbackimage->roi_7blur_gap_mud_thre_bw(m_iThreshold, m_igamarate, m_iSelectPointGap, m_iMethod);
 }
+void FindLine::setboundaryobservationbudget(int max_scans, int max_units)
+{
+    if (max_scans < 0 || max_units < 0)
+        throw std::invalid_argument("boundary observation budgets must be non-negative");
+    m_observationMaxScans = max_scans;
+    m_observationMaxUnits = max_units;
+    CXLOG_INFO("FindLine", "observation_budget", "configured",
+               "max_scans=" + std::to_string(max_scans) +
+               " max_units=" + std::to_string(max_units));
+    InvalidateMeasureAndFitAfterParamChange("observation_budget_changed");
+}
+
 void FindLine::Measure(Image& image)
 {
+    // A new measurement never inherits a fit from an earlier input.
+    clearfitresult();
+    ++m_observationRevision;
+    m_observationFitConsumed = false;
+    m_observationScans = m_observationUnits = 0;
+    // Also clear prior evidence when this run exits before scanning.
+    m_lastMeasureInputDebug.scan_diagnostics.clear();
     m_measurepoints_w.clear();
     m_measurepoints_h.clear();
 
@@ -2695,6 +2722,27 @@ void FindLine::Measure(Image& image)
     const bool boundaryResponseActive =
         m_boundary_response_enabled && !boundaryGray.empty();
 
+    // Hash the actual sampled matrix once per measurement, never reread a file.
+    // The existing max-units setting also caps temporary digest input pixels;
+    // this is separate from retained scan units and is not a byte-budget promise.
+    std::string graySha256;
+    std::string grayBindingStatus = "DISABLED";
+    if (boundaryResponseActive && m_observationMaxScans && m_observationMaxUnits) {
+        grayBindingStatus = "UNSUPPORTED_PIXEL_TYPE";
+        if (boundaryGray.type() == CV_8UC1) {
+            grayBindingStatus = "PIXEL_BUDGET_EXCEEDED";
+            if (boundaryGray.total() <= m_observationMaxUnits) {
+                std::string bytes = std::to_string(boundaryGray.cols) + ":" +
+                    std::to_string(boundaryGray.rows) + ":CV_8UC1:";
+                for (int y = 0; y < boundaryGray.rows; ++y)
+                    bytes.append(reinterpret_cast<const char*>(boundaryGray.ptr<unsigned char>(y)),
+                                 static_cast<std::size_t>(boundaryGray.cols));
+                graySha256 = cxgeom::so2::Sha256Bytes(bytes);
+                grayBindingStatus = "BOUND";
+            }
+        }
+    }
+
     int irecordpoint[100];
     int irecordnum = 0;
     bool bcollectBegin = false;
@@ -2803,15 +2851,6 @@ void FindLine::Measure(Image& image)
 
         std::vector<float> profile =
             BuildFindLineGrayProfile(boundaryGray, scan_line, line_length);
-        if (profile.size() < 3)
-        {
-            ++m_lastMeasureInputDebug.boundary_response_rejected_no_candidate;
-            diag.boundary_response_status = "PROFILE_EMPTY";
-            diag.boundary_response_reason = "scan profile has fewer than 3 samples";
-            diag.reject_reason = "boundary_response_profile_empty";
-            return false;
-        }
-
         cxvision::metrology_analytics::CxBoundaryResponseConfig config =
             m_boundary_response_config;
         config.min_plateau_width =
@@ -2832,10 +2871,89 @@ void FindLine::Measure(Image& image)
             }
         }
 
+        auto captureObservation = [&](const cxvision::metrology_analytics::CxBoundaryResponseResult& response,
+                                      bool evaluated) {
+            diag.observation_max_scans = m_observationMaxScans;
+            diag.observation_max_units = m_observationMaxUnits;
+            diag.observation_used_scans_before = m_observationScans;
+            diag.observation_used_units_before = m_observationUnits;
+            if (m_observationMaxScans == 0 || m_observationMaxUnits == 0)
+                return;
+            const std::size_t units = profile.size() + response.raw.size() +
+                response.conditioned.size() + response.response.size() +
+                response.trigger_level.size() + response.candidates.size() +
+                config.reference_profile.size() + m_boundary_response_config.reference_profile.size();
+            diag.observation_required_units = units;
+            diag.observation_budget_checked = true;
+            if (m_observationScans >= m_observationMaxScans ||
+                units > m_observationMaxUnits - m_observationUnits) {
+                diag.observation_capture_status = "BUDGET_EXHAUSTED";
+                CXLOG_INFO("FindLine", "observation_capture", "budget_exhausted",
+                           "required_units=" + std::to_string(units) +
+                           " used_units=" + std::to_string(m_observationUnits) +
+                           " max_units=" + std::to_string(m_observationMaxUnits) +
+                           " used_scans=" + std::to_string(m_observationScans) +
+                           " max_scans=" + std::to_string(m_observationMaxScans));
+                return; // Do not truncate a scan or alter algorithm selection.
+            }
+            auto observation = std::make_shared<FindLineBoundaryObservation>();
+            observation->measure_revision = m_observationRevision;
+            observation->scan_type = scan_type;
+            observation->scan_index = line_index;
+            observation->evaluated = evaluated;
+            observation->gray_sha256 = graySha256;
+            observation->gray_binding_status = grayBindingStatus;
+            observation->gray_width = boundaryGray.cols;
+            observation->gray_height = boundaryGray.rows;
+            observation->geometry_version = m_measure_geometry_request.version;
+            observation->geometry_built_version = m_measure_geometry_built_version;
+            observation->geometry_request_valid = m_measure_geometry_request.valid;
+            observation->geometry_request = {m_measure_geometry_request.x0, m_measure_geometry_request.y0,
+                m_measure_geometry_request.x1, m_measure_geometry_request.y1,
+                m_measure_geometry_request.script_scale, m_measure_geometry_request.measure_half_width};
+            observation->requested_config = m_boundary_response_config;
+            observation->effective_config = config;
+            observation->response = response;
+            using namespace cxvision::metrology_analytics;
+            if ((response.effective_response_mode == CxBoundaryResponseMode::RiseFallPair ||
+                 response.effective_response_mode == CxBoundaryResponseMode::FallRisePair) &&
+                config.pair_anchor_mode == CxBoundaryPairAnchorMode::Center)
+                observation->position_semantics = "CENTERLINE";
+            observation->source_samples.reserve(profile.size());
+            for (std::size_t i = 0; i < profile.size(); ++i) {
+                const gp_Pnt p = scan_line.getlinepoint(static_cast<int>(i));
+                FindLineBoundaryObservation::SourceSample sample;
+                sample.x = p.X(); sample.y = p.Y();
+                sample.pixel_x = static_cast<int>(std::lround(p.X()));
+                sample.pixel_y = static_cast<int>(std::lround(p.Y()));
+                sample.in_bounds = sample.pixel_x >= 0 && sample.pixel_y >= 0 &&
+                    sample.pixel_x < boundaryGray.cols && sample.pixel_y < boundaryGray.rows;
+                observation->source_samples.push_back(sample);
+            }
+            diag.boundary_observation = std::move(observation);
+            diag.observation_capture_status = evaluated ? "CAPTURED" : "NOT_EVALUATED";
+            ++m_observationScans;
+            m_observationUnits += units;
+        };
+        if (profile.size() < 3)
+        {
+            ++m_lastMeasureInputDebug.boundary_response_rejected_no_candidate;
+            diag.boundary_response_status = "PROFILE_EMPTY";
+            diag.boundary_response_reason = "scan profile has fewer than 3 samples";
+            diag.reject_reason = "boundary_response_profile_empty";
+            cxvision::metrology_analytics::CxBoundaryResponseResult skipped;
+            skipped.raw = profile;
+            skipped.status = diag.boundary_response_status;
+            skipped.reason = diag.boundary_response_reason;
+            captureObservation(skipped, false);
+            return false;
+        }
+
         const cxvision::metrology_analytics::CxBoundaryResponseResult response =
             cxvision::metrology_analytics::EvaluateBoundaryResponse(
                 profile,
                 config);
+        captureObservation(response, true);
 
         diag.boundary_response_mode =
             static_cast<int>(response.effective_response_mode);
@@ -2897,6 +3015,13 @@ void FindLine::Measure(Image& image)
         ++m_lastMeasureInputDebug.scan_points_emitted;
         ++m_lastMeasureInputDebug.boundary_response_points_emitted;
         RecordFindLineAcceptedDiagnosticPoint(diag, point);
+        if (diag.boundary_observation) {
+            diag.observation_point_emitted = true;
+            diag.observation_emitted_x = point.X();
+            diag.observation_emitted_y = point.Y();
+            diag.observation_emission_slot = (scan_type == 0
+                ? m_measurepoints_w.size() : m_measurepoints_h.size()) - 1;
+        }
         LogFindLineFocusedScan(
             "accepted_boundary_response",
             scan_line,
@@ -2920,6 +3045,8 @@ void FindLine::Measure(Image& image)
         bool rowHasForeground = false;
         FindLineMeasureInputDebug::ScanDiagnostic diag;
         diag.scan_index = inumy;
+        diag.observation_capture_status = (m_observationMaxScans && m_observationMaxUnits)
+            ? "NOT_EVALUATED" : "DISABLED";
         diag.scan_type = 0;
         diag.min_edge_run_width_px = m_min_edge_run_width_px;
         diag.reject_reason = selectedComponentsRejected
@@ -3297,6 +3424,8 @@ void FindLine::Measure(Image& image)
         bool rowHasForeground = false;
         FindLineMeasureInputDebug::ScanDiagnostic diag;
         diag.scan_index = inumy - iwsize;
+        diag.observation_capture_status = (m_observationMaxScans && m_observationMaxUnits)
+            ? "NOT_EVALUATED" : "DISABLED";
         diag.scan_type = 1;
         diag.min_edge_run_width_px = m_min_edge_run_width_px;
         diag.reject_reason = selectedComponentsRejected
@@ -3886,6 +4015,7 @@ void FindLine::MeasureBalanced(Image& image)
 
 void FindLine::ClearMeasureState()
 {
+    clearfitresult();
     m_scanEdgeBands.clear();
     m_bestEdgeChain.clear();
     m_lastMeasureProfile = FindLineMeasureProfileStats();
@@ -4676,49 +4806,48 @@ int FindLine::ApplyPointConsistencyConstraintToPoints(
     if (count < 3 || consistencyRange <= 0.0)
         return 0;
 
-    std::vector<double> normalOffsets;
-    normalOffsets.reserve(static_cast<std::size_t>(count));
+    std::vector<cxgeom::NormalFilterPoint> input;
+    input.reserve(static_cast<std::size_t>(count));
     for (int i = 0; i < count; ++i)
-    {
-        const double x = points.getx(i);
-        const double y = points.gety(i);
-        if (!std::isfinite(x) || !std::isfinite(y) || x < -90000.0 || y < -90000.0)
-            continue;
-        normalOffsets.push_back(x * nx + y * ny);
-    }
-    if (normalOffsets.size() < 3)
-        return 0;
-
-    std::nth_element(
-        normalOffsets.begin(),
-        normalOffsets.begin() + normalOffsets.size() / 2,
-        normalOffsets.end());
-    const double medianNormal =
-        normalOffsets[normalOffsets.size() / 2];
+        input.push_back({points.getx(i), points.gety(i)});
+    const auto filtered = cxgeom::FilterIndexedNormalPoints(input, nx, ny, consistencyRange);
+    if (!filtered.evaluated) return 0;
 
     PointsShape kept;
-    int removed = 0;
-    for (int i = 0; i < count; ++i)
+    const int removed = filtered.removed;
+    // This stage uses original input slots, never coordinate-nearest identity.
+    // Later fit/rebuild stages must not reuse these slots as final membership.
+    const int sourceGroup = &points == &m_measurepoints_w ? 0
+        : (&points == &m_measurepoints_h ? 1 : -1);
+    auto recordDecision = [&](int inputSlot, int outputSlot, const char* decision) {
+        if (sourceGroup < 0) return;
+        for (auto& diag : m_lastMeasureInputDebug.scan_diagnostics) {
+            if (diag.boundary_observation && diag.observation_point_emitted &&
+                diag.scan_type == sourceGroup && diag.observation_emission_slot == inputSlot) {
+                diag.observation_measure_filter_output_slot = outputSlot;
+                diag.observation_measure_filter_decision = decision;
+            }
+        }
+    };
+    for (const auto& entry : filtered.entries)
     {
-        double x = points.getx(i);
-        double y = points.gety(i);
-        if (!std::isfinite(x) || !std::isfinite(y) || x < -90000.0 || y < -90000.0)
+        const int i = static_cast<int>(entry.input_slot);
+        if (entry.decision == cxgeom::NormalFilterDecision::InvalidPoint)
         {
-            ++removed;
+            recordDecision(i, -1, "REJECTED_INVALID_POINT");
             continue;
         }
 
-        const double normalDelta =
-            std::abs((x * nx + y * ny) - medianNormal);
-        if (normalDelta <= consistencyRange)
+        if (entry.decision == cxgeom::NormalFilterDecision::Kept)
         {
-            Standard_Real sx = static_cast<Standard_Real>(x);
-            Standard_Real sy = static_cast<Standard_Real>(y);
+            Standard_Real sx = static_cast<Standard_Real>(input[entry.input_slot].x);
+            Standard_Real sy = static_cast<Standard_Real>(input[entry.input_slot].y);
             kept.addpoint(sx, sy);
+            recordDecision(i, entry.output_slot, "KEPT");
         }
         else
         {
-            ++removed;
+            recordDecision(i, -1, "REJECTED_NORMAL_DISTANCE");
         }
     }
 
@@ -4809,6 +4938,8 @@ void FindLine::ReconcilePointConsistencyDiagnostics()
 
         const PointsShape& keptPoints =
             diag.scan_type == 0 ? m_measurepoints_w : m_measurepoints_h;
+        diag.observation_consistency_reconciled = true;
+        diag.observation_reconciliation_tolerance = tolerance;
 
         std::vector<double> keptAcceptedPoints;
         keptAcceptedPoints.reserve(diag.accepted_points_xy.size());
@@ -6220,6 +6351,15 @@ LineFitResult FitAxisPriority(const std::vector<LineFitSample>& points)
 
 void FindLine::clearfitresult()
 {
+    for (auto& diag : m_lastMeasureInputDebug.scan_diagnostics) {
+        diag.observation_fit_input_slot = diag.observation_fit_final_slot = -1;
+        diag.observation_fit_attempt_slot = -1;
+        diag.observation_pair_partner_input_slot = diag.observation_pair_output_slot = -1;
+        diag.observation_pair_x = diag.observation_pair_y = 0.0;
+        diag.observation_fit_rolled_back = false;
+        diag.observation_fit_filter_decision = "NOT_EVALUATED";
+        diag.observation_fit_membership = "UNVERIFIED";
+    }
     m_result_x0=m_result_y0=m_result_x1=m_result_y1=m_result_avgdist=0.0;
     m_result_valid_points=0; m_has_fit_result=false;
 }
@@ -6246,6 +6386,41 @@ void FindLine::fitline(FitlineMode mode)
     clearfitresult();
     if (mode == FitlineMode::Unspecified) mode = FitlineMode::LeastSquares;
     m_fitline_mode = mode;
+
+    // Exact mapping is intentionally limited to a first direct or SingleEdge TLS fit with
+    // complete first-filter capture. Other modes/rebuilds are not guessed.
+    std::vector<int> fitSourcesW(static_cast<std::size_t>(m_measurepoints_w.size()), -1);
+    std::vector<int> fitSourcesH(static_cast<std::size_t>(m_measurepoints_h.size()), -1);
+    bool fitSourcesValid = !m_observationFitConsumed &&
+        (mode == FitlineMode::LeastSquares || mode == FitlineMode::SingleEdge ||
+         mode == FitlineMode::EdgePairCenter) &&
+        m_observationMaxScans && m_observationMaxUnits &&
+        (!fitSourcesW.empty() || !fitSourcesH.empty());
+    m_observationFitConsumed = true;
+    if (fitSourcesValid) {
+        for (std::size_t d = 0; d < m_lastMeasureInputDebug.scan_diagnostics.size(); ++d) {
+            const auto& diag = m_lastMeasureInputDebug.scan_diagnostics[d];
+            if (!diag.boundary_observation || diag.observation_measure_filter_decision != "KEPT") continue;
+            auto& ids = diag.scan_type == 0 ? fitSourcesW : fitSourcesH;
+            const PointsShape& src = diag.scan_type == 0 ? m_measurepoints_w : m_measurepoints_h;
+            const int slot = diag.observation_measure_filter_output_slot;
+            if (slot < 0 || static_cast<std::size_t>(slot) >= ids.size() || ids[slot] != -1 ||
+                !std::isfinite(src.getx(slot)) || !std::isfinite(src.gety(slot)) ||
+                src.getx(slot) != diag.observation_emitted_x || src.gety(slot) != diag.observation_emitted_y) {
+                fitSourcesValid = false;
+                break;
+            }
+            ids[slot] = static_cast<int>(d); // coordinates only validate; they never choose an ID
+        }
+        if (std::find(fitSourcesW.begin(), fitSourcesW.end(), -1) != fitSourcesW.end() ||
+            std::find(fitSourcesH.begin(), fitSourcesH.end(), -1) != fitSourcesH.end())
+            fitSourcesValid = false;
+    }
+    if (fitSourcesValid) {
+        int slot = 0;
+        for (const auto* ids : {&fitSourcesW, &fitSourcesH})
+            for (int d : *ids) m_lastMeasureInputDebug.scan_diagnostics[d].observation_fit_input_slot = slot++;
+    }
 
     m_point_consistency_removed_points = 0;
     m_lastMeasureInputDebug.point_consistency_enabled =
@@ -6355,11 +6530,21 @@ void FindLine::fitline(FitlineMode mode)
 
         PointsShape kept;
         int removed = 0;
+        auto& sourceIds = &src == &m_measurepoints_w ? fitSourcesW : fitSourcesH;
+        std::vector<int> keptSourceIds;
+        auto recordFitDecision = [&](std::size_t i, int outputSlot, const char* reason) {
+            if (!fitSourcesValid) return;
+            auto& diag = m_lastMeasureInputDebug.scan_diagnostics[sourceIds[i]];
+            diag.observation_fit_attempt_slot = outputSlot;
+            diag.observation_fit_filter_decision = reason;
+            if (outputSlot >= 0) keptSourceIds.push_back(sourceIds[i]);
+        };
         for (std::size_t i = 0; i < candidates.size(); ++i)
         {
             const CandidatePoint& candidate = candidates[i];
             if (!candidate.normal_pass)
             {
+                recordFitDecision(i, -1, "REJECTED_NORMAL_OR_INVALID");
                 ++removed;
                 continue;
             }
@@ -6384,9 +6569,11 @@ void FindLine::fitline(FitlineMode mode)
                 Standard_Real sx = static_cast<Standard_Real>(candidate.x);
                 Standard_Real sy = static_cast<Standard_Real>(candidate.y);
                 kept.addpoint(sx, sy);
+                recordFitDecision(i, kept.size() - 1, "KEPT");
             }
             else
             {
+                recordFitDecision(i, -1, "REJECTED_LOCAL_SUPPORT");
                 ++removed;
             }
         }
@@ -6394,6 +6581,7 @@ void FindLine::fitline(FitlineMode mode)
         {
             src.clear();
             src.addpoints(kept);
+            if (fitSourcesValid) sourceIds.swap(keptSourceIds);
         }
         return removed;
     };
@@ -6422,6 +6610,8 @@ void FindLine::fitline(FitlineMode mode)
         PointsShape originalH;
         originalW.addpoints(m_measurepoints_w);
         originalH.addpoints(m_measurepoints_h);
+        const auto originalSourcesW = fitSourcesW;
+        const auto originalSourcesH = fitSourcesH;
         const int inputPointCount =
             ClampSizeToInt(m_measurepoints_w.size()) +
             ClampSizeToInt(m_measurepoints_h.size());
@@ -6441,6 +6631,13 @@ void FindLine::fitline(FitlineMode mode)
             m_measurepoints_w.addpoints(originalW);
             m_measurepoints_h.clear();
             m_measurepoints_h.addpoints(originalH);
+            if (fitSourcesValid) {
+                fitSourcesW = originalSourcesW;
+                fitSourcesH = originalSourcesH;
+                for (const auto* ids : {&fitSourcesW, &fitSourcesH})
+                    for (int d : *ids)
+                        m_lastMeasureInputDebug.scan_diagnostics[d].observation_fit_rolled_back = true;
+            }
             m_point_consistency_removed_points = 0;
             m_lastMeasureInputDebug.point_consistency_removed_points = 0;
             m_lastMeasureInputDebug.point_consistency_output_points =
@@ -6470,6 +6667,45 @@ void FindLine::fitline(FitlineMode mode)
         }
     }
 
+    if (fitSourcesValid) {
+        for (auto& diag : m_lastMeasureInputDebug.scan_diagnostics)
+            if (diag.observation_fit_input_slot >= 0)
+                diag.observation_fit_membership = "REMOVED_BY_FIT_FILTER";
+        if (mode == FitlineMode::EdgePairCenter) {
+            // Preserve the existing positional pairing; do not claim physical identity.
+            for (const auto* ids : {&fitSourcesW, &fitSourcesH})
+                for (int d : *ids)
+                    m_lastMeasureInputDebug.scan_diagnostics[d].observation_fit_membership = "UNPAIRED_SURVIVING_SOURCE";
+            const std::size_t count = std::min(fitSourcesW.size(), fitSourcesH.size());
+            for (std::size_t i = 0; i < count; ++i) {
+                auto& w = m_lastMeasureInputDebug.scan_diagnostics[fitSourcesW[i]];
+                auto& h = m_lastMeasureInputDebug.scan_diagnostics[fitSourcesH[i]];
+                w.observation_pair_partner_input_slot = h.observation_fit_input_slot;
+                h.observation_pair_partner_input_slot = w.observation_fit_input_slot;
+                for (auto* d : {&w, &h}) {
+                    d->observation_fit_membership = "FINAL_PAIR_SOURCE";
+                    d->observation_pair_output_slot = static_cast<int>(i);
+                    d->observation_pair_x = points[i].x;
+                    d->observation_pair_y = points[i].y;
+                }
+            }
+        } else {
+        int slot = 0;
+        for (const auto* ids : {&fitSourcesW, &fitSourcesH})
+            for (int d : *ids) {
+                auto& diag = m_lastMeasureInputDebug.scan_diagnostics[d];
+                // Match buildPointsForMode's choice after filtering/rollback.
+                // Surviving points in the unused group are not filter rejects.
+                const auto* selected = fitSourcesW.size() >= 2 ? &fitSourcesW : &fitSourcesH;
+                if (mode == FitlineMode::SingleEdge && ids != selected) {
+                    diag.observation_fit_membership = "NOT_SELECTED_BY_FIT_MODE";
+                    continue;
+                }
+                diag.observation_fit_final_slot = slot++;
+                diag.observation_fit_membership = "FINAL_TLS_INPUT";
+            }
+        }
+    }
     m_result_x0=result.x0; m_result_y0=result.y0; m_result_x1=result.x1; m_result_y1=result.y1;
     m_result_avgdist=result.avgdist; m_result_valid_points=result.valid_points; m_has_fit_result=true;
     m_fitline_status=std::string("geometry_result_available: ")+names[mode_index];
