@@ -14,7 +14,8 @@ TorchTaskRequest with:
 - dataset_root: the immutable
   visionai.geometry-segmentation-materializer.v2 root for rules-bound trials;
   legacy v1 remains explicitly `legacy_unverified` for supervision semantics.
-  See `tests/seven_class_supervision/README.dataset.txt` for v2 bindings;
+  Binding and training acceptance fixtures are maintained in the separate
+  Vision-AI private supervision workspace, not in this public source tree;
 - output_dir: an empty task staging directory below either
   `<configured-output-root>/isolated_business_validation/<task-id>/staging`
   or `<configured-output-root>/development_trials/<task-id>/staging`;
