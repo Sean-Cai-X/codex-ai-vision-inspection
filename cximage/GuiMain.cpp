@@ -23,6 +23,7 @@
 #include "CxUnifiedLogOptions.h"
 #include "CxUnifiedLogStreamBuf.h"
 #include "CxRuntimePaths.h"
+#include "metrology_analytics/CxAnalyticsOutputPath.h"
 #include "CxStartupTrace.h"
 #include "CxYoloV8nGeometryAssociation.h"
 #include "CxYoloV8nPairedInference.h"
@@ -654,9 +655,7 @@ bool RunShapeInteractionSmokeCli(const std::string &manifest_path,
 int RunMetrologyAnalyticsSmokeCli(int argc, char **argv) {
   const std::string outArg = CliValueAfter(argc, argv, "--out");
   const std::filesystem::path outDir =
-      outArg.empty() ? std::filesystem::path(
-                           "D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/"
-                           "cxscript_runs/metrology_analytics/smoke_default")
+      outArg.empty() ? cxvision::metrology_analytics::DefaultAnalyticsOutputRoot() / "smoke_default"
                      : std::filesystem::path(outArg);
 
   cxvision::metrology_analytics::CxMetrologyAnalyticsSmokeResult result;
@@ -743,13 +742,15 @@ int RunMetrologyAnalyticsSelfTestCli(int argc, char **argv,
                                      const std::string &filter) {
   const std::string outArg = CliValueAfter(argc, argv, "--out");
   const std::filesystem::path outDir =
-      outArg.empty() ? std::filesystem::path(
-                           "D:/Codex-WorkDir/Sean_WorkDir/cxvisionai/"
-                           "cxscript_runs/metrology_analytics/selftest_default")
+      outArg.empty() ? cxvision::metrology_analytics::DefaultAnalyticsOutputRoot() / "selftest_default"
                      : std::filesystem::path(outArg);
 
   cxvision::metrology_analytics::CxMetrologyAnalyticsSmokeResult smoke;
   std::string reason;
+  if (!cxvision::metrology_analytics::ValidateAnalyticsOutputPath(outDir, reason)) {
+    std::cerr << reason << std::endl;
+    return 1;
+  }
   const bool smokeOk =
       cxvision::metrology_analytics::RunMetrologyAnalyticsSmoke(outDir, smoke,
                                                                 reason);

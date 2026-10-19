@@ -1,6 +1,7 @@
 #pragma once
 
 #include "metrology_analytics/CxMetrologyAnalyticsSmoke.h"
+#include "metrology_analytics/CxAnalyticsOutputPath.h"
 
 #include <filesystem>
 #include <string>
@@ -23,8 +24,7 @@ struct ManualConsoleAnalyticsSmokeUiState
 {
     bool initialized = false;
     bool run_requested = false;
-    std::filesystem::path output_root =
-        "D:/Codex-WorkDir/Sean_WorkDir/codex-ai-vision/cxscript_runs/metrology_analytics";
+    std::filesystem::path output_root = DefaultAnalyticsOutputRoot();
     std::string status = "NOT_RUN";
     std::string reason = "Analytics smoke has not been run from Manual Console.";
     std::string last_output_dir;

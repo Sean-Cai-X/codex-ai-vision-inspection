@@ -2518,6 +2518,12 @@ void ViewController::drawAnnotationToolWindow() {
 }
 
 void ViewController::DrawAnnotationToolButtonStrip(bool horizontal) {
+  if (EnforceReadOnlyEvidenceReview()) {
+    ImGui::TextWrapped("Read-only Evidence: annotation and label editing are disabled. Pan and zoom remain available.");
+    if (ImGui::CollapsingHeader("Review images and observation parameters"))
+      DrawReadOnlyEvidenceReview();
+    return;
+  }
   auto toolModeFromDefinition = [](const AnnotationToolDefinition &tool) {
     if (tool.kind == OverlayKind::Point)
       return ImageToolMode::PointCreate;

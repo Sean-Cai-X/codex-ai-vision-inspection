@@ -6906,7 +6906,9 @@ bool ViewController::ApplyEvidenceSelectionSnapshotToManualContext(
 
   ManualTestContext staged = m_manualTest;
   const bool readOnlyReference =
-      resolved.tool == "GeometryReference" && effectiveScriptPath.empty() &&
+      (resolved.tool == "GeometryReference" ||
+       resolved.tool == "CxFastMatchHarmonicAudit" ||
+       resolved.tool == "RefinedArcAudit") && effectiveScriptPath.empty() &&
       !resolved.is_candidate;
   if (readOnlyReference) {
     staged.editor_text.clear();
@@ -7200,10 +7202,16 @@ bool ViewController::ApplyEvidenceSelectionSnapshotToManualContext(
   m_runtimeShapeSyncPending = false;
   m_runtimeShapeSyncReason.clear();
   m_runtimeShapeSyncDeferCount = 0;
-  m_scriptResult.result_ref.clear();
-  m_scriptResult.overlay_ref.clear();
-  m_scriptResult.evidence_ref.clear();
-  m_scriptResult.issue_entry_ref.clear();
+  // Selection commits a new result owner. Never retain another case's script,
+  // timing, status or log lines while clearing only its artifact references.
+  m_scriptResult = ScriptResult();
+  m_scriptResult.source = readOnlyReference ? "read_only_evidence" : "evidence_selection";
+  m_scriptResult.script_path = effectiveScriptPath.empty()
+                                   ? std::string() : resolvedScriptPath.string();
+  m_scriptResult.status = readOnlyReference ? "READ_ONLY" : "NOT_RUN";
+  m_scriptResult.reason = readOnlyReference
+      ? "Historical Evidence selected; no script executed"
+      : "Evidence selected; execution has not started";
   m_scriptResult.runtime_fillback_status =
       "evidence_selection_cleared_previous_runtime";
 
@@ -7230,7 +7238,7 @@ bool ViewController::ApplyEvidenceSelectionSnapshotToManualContext(
     UpdateImageViewImage(stagedImage);
     m_manualTest.image_file_path = resolvedImagePath.string();
     m_scriptResult.image_ref = resolvedImagePath.string();
-    m_scriptResult.reason = "image loaded from evidence selection transaction";
+    m_scriptResult.reason += "; source image loaded";
     m_annotationStatus = "image loaded from evidence selection transaction";
     if (IsReadOnlyEvidenceReview()) {
       m_enableAnnotationToolV2 = false;
@@ -12834,10 +12842,25 @@ static void DrawModelLineageTopologyLocal(ManualTestContext &context) {
 }
 bool ViewController::IsReadOnlyEvidenceReview() const {
   const auto &selection = m_manualTest.current_evidence_selection;
-  return selection.valid && selection.tool == "GeometryReference" &&
+  return selection.valid &&
+         (selection.tool == "GeometryReference" ||
+          selection.tool == "CxFastMatchHarmonicAudit" ||
+          selection.tool == "RefinedArcAudit") &&
          selection.script_path.empty() &&
          selection.working_script_snapshot_path.empty() &&
          !selection.is_candidate;
+}
+
+bool ViewController::EnforceReadOnlyEvidenceReview() {
+  if (!IsReadOnlyEvidenceReview())
+    return false;
+  m_enableAnnotationToolV2 = false;
+  m_imageToolEnabled = false;
+  m_imageToolMode = ImageToolMode::PointerPan;
+  CancelAnnotationCreate();
+  m_annotationLayer.CancelDrag();
+  m_annotationLayer.SetActiveToolIndex(-1);
+  return true;
 }
 
 bool ViewController::LoadRegisteredEvidenceReviewImage(

@@ -5133,6 +5133,36 @@ void ViewController::drawScriptAcceptancePanels() {
   ImGui::SetNextWindowPos(ImVec2(middleX, margin), layoutCondition);
   ImGui::SetNextWindowSize(ImVec2(middleWidth, contentHeight), layoutCondition);
   ImGui::Begin("Image View", nullptr, panelFlags);
+  if (cxpairui::IsCase(m_manualTest.editor_text)) {
+    ImGui::TextUnformatted("Paired source preview (no execution)");
+    ImGui::BeginDisabled(m_manualTest.has_pending_execution_snapshot);
+    for (int side = 0; side < 2; ++side) {
+      if (ImGui::Button(side == 0 ? "Show Reference" : "Show Observation")) {
+        try {
+          const auto config = cxpairui::Read(m_manualTest.editor_text);
+          const auto path = cxpairui::ImagePath(config["sides"][side]);
+          const cv::Mat image = cv::imread(path.string(), cv::IMREAD_COLOR);
+          if (image.empty()) throw std::runtime_error("Paired source cannot be decoded");
+          UpdateImageViewImage(image);
+          m_annotationLayer.Clear();
+          m_enableAnnotationToolV2 = false;
+          m_imageToolEnabled = false;
+          m_imageToolMode = ImageToolMode::PointerPan;
+          m_imageViewZoom = 1.0f;
+          m_imageViewPanX = m_imageViewPanY = 0.0f;
+          m_scriptResult.image_ref = path.string();
+          m_manualTest.debug_reason = std::string("Preview only: ") + path.string();
+          m_annotationStatus = m_manualTest.debug_reason;
+        } catch (const std::exception &error) {
+          m_manualTest.debug_reason = error.what();
+        }
+      }
+      if (side == 0) ImGui::SameLine();
+    }
+    ImGui::EndDisabled();
+    ImGui::TextWrapped("Displayed source: %s", m_scriptResult.image_ref.c_str());
+    ImGui::TextWrapped("Overlay requires a current receipt and matching source SHA. Original case binding is unchanged.");
+  }
   const bool parserImage =
       m_scriptResult.image_ref.rfind("runtime_object:", 0) == 0;
   const bool baseImageValid =
@@ -5140,9 +5170,10 @@ void ViewController::drawScriptAcceptancePanels() {
   const char *baseImageSource =
       parserImage ? "parser_image" : (baseImageValid ? "view_image" : "none");
   ImGui::Text("Layer 0 Base Image");
-  ImGui::Text(
+  ImGui::TextWrapped(
       "source: %s | name: %s | %s", baseImageSource,
-      parserImage
+      (parserImage || (cxpairui::IsCase(m_manualTest.editor_text) &&
+                       baseImageValid && !m_scriptResult.image_ref.empty()))
           ? m_scriptResult.image_ref.c_str()
           : (baseImageValid ? m_manualTest.image_file_path.c_str() : "(none)"),
       baseImageValid ? "valid" : "waiting for image");
@@ -5157,6 +5188,18 @@ void ViewController::drawScriptAcceptancePanels() {
   ImGui::SameLine();
   ImGui::Text("Zoom: %.0f%%  Move: middle-drag  Zoom: wheel",
               m_imageViewZoom * 100.0f);
+  if (cxpairui::IsCase(m_manualTest.editor_text)) {
+    ImGui::BeginDisabled(!baseImageValid);
+    for (int factor : {1, 2, 4}) {
+      if (factor != 1) ImGui::SameLine();
+      const std::string label = std::to_string(factor) + "x preview";
+      if (ImGui::Button(label.c_str())) {
+        m_imageViewZoom = static_cast<float>(factor);
+        m_imageViewPanX = m_imageViewPanY = 0.0f;
+      }
+    }
+    ImGui::EndDisabled();
+  }
   ApplyAiGuiFocusHere(
       AiGuiDestination::ImageAnnotation,
       "Image Evidence / Annotation Tools > annotation session toggle and tool palette");
@@ -6648,6 +6691,15 @@ void ViewController::drawScriptAcceptancePanels() {
     ImGui::TextWrapped("Read-only Evidence: %s",
                       m_manualTest.current_evidence_selection.review_item.c_str());
     ImGui::TextWrapped("Historical observations. No executable script is bound.");
+  } else if(cxpairui::IsCase(m_manualTest.editor_text)) {
+    ImGui::TextWrapped("Evidence paired boundary audit: %s", m_manualTest.active_case_id.c_str());
+    ImGui::BeginDisabled(m_manualTest.has_pending_execution_snapshot);
+    if (ImGui::Button("Run paired boundary audit")) {
+      std::string reason;
+      if (!RequestRefinedArcRun(m_manualTest, reason))
+        m_manualTest.debug_reason = reason;
+    }
+    ImGui::EndDisabled();
   } else if(setMatchEvidence) {
     ImGui::TextWrapped("Evidence Set Match: %s",m_manualTest.active_case_id.c_str());
     std::string reason;
@@ -6666,6 +6718,9 @@ void ViewController::drawScriptAcceptancePanels() {
       m_manualTest.debug_reason=reason;
     ImGui::EndDisabled();
     if(!valid)ImGui::TextWrapped("Cannot run: %s",reason.c_str());
+  } else if (m_manualTest.current_evidence_selection.valid) {
+    ImGui::TextWrapped("Evidence: %s", m_manualTest.current_evidence_selection.review_item.c_str());
+    ImGui::TextWrapped("Catalog execution is disabled while Evidence is selected. Use this case's Key Parameter Controls run action.");
   } else {
   if (m_selectedScript >= 0 &&
       m_selectedScript < static_cast<int>(m_scriptCatalog.size()))

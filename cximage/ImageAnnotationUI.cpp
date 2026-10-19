@@ -748,7 +748,8 @@ void ViewController::initImageEvidenceLayer() {
 }
 
 bool ViewController::IsAnnotationCreateModeActive() const {
-  return m_imageToolEnabled && m_imageToolMode != ImageToolMode::PointerPan;
+  return !IsReadOnlyEvidenceReview() && m_imageToolEnabled &&
+         m_imageToolMode != ImageToolMode::PointerPan;
 }
 
 bool ViewController::IsMouseInsideImageCanvas(const ImVec2 &p) const {
@@ -2551,6 +2552,13 @@ bool ViewController::CommitDraftShapeFromTool(
 CxImagePointerResult ViewController::ProcessImageAnnotationPointerFrame(
     const CxImagePointerFrame &frame) {
   CxImagePointerResult out;
+  if (EnforceReadOnlyEvidenceReview()) {
+    out.phase = "review";
+    out.status = "read_only";
+    out.reason = "Historical Evidence cannot be annotated";
+    m_lastPointerResult = out;
+    return out;
+  }
 
   const bool hasActiveAnnotationState =
       m_annotationLayer.HasActiveDrag() || m_annotationDragging;
@@ -3480,6 +3488,8 @@ void ViewController::drawImageEvidenceOnCanvas(bool canvasHovered,
 }
 
 void ViewController::drawImageEvidencePanels() {
+  if (EnforceReadOnlyEvidenceReview())
+    return;
   ImGuiIO &io = ImGui::GetIO();
   if (m_detachablePanels) {
     ImGui::SetNextWindowPos(ImVec2(350, 40), ImGuiCond_FirstUseEver);

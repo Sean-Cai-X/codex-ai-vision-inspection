@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "metrology_analytics/CxMetrologyAnalyticsSmoke.h"
+#include "metrology_analytics/CxAnalyticsOutputPath.h"
 
 #include "metrology_analytics/CxRoughness1D.h"
 #include "metrology_analytics/CxBoundaryResponse.h"
@@ -628,10 +629,16 @@ bool RunMetrologyAnalyticsSmoke(
     std::string& reason)
 {
     result = {};
+    if (!ValidateAnalyticsOutputPath(output_dir, reason))
+        return false;
     result.run_id = NewRunId();
 
     std::error_code progressEc;
     std::filesystem::create_directories(output_dir, progressEc);
+    if (progressEc) {
+        reason = "Cannot create analytics output: " + progressEc.message();
+        return false;
+    }
     std::ofstream progress(
         output_dir / "metrology_analytics_smoke_progress.log",
         std::ios::binary | std::ios::trunc);

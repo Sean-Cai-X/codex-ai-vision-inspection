@@ -263,6 +263,7 @@ private:
     void DrawTorchEvidenceTrainingPanel();
     void DrawEvidenceWorkflowPanel();
   bool IsReadOnlyEvidenceReview() const;
+  bool EnforceReadOnlyEvidenceReview();
   bool LoadRegisteredEvidenceReviewImage(const std::string& imagePath,
                                           std::string& reason);
   void DrawReadOnlyEvidenceReview();

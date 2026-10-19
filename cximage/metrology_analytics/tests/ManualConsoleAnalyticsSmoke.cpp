@@ -176,6 +176,10 @@ void DrawManualConsoleAnalyticsSmokePanel(
 
         if (ImGui::Button("Run GWY Interface Closure"))
         {
+            if (!ValidateAnalyticsOutputPath(state.output_root, state.gwy_interface_reason)) {
+                state.gwy_interface_status = "BLOCKED_OUTPUT_PATH";
+                return;
+            }
             const std::filesystem::path outDir =
                 state.output_root / MakeManualAnalyticsRunId() /
                 "gwy_reference_interface";
