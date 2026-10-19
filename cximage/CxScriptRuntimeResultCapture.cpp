@@ -112,6 +112,28 @@ std::string ObservationJson(const FindLineBoundaryObservation& o,
                 {"derived_output_slot", diag.observation_pair_output_slot},
                 {"derived_xy", diag.observation_pair_output_slot >= 0
                     ? nlohmann::json::array({diag.observation_pair_x, diag.observation_pair_y}) : nlohmann::json(nullptr)}}}}}};
+     // Classify execution evidence, not object shape or physical identity.
+    // A FindLine invocation alone cannot establish the semantic geometry class.
+    nlohmann::json feature_tags = nlohmann::json::array();
+    if (diag.observation_point_emitted) feature_tags.push_back("boundary.observed_point");
+    if (diag.observation_fit_membership == "FINAL_TLS_INPUT") feature_tags.push_back("fit.direct_input");
+    if (diag.observation_pair_output_slot >= 0) feature_tags.push_back("fit.midpoint_source");
+    if (diag.observation_fit_membership == "UNPAIRED_SURVIVING_SOURCE") feature_tags.push_back("pair.unpaired_source");
+    if (diag.observation_fit_membership == "NOT_SELECTED_BY_FIT_MODE") feature_tags.push_back("fit.unselected_group");
+    if (diag.observation_measure_filter_decision.find("REJECTED_") == 0) feature_tags.push_back("filter.measure_rejected");
+    if (diag.observation_fit_filter_decision.find("REJECTED_") == 0) feature_tags.push_back("filter.fit_attempt_rejected");
+    if (diag.observation_fit_rolled_back) feature_tags.push_back("filter.rolled_back");
+    if (diag.observation_fit_membership == "UNVERIFIED") feature_tags.push_back("fit.membership_unverified");
+    j["geometry_feature_classification"] = {
+        {"schema", "cxvision.geometry_evidence_features.v1"},
+        {"scope", "one captured scan; execution features only"},
+        {"semantic_geometry", {{"status", "NOT_CLASSIFIED"}, {"class_id", nullptr}, {"class_name", nullptr}}},
+        {"topology", "NOT_EVALUATED"},
+        {"physical_identity", "UNKNOWN"},
+        {"tags", feature_tags},
+        {"basis", "selection_provenance and fit_trace from this execution"},
+        {"quality_status", "NOT_EVALUATED"}
+    };
     for (const auto& p : o.source_samples)
         j["source_samples"].push_back({{"x", p.x}, {"y", p.y}, {"pixel_x", p.pixel_x},
             {"pixel_y", p.pixel_y}, {"in_bounds", p.in_bounds}});
