@@ -263,6 +263,9 @@ public:
     int minedgerunwidth() const { return m_min_edge_run_width_px; }
     void setselectedgenum(int iedgenum);
     void setpointconsistency(int enabled, int range);
+    void cxscript_setpointconsistency(int range, int enabled) {
+        setpointconsistency(enabled, range);
+    }
 
     void setshowlines(int ilines) { m_ishowlines = ilines; }
     PointsShape& getresultpoints();

@@ -284,16 +284,40 @@ bool HasSufficientEllipseAngularCoverage(const std::vector<cv::Point2f> &points,
   return occupied_count >= 4;
 }
 
-int FilterEllipsePointsByGaugeBoundaryDistance(PointsShape &points,
-                                               double center_x, double center_y,
-                                               double radius_x, double radius_y,
-                                               double max_distance) {
-  if (points.size() <= 0 || radius_x <= 1.0 || radius_y <= 1.0 ||
-      max_distance <= 0.0) {
+// Consistency is relative to the measured ellipse, not the search gauge.
+// Use the same normalized, pixel-equivalent residual as getavgdist(); this
+// is not an exact orthogonal distance or a calibrated physical error.
+// A failed reference fit leaves the observations intact for diagnostics.
+int FilterEllipsePointsByFitResidual(PointsShape &points,
+                                    double max_distance) {
+  if (points.size() < 5 || max_distance <= 0.0) {
     return 0;
   }
 
   const int input_count = ClampSizeToInt(points.size());
+  std::vector<cv::Point2f> observations;
+  observations.reserve(input_count);
+  for (int i = 0; i < input_count; ++i) {
+    const double x = points.getx(i), y = points.gety(i);
+    if (!std::isfinite(x) || !std::isfinite(y))
+      return -1;
+    observations.emplace_back(static_cast<float>(x), static_cast<float>(y));
+  }
+  cv::RotatedRect reference;
+  try {
+    reference = cv::fitEllipse(observations);
+  } catch (const cv::Exception &) {
+    return -1;
+  }
+  const double radius_x = reference.size.width * 0.5;
+  const double radius_y = reference.size.height * 0.5;
+  if (!std::isfinite(radius_x) || !std::isfinite(radius_y) ||
+      radius_x <= 1.0 || radius_y <= 1.0 ||
+      !std::isfinite(reference.center.x) ||
+      !std::isfinite(reference.center.y) || !std::isfinite(reference.angle))
+    return -1;
+  const double angle = reference.angle * CV_PI / 180.0;
+  const double ca = std::cos(angle), sa = std::sin(angle);
   const double scale =
       std::max(1.0, (std::abs(radius_x) + std::abs(radius_y)) * 0.5);
   PointsShape filtered;
@@ -301,11 +325,14 @@ int FilterEllipsePointsByGaugeBoundaryDistance(PointsShape &points,
   for (int i = 0; i < input_count; ++i) {
     const double x = points.getx(i);
     const double y = points.gety(i);
-    const double norm =
-        EllipseNorm(x, y, center_x, center_y, radius_x, radius_y);
+    const double dx = x - reference.center.x;
+    const double dy = y - reference.center.y;
+    const double norm = EllipseNorm(ca * dx + sa * dy,
+                                   -sa * dx + ca * dy,
+                                   0.0, 0.0, radius_x, radius_y);
     const double distance = std::abs(norm - 1.0) * scale;
     if (std::isfinite(distance) && distance <= max_distance) {
-      filtered.addpoint(RoundToInt(x), RoundToInt(y));
+      filtered.addpoint(gp_Pnt(x, y, 0.0));
       ++kept_count;
     }
   }
@@ -1624,9 +1651,14 @@ void FindEllipse::Measure(Image &image) {
   m_point_consistency_removed_points = 0;
   if (m_point_consistency_enabled != 0 && m_point_consistency_range > 0.0 &&
       m_measurepoints.size() > 0) {
-    const int removed = FilterEllipsePointsByGaugeBoundaryDistance(
-        m_measurepoints, ellipse_cx, ellipse_cy, ellipse_rx, ellipse_ry,
-        m_point_consistency_range);
+    const int removed = FilterEllipsePointsByFitResidual(
+        m_measurepoints, m_point_consistency_range);
+    if (removed < 0) {
+      m_measure_failure_stage = "consistency_reference_fit_failed";
+      m_measure_failure_reason =
+          "FindEllipse could not form a finite consistency reference ellipse; "
+          "observations retained for diagnostics, final fit blocked.";
+    }
     if (removed > 0) {
       m_point_consistency_removed_points = removed;
       m_point_consistency_output_points =
@@ -1635,7 +1667,12 @@ void FindEllipse::Measure(Image &image) {
   }
 
   if (m_measurepoints.size() <= 0) {
-    if (m_scan_total_candidates > 0 &&
+    if (m_point_consistency_removed_points > 0) {
+      m_measure_failure_stage = "consistency_filter_rejected_all";
+      m_measure_failure_reason =
+          "FindEllipse fit-residual consistency filter rejected all observed "
+          "boundary points; edge extraction had succeeded.";
+    } else if (m_scan_total_candidates > 0 &&
         m_scan_accepted_points_before_gate <= 0) {
       m_measure_failure_stage = "no_boundary_band_candidate";
       m_measure_failure_reason = "FindEllipse found edge runs, but none are "
@@ -1669,6 +1706,8 @@ void FindEllipse::Measure(Image &image) {
         << " selected_edge=" << m_iselectedgenum
         << " consistency=" << m_point_consistency_enabled << "/"
         << m_point_consistency_range
+        << " consistency_reference=observed_fit"
+        << " consistency_metric=normalized_radius_pixel_equivalent"
         << " removed=" << m_point_consistency_removed_points
         << " failure_stage=" << m_measure_failure_stage;
     LogFindEllipseMeasureProbe("measure_exit", "finished", oss.str());
@@ -1686,9 +1725,17 @@ void FindEllipse::fitellipse() {
   m_fit_angle_deg = 0.0;
   m_fit_avgdist = 0.0;
 
-  const int count = ClampSizeToInt(m_measurepoints.size());
-  if (count < 5)
+  if (m_measure_failure_stage == "consistency_reference_fit_failed")
     return;
+  const int count = ClampSizeToInt(m_measurepoints.size());
+  if (count < 5) {
+    if (count > 0 && m_point_consistency_removed_points > 0) {
+      m_measure_failure_stage = "consistency_filter_insufficient_points";
+      m_measure_failure_reason =
+          "FindEllipse consistency filter left fewer than five points.";
+    }
+    return;
+  }
 
   std::vector<cv::Point2f> points;
   points.reserve(static_cast<std::size_t>(count));

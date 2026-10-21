@@ -1609,6 +1609,7 @@ static void MergeToolCapture(
     capture.tool_wgap = tool.tool_wgap;
     capture.tool_hgap = tool.tool_hgap;
     capture.tool_linegap = tool.tool_linegap;
+    capture.tool_min_edge_run_width_px = tool.tool_min_edge_run_width_px;
     capture.selected_min_edge_run_width_px =
         tool.tool_min_edge_run_width_px;
     capture.tool_input_line_x0 = tool.tool_input_line_x0;
