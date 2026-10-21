@@ -356,6 +356,9 @@ public:
     void fitcircle();
     void fitcirclefiltered();
     void setpointconsistency(int enabled, int range);
+    void cxscript_setpointconsistency(int range, int enabled) {
+        setpointconsistency(enabled, range);
+    }
     int getpointconsistencyenabled() { return m_point_consistency_enabled ? 1 : 0; }
     double getpointconsistencyrange() { return m_point_consistency_range; }
     int getpointconsistencyinputcount() { return m_point_consistency_input_count; }

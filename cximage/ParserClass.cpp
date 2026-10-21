@@ -786,7 +786,7 @@ void CxParserRuntime::ParserInitialClassFunction(int iusing) {
                             &FindCircle::fitcirclefiltered);
     m_parser.DefineClassFun(findcircle_type_name.data(), pfindcircle,
                             "setpointconsistency",
-                            &FindCircle::setpointconsistency);
+                            &FindCircle::cxscript_setpointconsistency);
     m_parser.DefineClassFun(findcircle_type_name.data(), pfindcircle,
                             "getpointconsistencyenabled",
                             &FindCircle::getpointconsistencyenabled);
@@ -1092,7 +1092,7 @@ void CxParserRuntime::ParserInitialClassFunction(int iusing) {
     m_parser.DefineClassFun("FindEllipse", pfindellipse, "setselectedgenum",
                             &FindEllipse::setselectedgenum);
     m_parser.DefineClassFun("FindEllipse", pfindellipse, "setpointconsistency",
-                            &FindEllipse::setpointconsistency);
+                            &FindEllipse::cxscript_setpointconsistency);
     m_parser.DefineClassFun("FindEllipse", pfindellipse, "setthre",
                             &FindEllipse::setthre);
     m_parser.DefineClassFun("FindEllipse", pfindellipse, "measure",

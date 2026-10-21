@@ -2982,6 +2982,8 @@ static void PopulateHeadlessCandidateGaugeFromGlobals(
 
     if (tool == "FindCircle")
     {
+        gauge.findsetting = GetHeadlessCandidateGlobal(
+            context, "global_findcircle_findsetting", gauge.findsetting);
         context.findcircle_scan_edge_count = GetHeadlessCandidateGlobal(
             context, "global_findcircle_edge_count",
             context.findcircle_scan_edge_count);
@@ -3020,6 +3022,17 @@ static void PopulateHeadlessCandidateGaugeFromGlobals(
     }
     else if (tool == "FindEllipse")
     {
+        // Preserve explicit execution values when saving the editable gauge.
+        // ApplyManualGaugeToGlobals otherwise replaces them with UI defaults.
+        gauge.findsetting = GetHeadlessCandidateGlobal(
+            context, "global_findellipse_findsetting", gauge.findsetting);
+        context.findellipse_selected_scan_edge = GetHeadlessCandidateGlobal(
+            context, "global_findellipse_selected_edge", context.findellipse_selected_scan_edge);
+        context.findellipse_point_consistency_enabled = GetHeadlessCandidateGlobal(
+            context, "global_findellipse_point_consistency_enabled",
+            context.findellipse_point_consistency_enabled ? 1 : 0) != 0;
+        context.findellipse_point_consistency_range = GetHeadlessCandidateGlobal(
+            context, "global_findellipse_point_consistency_range", context.findellipse_point_consistency_range);
         gauge.has_ellipse_gauge = true;
         gauge.ellipse_x0 = GetHeadlessCandidateGlobal(
             context, "global_ellipse_x0", options.ellipse_x0);
