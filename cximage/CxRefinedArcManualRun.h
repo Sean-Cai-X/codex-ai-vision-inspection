@@ -9,7 +9,13 @@ namespace cxpairmanual {
 inline std::string Stamp(const std::string& path){
  return std::to_string(std::filesystem::last_write_time(path).time_since_epoch().count())+":"+std::to_string(std::filesystem::file_size(path));
 }
-inline void Invalidate(ManualTestContext& c){auto& r=c.refined_arc;r.valid=false;r.receipt.clear();r.summary="STALE / NOT RUN";}
+inline void Invalidate(ManualTestContext& c){
+ auto& r=c.refined_arc;r.valid=false;r.receipt.clear();r.execution_timing.clear();r.summary="STALE / NOT RUN";
+ if(c.current_result_ref.result_type=="RefinedArcAuditReceipt"){
+  c.current_result_ref={};c.current_result_ref.result_type="RefinedArcAuditReceipt";
+  c.current_result_ref.status="NOT_RUN";c.current_result_ref.reason="Paired result invalidated; run again.";
+ }
+}
 inline bool Current(const ManualTestContext& c){
  const auto& r=c.refined_arc;
  if(!r.valid||r.executed_script!=c.editor_text||r.executed_case!=c.active_case_id)return false;
@@ -20,7 +26,9 @@ inline void Write(const std::filesystem::path& p,const std::string& text){
  std::ofstream f(p,std::ios::binary);f<<text;f.close();if(!f)throw std::runtime_error("PAIR_GUI_WRITE_FAILED");
 }
 inline bool Fail(ManualTestContext& c,const std::string& message){
- Invalidate(c);c.refined_arc.summary=message;c.debug_reason=message;c.debug_status="refined_pair_failed";c.run_state="failed";return false;
+ Invalidate(c);c.current_result_ref={};c.current_result_ref.result_type="RefinedArcAuditReceipt";
+ c.current_result_ref.status="BLOCKED";c.current_result_ref.reason=message;
+ c.refined_arc.summary=message;c.debug_reason=message;c.debug_status="refined_pair_failed";c.run_state="failed";return false;
 }
 inline bool Prepare(ManualTestContext& c,std::string& reason){
  if(!cxpairui::IsCase(c.editor_text))return true;
@@ -52,6 +60,20 @@ inline bool Collect(ManualTestContext& c,ParserDebugBridge& bridge,bool ran){
   auto* tool=static_cast<CxRefinedArcAudit*>(bridge.QueryClassObject("RefinedArcAudit","a"));if(!tool)throw std::runtime_error("PAIR_GUI_RUNTIME_OBJECT_MISSING");
   const auto text=tool->receipt();auto j=nlohmann::json::parse(text);
   if(j["production_eligible"]!=false||j["pose_parameters"]!=cxpairui::PoseValues(s))throw std::runtime_error("PAIR_GUI_EXECUTED_CONFIG_MISMATCH");
+  cxpairui::CheckAcceptanceReceipt(s,j);
+  const bool explicit_matching=s["parameters"].value("matching_landmark_arc_enabled",0.)!=0&&
+   s["parameters"].value("common_support_enabled",0.)!=0&&s["parameters"].value("endpoint_projection_enabled",0.)==0;
+  const bool checked_execution=explicit_matching&&!j.value("input_rejected",false);
+  if(checked_execution)cxpairui::CheckLandmarkExecution(s,j);
+  auto timing=nlohmann::json::parse(tool->timingreceipt());
+  const auto criteria=cxpairui::AcceptanceValues(s);
+  const double elapsed=timing.at("execution_ms").get<double>();
+  const double limit=criteria.at("pose_max_latency_ms").get<double>();
+  const bool enabled=criteria.at("pose_acceptance_enabled").get<double>()!=0&&criteria.at("pose_acceptance_configured").get<double>()!=0;
+  const std::string expected=enabled?(elapsed<=limit?"PASS":"FAIL"):"NOT_EVALUATED";
+  if(timing.at("schema")!="refined_arc_execution_timing.v1"||!std::isfinite(elapsed)||elapsed<0||
+     timing.at("latency_limit_ms")!=limit||timing.at("latency_status")!=expected||timing.at("production_allowed")!=false)
+   throw std::runtime_error("PAIR_GUI_EXECUTION_TIMING_MISMATCH");
   if(j.value("input_rejection_receipt_enabled",false)!=(s["parameters"].value("input_rejection_receipt_enabled",0.)!=0))
    throw std::runtime_error("PAIR_GUI_INPUT_REJECTION_POLICY_MISMATCH");
   if(s["parameters"].value("matching_landmark_arc_enabled",0.)!=0&&j.at("landmark_quality_parameters")!=cxpairui::QualityValues(s))
@@ -74,10 +96,49 @@ inline bool Collect(ManualTestContext& c,ParserDebugBridge& bridge,bool ran){
      j["landmark_gate"]["maximum_propagated_pose_error_px"]!=s["parameters"]["maximum_landmark_pose_error_px"])
    throw std::runtime_error("PAIR_GUI_EXECUTED_GATE_MISMATCH");
   Write(std::filesystem::path(r.output_path)/"refined_arc_receipt.json",text);
+  timing["gui_binding"]={{"case_id",c.active_case_id},{"actual_gray_sha256",{r.sha[0],r.sha[1]}},
+   {"source","same validated parser object as current geometry receipt"}};
+  const auto timing_text=timing.dump(2);
+  Write(std::filesystem::path(r.output_path)/"execution_timing.json",timing_text);
+  // Content linkage only: this is not authenticated truth or production approval.
+  Write(std::filesystem::path(r.output_path)/"current_run_binding.json",nlohmann::json{
+   {"schema","refined_arc_current_run_binding.v1"},{"run_id",std::filesystem::path(r.output_path).filename().string()},
+   {"case_id",r.executed_case},{"script_sha256",cxgeom::so2::Sha256Bytes(r.executed_script)},
+   {"config_sha256",cxgeom::so2::Sha256Bytes(s.dump())},
+   {"receipt_sha256",cxgeom::so2::Sha256Bytes(text)},{"timing_sha256",cxgeom::so2::Sha256Bytes(timing_text)},
+   {"actual_gray_sha256",{r.sha[0],r.sha[1]}},
+   {"execution_configuration_status",checked_execution?"MATCHING_LANDMARK_CONFIGURATION_VERIFIED":"NOT_VERIFIED_FOR_THIS_RESULT"},
+   {"execution_configuration_sha256",checked_execution?nlohmann::json(cxgeom::so2::Sha256Bytes(j.at("execution_configuration").dump())):nlohmann::json(nullptr)},
+   {"independent_truth_status","NOT_BOUND"},{"run_identity_authenticated",false},{"production_allowed",false}}.dump(2));
+  r.execution_timing=timing_text;
   r.receipt=text;r.valid=true;r.summary=j["status"].get<std::string>()+" | candidates="+j["refined"]["accepted_indices"].dump()+" | production=false";
   Write(std::filesystem::path(r.output_path)/"status.json",nlohmann::json{{"schema","refined_arc_gui_status.v1"},
-   {"status",j["status"]},{"two_image_binding_verified",true},{"production_eligible",false}}.dump(2));return true;
+   {"status",j["status"]},{"two_image_binding_verified",true},{"production_eligible",false}}.dump(2));
+  c.current_result_ref={};auto& result=c.current_result_ref;
+  result.result_type="RefinedArcAuditReceipt";result.source_object="a";
+  result.value=(std::filesystem::path(r.output_path)/"refined_arc_receipt.json").string();
+  result.status=j.at("status").get<std::string>();
+  const auto acceptance=j.contains("pose_acceptance")?j.at("pose_acceptance").value("status",std::string("UNAVAILABLE")):"LEGACY_ABSENT";
+  result.reason="execution=COMPLETED; match="+result.status+"; pose_acceptance="+acceptance+"; complete_tool_latency="+expected+"; production=false";
+  c.debug_reason=result.reason;c.debug_status="refined_pair_collected";
+  return true;
  }catch(const std::exception& e){return Fail(c,e.what());}
+}
+inline void DrawExecutionTiming(const ManualTestContext& c){
+ if(!Current(c))return;
+ if(c.refined_arc.execution_timing.empty()){
+  ImGui::TextWrapped("Complete tool timing unavailable. Run this case again.");return;
+ }
+ try{
+  const auto t=nlohmann::json::parse(c.refined_arc.execution_timing);
+  ImGui::TextWrapped("Complete tool latency: %s | %.3f ms / limit %.3f ms",
+   t.at("latency_status").get<std::string>().c_str(),t.at("execution_ms").get<double>(),t.at("latency_limit_ms").get<double>());
+  ImGui::TextWrapped("Includes final receipt generation. Excludes application startup, overlay and file I/O. Not GUI end-to-end latency or production approval.");
+  ImGui::TextWrapped("Pose error truth: not bound to this GUI run. Fit residuals are not translation / angle / scale errors.");
+  if(ImGui::TreeNode("Current-run timing details")){
+   ImGui::TextUnformatted(c.refined_arc.execution_timing.c_str());ImGui::TreePop();
+  }
+ }catch(const std::exception& e){ImGui::TextWrapped("Timing unavailable: %s. Run again.",e.what());}
 }
 inline void Draw(const ManualTestContext& c,ImDrawList* draw,const ImVec2& origin,float zoom){
  if(!Current(c)||!draw||zoom<=0)return;

@@ -2,6 +2,7 @@
 #include "CxCommonRefinedArc.h"
 #include "../cxgeom/polar_discrete_harmonic/landmark_arc_coordinates.h"
 #include "CxLandmarkQualityParameters.h"
+#include <chrono>
 namespace cxpartialimage {
 // Development branch: caller-supplied matching landmarks calibrate arc origin,
 // scale and direction. This is not autonomous physical-landmark discovery.
@@ -9,7 +10,10 @@ inline RefinedArcComparison MatchLandmarkRefinedArc(const BoundRefinedSpan& refe
  const BoundRefinedSpan& observation,const CommonRefinedArcConfig& config,
  const cxgeom::polar::MatchingArcLandmarks& reference_landmarks,
  const cxgeom::polar::MatchingArcLandmarks& observation_landmarks,
- const cxlandmarkquality::Config& quality_config={}){
+ const cxlandmarkquality::Config& quality_config={},nlohmann::json* timing=nullptr){
+ using Clock=std::chrono::steady_clock;
+ const auto started=Clock::now();
+ if(timing)*timing=nullptr;
  using namespace cxgeom::polar;using J=nlohmann::json;
  arc_detail::ValidateArcConfig(config.pose);
  cxlandmarkquality::Validate(quality_config);const auto& identity_config=quality_config.identity;
@@ -53,7 +57,20 @@ inline RefinedArcComparison MatchLandmarkRefinedArc(const BoundRefinedSpan& refe
  }
  RefinedArcComparison out;out.refined.config=config.pose;out.refined.reference_receipt=reference.receipt();
  out.refined.observation_receipt=observation.receipt();
- evidence["pose_parameters"]=J::parse(out.refined.receipt()).at("config");
+ // Inputs were parsed and bound above. Do not reparse the full duplicated
+ // span receipts when assembling each raw/refined result. The compact receipt
+ // uses the existing numeric serializer; restore the exact owned input JSON.
+ auto result_json=[&](const ArcCorrespondenceResult& result){
+  auto compact=result;
+  compact.reference_receipt="{}";compact.observation_receipt="{}";
+  auto j=J::parse(compact.receipt());
+  j["reference"]=evidence["inputs"][0]["span"];
+  j["observation"]=evidence["inputs"][1]["span"];
+  return j;
+ };
+ ArcCorrespondenceResult config_only;config_only.config=config.pose;
+ config_only.reference_receipt="{}";config_only.observation_receipt="{}";
+ evidence["pose_parameters"]=J::parse(config_only.receipt()).at("config");
  evidence["landmark_gate"]={{"required",config.reliable_landmarks_required},
   {"maximum_localization_error_px",config.maximum_landmark_localization_error_px},
   {"maximum_propagated_pose_error_px",config.maximum_landmark_pose_error_px},{"localization_error_calibrated",false},
@@ -63,6 +80,7 @@ inline RefinedArcComparison MatchLandmarkRefinedArc(const BoundRefinedSpan& refe
   evidence["landmark_gate"]["sides"].push_back(evidence["inputs"][i]["landmark_gate"]);
  }
  out.matched_raw=out.refined;
+ const auto bound=Clock::now();
  if(domain.accepted()){
   auto slice=[&](int i){return common_arc_detail::SampleProjectedSlice(spans[i]->source_raw().ordered_run().points,
    spans[i]->refined_points(),spans[i]->source_begin(),spans[i]->source_end(),p[i].coordinates,domain,config.pose.samples);};
@@ -153,14 +171,25 @@ inline RefinedArcComparison MatchLandmarkRefinedArc(const BoundRefinedSpan& refe
   }
   out.refined.status=out.refined.accepted_indices.empty()?"NO_ARC_CANDIDATE":out.refined.accepted_indices.size()==1?"UNIQUE_ARC_CANDIDATE":"ARC_AMBIGUOUS";
  }else{out.refined.status=domain.status;out.matched_raw.status=domain.status;}
- evidence["status"]=out.refined.status;evidence["refined"]=J::parse(out.refined.receipt());
- evidence["matched_raw"]=J::parse(out.matched_raw.receipt());
+ const auto matched=Clock::now();
+ evidence["status"]=out.refined.status;evidence["refined"]=result_json(out.refined);
+ evidence["matched_raw"]=result_json(out.matched_raw);
  evidence["fallback"]=out.refined.accepted_indices.empty()?"RAW_REVIEW_REQUIRED_NO_AUTOMATIC_PROMOTION":"NONE";
  evidence["refined"]["coordinate_basis"]="derived_points_at_matching_landmark_refined_arclength";
  for(auto& candidate:evidence["refined"]["candidates"]){
   candidate["reference_refined"]=candidate["reference_observed"];candidate.erase("reference_observed");
   candidate["observation_refined"]=candidate["observation_observed"];candidate.erase("observation_observed");
  }
- out.evidence=evidence.dump(2);return out;
+ const auto assembled=Clock::now();
+ out.evidence=evidence.dump(2);
+ const auto serialized=Clock::now();
+ if(timing){
+  auto ms=[](Clock::time_point a,Clock::time_point b){return std::chrono::duration<double,std::milli>(b-a).count();};
+  *timing={{"schema","landmark_arc_internal_timing.v1"},{"projection_binding_and_setup_ms",ms(started,bound)},
+   {"matching_and_diagnostics_ms",ms(bound,matched)},{"result_assembly_ms",ms(matched,assembled)},
+   {"final_serialization_ms",ms(assembled,serialized)},
+   {"scope","nonoverlapping stages; matching includes sampling, identity, uncertainty and evidence diagnostics; not pure solver time"}};
+ }
+ return out;
 }
 }

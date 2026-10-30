@@ -1,4 +1,5 @@
 #include "CxScriptCasePackageWriter.h"
+#include "CxRefinedArcCandidate.h"
 #include "CxUnifiedLog.h"
 #include "ManualConsoleGauge.h"
 #include "ManualConsoleUtils.h"
@@ -1053,6 +1054,86 @@ bool SaveEvidenceCandidatePackage(ManualTestContext &context,
                                   const CxEvidenceCandidateSaveOptions &options,
                                   CxEvidenceCandidateSaveResult &result) {
   result = CxEvidenceCandidateSaveResult{};
+
+  // A paired audit has no authoritative single-image/gauge context. Freeze
+  // both sources and canonical recipe; never borrow an unrelated viewer image.
+  if (cxpairui::IsCase(CurrentScriptText(context))) {
+    if (context.refined_arc.pending || context.has_pending_execution_snapshot) {
+      result.reason = "Paired candidate save blocked while execution is pending";
+      return false;
+    }
+    if (options.preserve_input_snapshots || options.request_run ||
+        !options.linked_result_summary_path.empty()) {
+      result.reason = "Save the paired draft first, then run it from Key Parameter Controls; historical results cannot be attached to a new snapshot";
+      return false;
+    }
+    try {
+      const std::string caseId = options.case_id_override.empty()
+          ? EffectiveCaseId(context) : options.case_id_override;
+      const auto safeCase = SafePathComponentForCandidate(caseId);
+      if (safeCase.empty()) throw std::runtime_error("case_id is empty");
+      const auto candidateId = options.candidate_id.empty()
+          ? "pair_" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count())
+          : SafePathComponentForCandidate(options.candidate_id);
+      if (candidateId.empty()) throw std::runtime_error("candidate_id is empty");
+      const auto dir = std::filesystem::absolute(
+          CanonicalEvidenceCandidateRoot(options.root_dir) / safeCase / candidateId).lexically_normal();
+      const auto inputs = cxpaircandidate::Freeze(CurrentScriptText(context), dir);
+      const auto script = dir / "script_snapshot.cxsc";
+      const auto params = dir / "pair_parameters.json";
+      const auto summary = dir / "result_summary.json";
+      const auto binding = dir / "evidence_binding.json";
+      const std::string imagePath = inputs["inputs"][0]["image_path"];
+      const std::string imageId = inputs["inputs"][0]["case_id"];
+      const std::string source = options.source_evidence_script_path_override.empty()
+          ? EffectiveScriptPath(context) : options.source_evidence_script_path_override;
+      const std::string parameterSummary = "Paired boundary: frozen reference + observation; NOT_RUN; production=false";
+      cxpaircandidate::Write(summary, nlohmann::json{{"schema_version",1},
+          {"status","NOT_RUN"},{"runtime_result","pending"},
+          {"reason","New frozen pair requires explicit execution"},
+          {"production_allowed",false}}.dump(2));
+      nlohmann::json manifest{{"schema_version",1},{"candidate_id",candidateId},
+          {"case_id",caseId},{"script_id",caseId},{"script_path",script.generic_string()},
+          {"script_snapshot_path",script.generic_string()},
+          {"source_evidence_script_path",source},{"image_id",imageId},{"image_path",imagePath},
+          {"target_id","paired_boundary"},{"tool","RefinedArcAudit"},
+          {"parameter_summary",parameterSummary},{"parameter_snapshot_path",""},
+          {"pair_parameters_path",params.generic_string()},
+          {"pair_input_binding_path",(dir/"pair_input_binding.json").generic_string()},
+          {"inputs",inputs.at("inputs")},{"result_summary_path",summary.generic_string()},
+          {"evidence_status","to_review"},{"review_status","pending_human_review"},
+          {"promotion_allowed",false},{"source","paired_boundary_draft"}};
+      // Publish discovery last. Failed/partial output never masquerades as a case.
+      cxpaircandidate::Write(binding, manifest.dump(2));
+      result.ok = true;
+      result.candidate_id = candidateId;
+      result.candidate_dir = dir.string();
+      result.evidence_binding_path = binding.string();
+      result.script_snapshot_path = script.string();
+      result.result_summary_path = summary.string();
+      AppendCandidateToEvidenceChain(context, result, caseId, caseId, script.string(),
+          source, imageId, imagePath, "paired_boundary", "RefinedArcAudit",
+          parameterSummary, options.add_to_evidence_chain);
+      // Stay on the edited canonical snapshot. Marking clean while retaining the
+      // old loaded path would let RefreshCleanEditorFromSource undo the edits.
+      context.editor_text = cxpaircandidate::Bytes(script);
+      context.loaded_script_path = script.string();
+      context.script_file_path = script.string();
+      context.editor_source = "direct_file";
+      context.editor_dirty = false;
+      context.refined_arc.valid = false;
+      context.refined_arc.receipt.clear();
+      context.refined_arc.summary = "STALE / NOT RUN";
+      context.debug_action = "Save Paired Candidate";
+      context.debug_status = "CURRENT_CASE_SAVED";
+      context.debug_reason = dir.string() + "; frozen pair; run explicitly";
+      return true;
+    } catch (const std::exception& e) {
+      result.ok = false;
+      result.reason = e.what();
+      return false;
+    }
+  }
 
   const std::string caseId = options.case_id_override.empty()
                                  ? EffectiveCaseId(context)

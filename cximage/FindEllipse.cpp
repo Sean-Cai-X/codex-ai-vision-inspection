@@ -4,6 +4,7 @@
 #include "CxUnifiedLog.h"
 #include "EllipseShape.h"
 #include "FindEllipse.h"
+#include "CxEllipseConsistency.h"
 #include "ImageAnnotationLayer.h"
 #include "FindObject.h"
 #include "imagemanager.h"
@@ -13,6 +14,7 @@
 #include <array>
 #include <cmath>
 #include <limits>
+#include <iomanip>
 #include <map>
 #include <opencv2/core/core.hpp>
 #include <opencv2/core/version.hpp>
@@ -288,63 +290,118 @@ bool HasSufficientEllipseAngularCoverage(const std::vector<cv::Point2f> &points,
 // Use the same normalized, pixel-equivalent residual as getavgdist(); this
 // is not an exact orthogonal distance or a calibrated physical error.
 // A failed reference fit leaves the observations intact for diagnostics.
-int FilterEllipsePointsByFitResidual(PointsShape &points,
-                                    double max_distance) {
-  if (points.size() < 5 || max_distance <= 0.0) {
-    return 0;
-  }
+struct EllipseConsistencyPointTrace {
+  double x = 0.0, y = 0.0;
+  double residual = std::numeric_limits<double>::quiet_NaN();
+  bool kept = true;
+};
 
-  const int input_count = ClampSizeToInt(points.size());
-  std::vector<cv::Point2f> observations;
-  observations.reserve(input_count);
-  for (int i = 0; i < input_count; ++i) {
-    const double x = points.getx(i), y = points.gety(i);
-    if (!std::isfinite(x) || !std::isfinite(y))
-      return -1;
-    observations.emplace_back(static_cast<float>(x), static_cast<float>(y));
-  }
-  cv::RotatedRect reference;
-  try {
-    reference = cv::fitEllipse(observations);
-  } catch (const cv::Exception &) {
-    return -1;
-  }
-  const double radius_x = reference.size.width * 0.5;
-  const double radius_y = reference.size.height * 0.5;
-  if (!std::isfinite(radius_x) || !std::isfinite(radius_y) ||
-      radius_x <= 1.0 || radius_y <= 1.0 ||
-      !std::isfinite(reference.center.x) ||
-      !std::isfinite(reference.center.y) || !std::isfinite(reference.angle))
-    return -1;
-  const double angle = reference.angle * CV_PI / 180.0;
-  const double ca = std::cos(angle), sa = std::sin(angle);
-  const double scale =
-      std::max(1.0, (std::abs(radius_x) + std::abs(radius_y)) * 0.5);
+int FilterEllipsePointsByFitResidual(PointsShape &points,
+                                    double max_distance,
+                                    std::vector<EllipseConsistencyPointTrace>& trace) {
+  using namespace cxvision::ellipse_consistency;
+  std::vector<cv::Point2d> observations;
+  const int count = ClampSizeToInt(points.size());
+  observations.reserve(count);
+  for (int i = 0; i < count; ++i)
+    observations.emplace_back(points.getx(i), points.gety(i));
+  const auto result = Evaluate(observations, max_distance);
+  if (result.state == State::reference_failed) return -1;
+  if (result.state != State::evaluated) return 0;
   PointsShape filtered;
-  int kept_count = 0;
-  for (int i = 0; i < input_count; ++i) {
-    const double x = points.getx(i);
-    const double y = points.gety(i);
-    const double dx = x - reference.center.x;
-    const double dy = y - reference.center.y;
-    const double norm = EllipseNorm(ca * dx + sa * dy,
-                                   -sa * dx + ca * dy,
-                                   0.0, 0.0, radius_x, radius_y);
-    const double distance = std::abs(norm - 1.0) * scale;
-    if (std::isfinite(distance) && distance <= max_distance) {
-      filtered.addpoint(gp_Pnt(x, y, 0.0));
-      ++kept_count;
+  int kept = 0;
+  for (int i = 0; i < count; ++i) {
+    const auto& decision = result.points[static_cast<std::size_t>(i)];
+    trace[static_cast<std::size_t>(i)].residual = decision.residual;
+    trace[static_cast<std::size_t>(i)].kept = decision.kept;
+    if (decision.kept) {
+      filtered.addpoint(gp_Pnt(observations[i].x, observations[i].y, 0.0));
+      ++kept;
     }
   }
-
-  if (kept_count <= 0) {
-    points.clear();
-    return input_count;
-  }
-
   points.clear();
-  points.addpoints(filtered);
-  return std::max(0, input_count - kept_count);
+  if (kept > 0) points.addpoints(filtered);
+  return count - kept;
+}
+
+// Point identities are scoped to the frozen image and scan configuration in
+// the run receipt. They do not claim correspondence across different gauges.
+void LogEllipseConsistencyTrace(
+    const std::vector<EllipseConsistencyPointTrace>& points,
+    const std::vector<FindEllipseMeasureGeometryDebug::ScanDiagnostic>& scans,
+    const std::vector<std::vector<double>>& scan_endpoints,
+    const std::map<int, int>& observed_polarities,
+    int enabled, double threshold, bool reference_failed) {
+  using namespace cxvision::ellipse_consistency;
+  std::vector<Source> sources;
+  for (const auto& scan : scans) {
+    for (std::size_t j = 0; j + 1 < scan.accepted_points_xy.size(); j += 2) {
+      const double x = scan.accepted_points_xy[j];
+      const double y = scan.accepted_points_xy[j + 1];
+      sources.push_back({scan.scan_index, static_cast<int>(j / 2), x, y});
+    }
+  }
+  const auto origins = IndexSources(sources);
+  std::ostringstream out;
+  out << std::setprecision(17)
+      << "{\"schema\":\"cxvision.ellipse_consistency_trace.v1\","
+      << "\"coordinate_frame\":\"source_image_pixels\","
+      << "\"identity_scope\":\"image_and_scan_configuration\","
+      << "\"residual_metric\":\"normalized_radius_pixel_equivalent\","
+      << "\"enabled\":" << enabled << ",\"threshold\":" << threshold
+      << ",\"reference_failed\":" << (reference_failed ? "true" : "false")
+      << ",\"points\":[";
+  for (std::size_t i = 0; i < points.size(); ++i) {
+    const auto& p = points[i];
+    const auto identity = Resolve(origins, p.x, p.y);
+    const std::size_t matches = identity.candidates;
+    if (i) out << ',';
+    out << "{\"input_index\":" << i << ",\"source_candidates\":" << matches;
+    if (matches == 1) {
+      out << ",\"point_id\":\"scan:" << identity.scan
+          << "/point:" << identity.slot << "\"";
+    } else {
+      out << ",\"point_id\":null"; // Explicit unresolved/ambiguous identity.
+    }
+    out << ",\"scan_evidence\":{\"schema\":\"cxvision.scan_identity.v1\","
+        << "\"direction_semantics\":\"sampling_direction_not_boundary_normal\","
+        << "\"boundary_tangent\":null,\"boundary_normal\":null";
+    if (matches == 1 && identity.scan >= 0 &&
+        static_cast<std::size_t>(identity.scan) < scan_endpoints.size() &&
+        scan_endpoints[identity.scan].size() == 4) {
+      const auto& e = scan_endpoints[identity.scan];
+      const double dx=e[2]-e[0], dy=e[3]-e[1], length=std::hypot(dx,dy);
+      out << ",\"scan_index\":" << identity.scan
+          << ",\"scan_start\":[" << e[0] << ',' << e[1] << ']'
+          << ",\"scan_end\":[" << e[2] << ',' << e[3] << ']';
+      if (std::isfinite(length) && length > 0)
+        out << ",\"scan_direction\":[" << dx/length << ',' << dy/length << ']';
+      else out << ",\"scan_direction\":null";
+    } else out << ",\"scan_index\":null,\"scan_direction\":null";
+    const auto polarity = observed_polarities.find(identity.scan);
+    // Only a unique, single accepted boundary-response point owns this sign.
+    // Legacy binary-run selection has no measured polarity receipt.
+    if (matches == 1 && polarity != observed_polarities.end())
+      out << ",\"observed_polarity\":" << polarity->second
+          << ",\"polarity_source\":\"selected_boundary_response_candidate\"";
+    else out << ",\"observed_polarity\":null,\"polarity_source\":\"unavailable\"";
+    out << '}';
+    out << ",\"x\":";
+    if (std::isfinite(p.x)) out << p.x; else out << "null";
+    out << ",\"y\":";
+    if (std::isfinite(p.y)) out << p.y; else out << "null";
+    out << ",\"residual\":";
+    if (std::isfinite(p.residual)) out << p.residual; else out << "null";
+    const char* reason = reference_failed ? "reference_fit_failed_observation_retained"
+        : enabled == 0 ? "filter_disabled"
+        : threshold <= 0.0 ? "nonpositive_threshold_filter_bypassed"
+        : points.size() < 5 ? "insufficient_reference_points"
+        : p.kept ? "within_fit_residual" : "fit_residual_exceeded";
+    out << ",\"kept\":" << (p.kept ? "true" : "false")
+        << ",\"reason\":\"" << reason << "\"}";
+  }
+  out << "]}";
+  LogFindEllipseMeasureProbe("consistency_trace", "recorded", out.str());
 }
 
 double EllipseDotProduct(const std::vector<double> &a,
@@ -1330,6 +1387,7 @@ void FindEllipse::Measure(Image &image) {
 
   cv::Vec3b icolor = 0;
   SetCxCrashBreadcrumb("FindEllipse::Measure:candidate_collect");
+  std::map<int, int> observed_polarities;
   auto try_boundary_response_scan = [&](int scan_index) -> bool {
     if (!m_boundary_response_enabled || boundary_gray.empty())
       return false;
@@ -1451,6 +1509,7 @@ void FindEllipse::Measure(Image &image) {
     diag.accepted_points_xy.push_back(apoint.Y());
     diag.boundary_response_selected_position = sample_position;
     diag.boundary_response_selected_score = candidate.score;
+    observed_polarities[scan_index] = candidate.polarity;
     diag.reject_reason.clear();
     return true;
   };
@@ -1649,10 +1708,18 @@ void FindEllipse::Measure(Image &image) {
   m_point_consistency_input_points = ClampSizeToInt(m_measurepoints.size());
   m_point_consistency_output_points = m_point_consistency_input_points;
   m_point_consistency_removed_points = 0;
+  std::vector<EllipseConsistencyPointTrace> consistency_trace;
+  consistency_trace.reserve(static_cast<std::size_t>(m_point_consistency_input_points));
+  for (int i = 0; i < m_point_consistency_input_points; ++i) {
+    EllipseConsistencyPointTrace point;
+    point.x = m_measurepoints.getx(i);
+    point.y = m_measurepoints.gety(i);
+    consistency_trace.push_back(point);
+  }
   if (m_point_consistency_enabled != 0 && m_point_consistency_range > 0.0 &&
       m_measurepoints.size() > 0) {
     const int removed = FilterEllipsePointsByFitResidual(
-        m_measurepoints, m_point_consistency_range);
+        m_measurepoints, m_point_consistency_range, consistency_trace);
     if (removed < 0) {
       m_measure_failure_stage = "consistency_reference_fit_failed";
       m_measure_failure_reason =
@@ -1665,6 +1732,20 @@ void FindEllipse::Measure(Image &image) {
           ClampSizeToInt(m_measurepoints.size());
     }
   }
+
+  std::vector<std::vector<double>> scan_endpoints(m_lines.size());
+  for (std::size_t i=0; i<m_lines.size(); ++i) {
+    const int n=m_lines[i].getlinesize();
+    if (n<2) continue;
+    const auto a=m_lines[i].getlinepoint(0), b=m_lines[i].getlinepoint(n-1);
+    if (std::isfinite(a.X()) && std::isfinite(a.Y()) &&
+        std::isfinite(b.X()) && std::isfinite(b.Y()))
+      scan_endpoints[i]={a.X(),a.Y(),b.X(),b.Y()};
+  }
+  LogEllipseConsistencyTrace(consistency_trace, m_scan_diagnostics,
+      scan_endpoints, observed_polarities,
+      m_point_consistency_enabled, m_point_consistency_range,
+      m_measure_failure_stage == "consistency_reference_fit_failed");
 
   if (m_measurepoints.size() <= 0) {
     if (m_point_consistency_removed_points > 0) {
@@ -1733,6 +1814,10 @@ void FindEllipse::fitellipse() {
       m_measure_failure_stage = "consistency_filter_insufficient_points";
       m_measure_failure_reason =
           "FindEllipse consistency filter left fewer than five points.";
+    } else if (m_measure_failure_stage.empty()) {
+      m_measure_failure_stage = "insufficient_fit_points";
+      m_measure_failure_reason = "FindEllipse requires at least five observations; received "
+          + std::to_string(count) + ".";
     }
     return;
   }

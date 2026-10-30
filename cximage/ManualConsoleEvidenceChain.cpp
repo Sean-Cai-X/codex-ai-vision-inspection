@@ -1,9 +1,11 @@
 #include "CxSetMatchEvidenceParameters.h"
+#include "CxEvidenceAssetRelocation.h"
 #include "CxPartialMatchUiParameters.h"
 #include "CxPartialMatchAudit.h"
 #include "CxGrayBoundaryAudit.h"
 #include "CxGrayBoundaryManualRun.h"
 #include "CxRefinedArcManualRun.h"
+#include "CxRefinedArcCandidate.h"
 #include "muParser.h"
 #include "../libtorchsegmentation/src/utils/json.hpp"
 #ifndef WIN32_LEAN_AND_MEAN
@@ -53,6 +55,7 @@
 #include <filesystem>
 #include <fstream>
 #include <functional>
+#include <future>
 #include <memory>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
@@ -3721,6 +3724,19 @@ static void AppendSavedEvidenceCandidatesLocal(
       candidateGaugeValid = ValidateCandidateGaugeAnnotationLocal(
           gaugePath, bindingTool, runtimeGlobalsPath,
           candidateGaugeInvalidReason);
+      if (bindingTool == "RefinedArcAudit" &&
+          ReadJsonStringFieldLocal(binding, "source") == "paired_boundary_draft") {
+        gaugeAccepted = false;
+        gaugeReviewStatus = "pending_human_review";
+        try {
+          cxpaircandidate::Verify(bindingPath.parent_path());
+          candidateGaugeValid = true;
+          candidateGaugeInvalidReason.clear();
+        } catch (const std::exception& e) {
+          candidateGaugeValid = false;
+          candidateGaugeInvalidReason = e.what();
+        }
+      }
     }
     const bool humanConfirmed = candidateGaugeValid && gaugeAccepted &&
                                 gaugeReviewStatus == "manual_accepted";
@@ -4506,6 +4522,8 @@ static int AppendCxScriptEvidenceChainFilesLocal(
 static void RefreshHiddenEvidenceCaseCatalogLocal(ManualTestContext &context) {
   if (!context.hidden_evidence_case_catalog_dirty)
     return;
+  // Cache an empty/unavailable catalog too; retry on explicit asset reload.
+  context.hidden_evidence_case_catalog_dirty = false;
   context.hidden_evidence_case_catalog.clear();
 
   const std::filesystem::path root =
@@ -5679,7 +5697,6 @@ void ViewController::EnsureCxScriptWorkbenchAssetsLoaded() {
     return;
 
   LoadEvidenceCategoryOverridesLocal(m_manualTest);
-  RefreshHiddenEvidenceCaseCatalogLocal(m_manualTest);
 
   const bool curatedAssetOnly = IsCuratedAssetOnlyEvidenceQueueLocal();
   if (curatedAssetOnly) {
@@ -6450,12 +6467,10 @@ std::string ViewController::ResolveCatalogScriptLabelById(
 
 void ViewController::EnsureScriptEvidenceThumbTexture(
     ScriptEvidenceThumb &thumb) {
-  if (thumb.texture_loaded && !thumb.texture_placeholder)
-    return;
-
-  if (thumb.texture_failed && thumb.thumbnail_path.empty() &&
-      thumb.image_path.empty() && thumb.image_id.empty() &&
-      thumb.dataset_images.empty() && thumb.workflow_id.empty()) {
+  // A placeholder is a completed attempt too. Retry only on explicit reload
+  // (ResetEvidenceThumbTexture), not on every frame: missing assets otherwise
+  // cause repeated filesystem probes and leak the previous placeholder texture.
+  if (thumb.texture_loaded || thumb.texture_failed) {
     return;
   }
 
@@ -6851,8 +6866,36 @@ bool ViewController::ApplyEvidenceSelectionSnapshotToManualContext(
   if (!effectiveScriptPath.empty()) {
     resolvedScriptPath = ResolveWorkspaceFile(effectiveScriptPath);
     if (!ReadTextFile(resolvedScriptPath.string(), scriptText)) {
-      return abortSelection("script_read", "failed to read evidence script: " +
-                                               resolvedScriptPath.string());
+      std::string detail = "failed to read evidence script: " + resolvedScriptPath.string();
+      // Inspect explicit migration evidence only; a matching asset is not yet
+      // authorization to rewrite embedded dependencies or reuse old outputs.
+      const auto relocationFile = ResolveCxVisionRunPath(
+          "cxscript_runs/_shared/evidence_asset_relocations.json");
+      std::error_code relocationError;
+      if (std::filesystem::is_regular_file(relocationFile, relocationError)) {
+        try {
+          const auto plan = nlohmann::json::parse(
+              cximage::evidence::ReadRelocationBytes(relocationFile));
+          if (plan.at("case_binding").at("original_script") != effectiveScriptPath)
+            throw std::runtime_error("RELOCATION_SCRIPT_NOT_BOUND");
+          const auto registry = nlohmann::json::parse(
+              cximage::evidence::ReadRelocationBytes(ResolveCxVisionRunPath(
+                  "cxscript_runs/_shared/evidence_case_roots.json")));
+          const auto audit = cximage::evidence::ValidateRelocatedCaseAssets(
+              plan, registry, ResolveCxVisionRunPath("cxscript_runs"),
+              resolved.case_id, cxgeom::so2::Sha256Bytes);
+          CXLOG_INFO("EvidenceChain", "relocation_assets_verified", "replay_blocked",
+                     audit.dump());
+          detail += "; RELOCATION_REPLAY_PENDING: declared assets verified; "
+                    "embedded dependencies and fresh output binding still require migration";
+        } catch (const std::exception& error) {
+          detail += "; relocation preflight: " + std::string(error.what());
+        }
+      } else {
+        detail += "; RELOCATION_MANIFEST_MISSING: register an explicit, hash-bound "
+                  "migration plan; same-name cases are not substitutes";
+      }
+      return abortSelection("script_read", detail);
     }
 
     scriptText =
@@ -6995,7 +7038,22 @@ bool ViewController::ApplyEvidenceSelectionSnapshotToManualContext(
   }
 
   std::string parameterSource = "tool_defaults";
-  if (resolved.is_candidate || loadWorkingRevision) {
+  const bool pairedCandidate = resolved.tool == "RefinedArcAudit" &&
+      (resolved.is_candidate || loadWorkingRevision ||
+       std::filesystem::exists(resolvedScriptPath.parent_path() / "pair_input_binding.json"));
+  if (pairedCandidate) {
+    try {
+      cxpaircandidate::Verify(resolvedScriptPath.parent_path());
+      if (scriptText != cxpaircandidate::Bytes(resolvedScriptPath.parent_path() / "script_snapshot.cxsc"))
+        throw std::runtime_error("PAIR_CANDIDATE_SELECTED_SCRIPT_MISMATCH");
+    } catch (const std::exception& e) {
+      return abortSelection("paired_inputs_restore", e.what());
+    }
+    staged.refined_arc.valid = false;
+    staged.refined_arc.receipt.clear();
+    staged.refined_arc.summary = "STALE / NOT RUN";
+    parameterSource = "paired_canonical_snapshot";
+  } else if (resolved.is_candidate || loadWorkingRevision) {
     if (resolved.runtime_globals_path.empty() ||
         resolved.gauge_annotation_path.empty()) {
       return abortSelection(
@@ -7343,8 +7401,7 @@ void ViewController::ResetEvidenceThumbTexture(ScriptEvidenceThumb &thumb) {
 
 void ViewController::EnsureTorchTrainingImageTexture(
     TorchTrainingImageItem &item) {
-  if ((item.texture_loaded && !item.texture_placeholder) ||
-      item.texture_failed) {
+  if (item.texture_loaded || item.texture_failed) {
     return;
   }
 
@@ -12901,11 +12958,136 @@ bool ViewController::LoadRegisteredEvidenceReviewImage(
   return true;
 }
 
+
+static bool DrawNativeEvidenceReplayControlsLocal(const std::filesystem::path &caseRoot) {
+  using Json = nlohmann::json;
+  namespace path = std::filesystem;
+  static std::string selectedRoot, status, submittedId;
+  static Json binding, draft;
+  static std::future<int> process;
+  static path::path replyPath;
+  bool refresh = false;
+  auto read = [](const path::path &p) -> Json {
+    std::error_code ec;
+    const auto size = path::file_size(p, ec);
+    if (ec || size > 4 * 1024 * 1024) return Json();
+    std::string text;
+    if (!ReadTextFile(p.string(), text)) return Json();
+    return Json::parse(text, nullptr, false);
+  };
+  if (process.valid() &&
+      process.wait_for(std::chrono::milliseconds(0)) == std::future_status::ready) {
+    const int code = process.get();
+    const Json reply = read(replyPath);
+    if (code == 0 && reply.is_object() && reply.value("status", "") == "SUCCEEDED") {
+      status = "SUCCEEDED; new Evidence registered. Search: " + submittedId;
+      refresh = true;
+    } else {
+      status = "FAILED; exit=" + std::to_string(code) + "; " +
+               (reply.is_object() ? reply.dump() : replyPath.string());
+    }
+  }
+  if (selectedRoot != caseRoot.string()) {
+    selectedRoot = caseRoot.string();
+    const Json facts = read(caseRoot / "geometry_facts.json");
+    binding = facts.is_object() ? facts.value("native_replay_ui", Json()) : Json();
+    draft = binding.is_object() ? binding.value("request", Json()) : Json();
+  }
+  if (!binding.is_object() || binding.value("schema", "") != "cxvision.native_replay_ui.v1")
+    return refresh;
+  ImGui::SeparatorText("Native Replay / New Evidence");
+  ImGui::TextWrapped("Edit parameters, then run a fresh native request. Existing images are historical observations.");
+  if (!draft.is_object() || !binding.contains("parameters") || !binding["parameters"].is_array()) {
+    ImGui::TextWrapped("BLOCKED: invalid replay parameter binding");
+    return refresh;
+  }
+  const bool busy = process.valid();
+  ImGui::BeginDisabled(busy);
+  try {
+    for (const auto &descriptor : binding["parameters"]) {
+      const std::string pointer = descriptor.at("json_pointer").get<std::string>();
+      const std::string label = descriptor.at("label").get<std::string>();
+      const std::string kind = descriptor.at("kind").get<std::string>();
+      auto &value = draft[Json::json_pointer(pointer)];
+      ImGui::PushID(pointer.c_str());
+      ImGui::SetNextItemWidth(180);
+      if (kind == "number") {
+        double number = value.get<double>();
+        if (ImGui::InputDouble(label.c_str(), &number, descriptor.value("step", 0.01), 0, "%.4f"))
+          value = std::clamp(number, descriptor.at("min").get<double>(), descriptor.at("max").get<double>());
+      } else if (kind == "integer") {
+        int number = value.get<int>();
+        if (ImGui::InputInt(label.c_str(), &number))
+          value = std::clamp(number, descriptor.at("min").get<int>(), descriptor.at("max").get<int>());
+      } else if (kind == "boolean") {
+        bool flag = value.get<bool>();
+        if (ImGui::Checkbox(label.c_str(), &flag)) value = flag;
+      }
+      ImGui::PopID();
+    }
+  } catch (const std::exception &error) {
+    ImGui::TextWrapped("BLOCKED: %s", error.what());
+    ImGui::EndDisabled();
+    return refresh;
+  }
+  const char *runRoot = std::getenv("CXVISION_RUN_ROOT");
+  const Json config = runRoot ? read(path::path(runRoot) / "_shared/native_evidence_runner.v1.json") : Json();
+  const bool configured = config.is_object() &&
+      config.value("schema", "") == "cxvision.native_evidence_runner.v1";
+  ImGui::BeginDisabled(!configured);
+  if (ImGui::Button("Run Native Replay")) {
+    try {
+      const path::path root = path::canonical(config.at("job_root").get<std::string>());
+      const path::path program = path::canonical(config.at("program").get<std::string>());
+      const auto args = config.at("arguments").get<std::vector<std::string>>();
+      if (args.size() > 16 || !root.is_absolute() || !program.is_absolute())
+        throw std::runtime_error("runner configuration invalid");
+      submittedId = "gui_" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count());
+      Json request = draft;
+      request["request_id"] = submittedId;
+      request["parameter_revision"] = submittedId;
+      const path::path requestDir = root / "requests";
+      path::create_directories(requestDir);
+      const path::path requestFile = requestDir / (submittedId + ".json");
+      if (path::exists(requestFile)) throw std::runtime_error("request already exists");
+      std::ofstream file(requestFile, std::ios::binary);
+      if (!file) throw std::runtime_error("cannot create request");
+      file << request.dump(2);
+      file.close();
+      if (!file) throw std::runtime_error("cannot persist request");
+      replyPath = root / "jobs" / submittedId / "result.json";
+      auto quote = [](const std::string &value) {
+        std::string out = "'";
+        for (char c : value) { if (c == '\'') out += "'\\''"; else out += c; }
+        return out + "'";
+      };
+      std::string command = quote(program.string());
+      for (const auto &arg : args) command += " " + quote(arg);
+      command += " " + quote(submittedId);
+      status = "RUNNING; request=" + submittedId;
+      process = std::async(std::launch::async, [command]() { return std::system(command.c_str()); });
+    } catch (const std::exception &error) {
+      status = std::string("FAILED TO SUBMIT: ") + error.what();
+    }
+  }
+  ImGui::EndDisabled();
+  ImGui::EndDisabled();
+  if (!configured) ImGui::TextWrapped("BLOCKED: native runner is not configured in the run-root shared registry.");
+  if (!status.empty()) ImGui::TextWrapped("%s", status.c_str());
+  if (!submittedId.empty()) ImGui::TextWrapped("Submitted revision: %s. Human review remains PENDING.", submittedId.c_str());
+  ImGui::Separator();
+  return refresh;
+}
+
 void ViewController::DrawReadOnlyEvidenceReview() {
   const auto &selection = m_manualTest.current_evidence_selection;
   ImGui::SeparatorText("Read-only Evidence Review");
+  if (DrawNativeEvidenceReplayControlsLocal(selection.evidence_output_root)) {
+    m_manualTest.script_evidence_groups_dirty = true;
+    m_manualTest.script_evidence_row_refs_dirty = true;
+  }
   ImGui::TextWrapped("%s", selection.review_item.c_str());
-  ImGui::TextWrapped("Historical observations. Model execution and training are unavailable for this reference case.");
+  ImGui::TextWrapped("Displayed observations are immutable. Native Replay, when configured, creates a separate run. Training is unavailable here.");
   auto show = [&](const std::string &label, const std::string &path) {
     ImGui::PushID(path.c_str());
     if (ImGui::Button(label.c_str())) {
@@ -15011,6 +15193,7 @@ void ViewController::DrawScriptEvidenceThumbnailRailByGroup() {
     m_manualTest.script_evidence_groups_dirty = true;
     m_manualTest.script_evidence_row_refs_dirty = true;
     m_manualTest.debug_status = "EVIDENCE_ASSET_RELOAD_QUEUED";
+    m_manualTest.hidden_evidence_case_catalog_dirty = true;
     m_manualTest.debug_reason =
         "requested rescan of registered asset roots; no image or review state was modified";
     CXLOG_INFO("EvidenceChain", "asset_reload", "queued",
@@ -15020,8 +15203,8 @@ void ViewController::DrawScriptEvidenceThumbnailRailByGroup() {
   ImGui::TextDisabled(
       "Rescans registered Evidence roots; source images and review decisions remain unchanged.");
 
-  RefreshHiddenEvidenceCaseCatalogLocal(m_manualTest);
   if (ImGui::CollapsingHeader("Add Hidden Evidence Case", ImGuiTreeNodeFlags_None)) {
+    RefreshHiddenEvidenceCaseCatalogLocal(m_manualTest);
     ImGui::TextDisabled(
         "The catalog is metadata-only. Cases enter the active list only after an explicit Add action; no image is loaded here.");
     InputTextString("Find hidden case", m_manualTest.hidden_evidence_case_filter);
@@ -15622,7 +15805,10 @@ void ViewController::DrawScriptEvidenceThumbnailRailByGroup() {
       return;
 
     ScriptEvidenceThumb &thumb = group.thumbs[ref.thumb_index];
-    EnsureScriptEvidenceThumbTexture(thumb);
+    // Off-screen rows still participate in layout, but must not decode images
+    // or consume the per-frame upload budget before visible rows can use it.
+    if (ImGui::IsRectVisible(ImVec2(ImGui::GetContentRegionAvail().x, rowHeight)))
+      EnsureScriptEvidenceThumbTexture(thumb);
     DrawOneScriptEvidenceRow(ref.group_index, ref.thumb_index, thumb,
                              rowHeight);
   };
@@ -15787,7 +15973,7 @@ void ViewController::DrawOneScriptEvidenceRow(int groupIndex, int thumbIndex,
   if (selected)
     ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32(45, 80, 115, 180));
 
-  ImGui::BeginChild("evidence_row", ImVec2(-1, rowHeight), true,
+  const bool rowVisible = ImGui::BeginChild("evidence_row", ImVec2(-1, rowHeight), true,
                     ImGuiWindowFlags_NoScrollbar |
                         ImGuiWindowFlags_NoScrollWithMouse);
 
@@ -15797,6 +15983,11 @@ void ViewController::DrawOneScriptEvidenceRow(int groupIndex, int thumbIndex,
       ImGui::PopStyleColor();
     ImGui::PopID();
   };
+
+  if (!rowVisible) {
+    finishRow();
+    return;
+  }
 
   const ImVec2 rowMin = ImGui::GetCursorScreenPos();
   const ImVec2 rowSize(ImGui::GetContentRegionAvail().x, rowHeight - 6.0f);
@@ -15888,8 +16079,11 @@ void ViewController::DrawOneScriptEvidenceRow(int groupIndex, int thumbIndex,
   // double click.  Detect the complete visual row bounds as the canonical
   // click surface and keep a small, explicit double-click window.
   const ImVec2 rowMax(rowMin.x + rowSize.x, rowMin.y + rowSize.y);
+  // Bounds alone include scrolled-out rows and rows behind floating panels.
+  // Preserve the table/image fallback only inside this row's visible window.
   const bool rowBoundsHovered =
-      ImGui::IsMouseHoveringRect(rowMin, rowMax, false);
+      ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows) &&
+      ImGui::IsMouseHoveringRect(rowMin, rowMax, true);
   if (rowBoundsHovered) {
     ImGui::SetTooltip(
         "Click to load this evidence case's script, parameter snapshot and "

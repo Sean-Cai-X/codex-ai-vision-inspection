@@ -109,3 +109,16 @@ target_compile_features(cyclic_factor_sweep PRIVATE cxx_std_17)
 target_include_directories(cyclic_factor_sweep PRIVATE ../../libtorch_module ${TORCH_INCLUDE_DIRS})
 target_link_libraries(cyclic_factor_sweep PRIVATE "${TORCH_LIBRARIES}")
 target_compile_options(cyclic_factor_sweep PRIVATE ${TORCH_REQUIRED_FLAGS})
+
+# Post-validation development diagnosis; no acceptance claim.
+add_executable(cyclic_q1_tail_probe
+    q1_tail_probe.cpp
+    ../../libtorch_module/torch_cyclic_group_ops.cpp
+    ../../libtorch_module/torch_cyclic_feature_ops.cpp
+    ../../libtorch_module/torch_cyclic_analytic_lift.cpp
+    ../../libtorch_module/torch_cyclic_analytic_group.cpp
+    ../../libtorch_module/torch_cyclic_pose_branch.cpp)
+target_compile_features(cyclic_q1_tail_probe PRIVATE cxx_std_17)
+target_include_directories(cyclic_q1_tail_probe PRIVATE ../../libtorch_module ${TORCH_INCLUDE_DIRS})
+target_link_libraries(cyclic_q1_tail_probe PRIVATE "${TORCH_LIBRARIES}")
+target_compile_options(cyclic_q1_tail_probe PRIVATE ${TORCH_REQUIRED_FLAGS})

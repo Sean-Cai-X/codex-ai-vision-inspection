@@ -7814,6 +7814,26 @@ bool ViewController::ApplyAiGuiFocusHere(
   if (m_aiGuiPendingFocus != destination)
     return false;
 
+  // A saved layout may belong to a larger display or contain a negative
+  // position. Explicit parameter navigation must recover reachable controls.
+  // Preserve in-bounds layouts and never change the active case or parameters.
+  if (destination == AiGuiDestination::KeyParameters) {
+    const ImGuiViewport* viewport = ImGui::GetMainViewport();
+    const ImVec2 available = viewport->WorkSize;
+    if (available.x > 0.0f && available.y > 0.0f) {
+      ImVec2 size = ImGui::GetWindowSize();
+      size.x = std::min(size.x, available.x);
+      size.y = std::min(size.y, available.y);
+      ImGui::SetWindowSize(size, ImGuiCond_Always);
+      ImVec2 pos = ImGui::GetWindowPos();
+      pos.x = std::max(viewport->WorkPos.x,
+                       std::min(pos.x, viewport->WorkPos.x + available.x - size.x));
+      pos.y = std::max(viewport->WorkPos.y,
+                       std::min(pos.y, viewport->WorkPos.y + available.y - size.y));
+      ImGui::SetWindowPos(pos, ImGuiCond_Always);
+    }
+  }
+
   ImGui::SetWindowFocus();
   ImGui::SetScrollY(0.0f);
   ImGui::SetKeyboardFocusHere(0);

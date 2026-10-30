@@ -205,6 +205,9 @@ public:
     bool bind(const CxCalibrationSnapshot& snapshot);
 
     bool ready() const;
+    // XY applicability is distinct from readiness of Z/uncertainty metadata.
+    // This is a numeric transform guard, not physical metrology approval.
+    bool xyready() const;
     cv::Point2d pixelToPhysical(double x, double y) const;
     cv::Point2d physicalToPixel(double x, double y) const;
     double zToPhysical(double z) const;

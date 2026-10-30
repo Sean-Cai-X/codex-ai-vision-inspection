@@ -5095,7 +5095,7 @@ void FastMatch::runTransformSearch(Image& image) {
   m_transform_search_result = FastMatchTransformSearchResult();
   m_transform_search_result.executed = true;
   m_transform_search_result.seed = m_transform_seed_evidence;
-  if (m_calibration_bound && m_calibration_adapter.ready()) {
+  if (m_calibration_bound && m_calibration_adapter.xyready()) {
     const CxCalibrationSnapshot& calibration = m_calibration_adapter.snapshot();
     m_transform_search_result.calibration_applied = true;
     m_transform_search_result.calibration_snapshot_hash = calibration.snapshot_hash;

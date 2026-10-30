@@ -985,9 +985,13 @@ static bool WriteHeadlessManualReviewHandoff(
     for (std::size_t index = 0; index < capture.gray_boundary_receipts.size(); ++index)
         append_artifact("gray_boundary_receipt_" + std::to_string(index),
             output_dir / ("gray_boundary_receipt_" + std::to_string(index) + ".json"));
-    for (std::size_t index = 0; index < capture.refined_arc_receipts.size(); ++index)
+    for (std::size_t index = 0; index < capture.refined_arc_receipts.size(); ++index) {
         append_artifact("refined_arc_receipt_" + std::to_string(index),
             output_dir / ("refined_arc_receipt_" + std::to_string(index) + ".json"));
+        for (const auto* side : {"reference", "observation"})
+            append_artifact("refined_arc_" + std::string(side) + "_" + std::to_string(index),
+                output_dir / ("refined_arc_" + std::string(side) + "_" + std::to_string(index) + ".png"));
+    }
     append_artifact("segmentation_trace",
         output_dir / "segmentation_artifact_persist_trace.json");
     append_artifact("yolov8seg_evidence",
@@ -4383,6 +4387,26 @@ bool RunCxScriptHeadless(const CxScriptHeadlessOptions& options, CxScriptHeadles
 
     bool refined_arc_receipts_ok = !capture.refined_arc_receipts.empty();
     for (std::size_t index = 0; index < capture.refined_arc_receipts.size(); ++index) {
+        try {
+            const auto& previews = capture.refined_arc_previews.at(index);
+            for (std::size_t side = 0; side < 2; ++side) {
+                const auto preview_path = output_dir / ("refined_arc_" +
+                    std::string(side == 0 ? "reference_" : "observation_") + std::to_string(index) + ".png");
+                const auto& bytes = previews[side];
+                if (bytes.empty()) {
+                    if (nlohmann::json::parse(capture.refined_arc_receipts[index]).value("input_rejected", false))
+                        continue; // Preserve the rejection receipt; do not invent pixels.
+                    throw std::runtime_error("empty bound preview");
+                }
+                std::ofstream preview(preview_path, std::ios::binary | std::ios::trunc);
+                preview.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+                preview.close();
+                if (!preview) throw std::runtime_error("bound preview write failed");
+            }
+        } catch (const std::exception& e) {
+            refined_arc_receipts_ok = false; result.runtime_ok = false;
+            result.reason = std::string("refined arc preview export failed: ") + e.what();
+        }
         const auto path = output_dir / ("refined_arc_receipt_" + std::to_string(index) + ".json");
         std::ofstream file(path, std::ios::binary | std::ios::trunc);
         file << capture.refined_arc_receipts[index];file.close();

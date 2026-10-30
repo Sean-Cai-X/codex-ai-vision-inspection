@@ -182,6 +182,21 @@ void CxCalibration::setxytransformex(
         return;
     }
 
+    const double shear_product = shear_x * shear_y;
+    const double shear_det = 1.0 - shear_product;
+    if (!finite(shear_product) || !finite(shear_det) ||
+        std::abs(shear_det) <= std::numeric_limits<double>::epsilon() *
+            std::max(1.0, std::abs(shear_product)))
+    {
+        m_snapshot.xy_transform = CxCalibrationTransform2D();
+        m_snapshot.has_xy_transform = false;
+        m_snapshot.status = "INVALID_INPUT";
+        m_snapshot.reason = "non-invertible xy calibration shear";
+        m_status_code = CxCalibrationStatusCode::InvalidInput;
+        updateSnapshotHash();
+        return;
+    }
+
     m_snapshot.xy_transform.scale_x = scale_x;
     m_snapshot.xy_transform.scale_y = scale_y;
     m_snapshot.xy_transform.offset_x = offset_x;
@@ -537,6 +552,12 @@ bool CxCalibrationAdapter::bind(const CxCalibrationSnapshot& snapshot)
             snapshot.xy_transform.rotation_deg,
             snapshot.xy_transform.shear_x,
             snapshot.xy_transform.shear_y);
+        // Do not allow a subsequent valid Z/uncertainty setter to mask failure.
+        if (m_calibration.status_code() == CxCalibrationStatusCode::InvalidInput)
+        {
+            m_bound_snapshot = m_calibration.snapshot();
+            return false;
+        }
     }
     if (snapshot.has_z_scale)
         m_calibration.setzscale(snapshot.z_transform.z_scale, snapshot.z_transform.z_offset);
@@ -558,6 +579,12 @@ bool CxCalibrationAdapter::bind(const CxCalibrationSnapshot& snapshot)
 bool CxCalibrationAdapter::ready() const
 {
     return m_calibration.status_code() == CxCalibrationStatusCode::Ready;
+}
+
+bool CxCalibrationAdapter::xyready() const
+{
+    return ready() && m_bound_snapshot.has_xy_transform &&
+        m_bound_snapshot.xy_transform.valid;
 }
 
 cv::Point2d CxCalibrationAdapter::pixelToPhysical(double x, double y) const

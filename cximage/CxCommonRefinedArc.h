@@ -132,6 +132,43 @@ inline RefinedArcComparison MatchCommonRefinedArc(const BoundRefinedSpan& refere
   evidence[key]["raw_control_sampling"]=samples(span,slice.raw_samples);
  };
  describe("reference",reference,r);describe("observation",observation,o);
+ // Diagnostics use exactly the existing clipped audit vertices and supplied
+ // correspondence samples. They do not refit, trim, or alter any gate.
+ evidence["residual_diagnostics"]={{"schema","common_arc_residual_trace.v1"},
+  {"diagnostic_only",true},{"used_for_acceptance",false},
+  {"coordinate_frame","observation_image_pixels"},
+  {"evaluation_semantics","same_fit_domain_not_independent_holdout"},
+  {"source_trace","reference/observation sampling source_ids and source_run_edge"},
+  {"candidates",J::array()}};
+ auto trace_json=[](const std::vector<ArcVertexResidual>& trace){
+  J rows=J::array();
+  for(const auto& v:trace)rows.push_back({{"audit_vertex",v.vertex},{"endpoint",v.endpoint},
+   {"point",{v.point.real(),v.point.imag()}},{"nearest",{v.nearest.real(),v.nearest.imag()}},
+   {"target_edge",{v.target_edge,v.target_edge+1}},{"target_fraction",v.target_fraction},
+   {"error_px",v.error_px},{"arc_weight_px",v.weight}});
+  return rows;
+ };
+ for(size_t ci=0;ci<out.refined.candidates.size();++ci){
+  const auto& c=out.refined.candidates[ci];
+  J diagnostic={{"candidate",ci},{"fit_samples",J::array()}};
+  if(std::abs(c.factor)<=1e-9){diagnostic["status"]="DEGENERATE_POSE_NOT_AUDITED";
+   evidence["residual_diagnostics"]["candidates"].push_back(diagnostic);continue;}
+  auto transformed=r.refined;for(auto& p:transformed)p=c.factor*p+c.translation;
+  std::vector<ArcVertexResidual> rt,ot;
+  AuditObservedPolyline(transformed,o.refined,config.pose.support_distance_px,&rt);
+  AuditObservedPolyline(o.refined,transformed,config.pose.support_distance_px,&ot);
+  diagnostic["status"]="TRACED_EXISTING_FIT_AND_AUDIT_DOMAIN";
+  diagnostic["reference_audit"]=trace_json(rt);diagnostic["observation_audit"]=trace_json(ot);
+  for(size_t i=0;i<r.refined_samples.values.size();++i){
+   const auto& a=r.refined_samples.values[i];const auto& b=o.refined_samples.values[i];
+   const auto mapped=c.factor*a.point+c.translation;
+   diagnostic["fit_samples"].push_back({{"sampling_index",i},{"derived",true},{"observed_pixel",false},
+    {"common_interval_fraction",a.normalized_length},{"reference_point",{a.point.real(),a.point.imag()}},
+    {"mapped_reference",{mapped.real(),mapped.imag()}},{"observation_point",{b.point.real(),b.point.imag()}},
+    {"error_px",std::abs(mapped-b.point)}});
+  }
+  evidence["residual_diagnostics"]["candidates"].push_back(diagnostic);
+ }
  if(config.reliable_landmarks_required){
   out.refined.accepted_indices.clear();
   for(size_t i=0;i<out.refined.candidates.size();++i){

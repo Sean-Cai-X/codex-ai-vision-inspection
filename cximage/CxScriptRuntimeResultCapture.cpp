@@ -12,6 +12,7 @@
 #include "CxPartialMatchAudit.h"
 #include "CxGrayBoundaryAudit.h"
 #include "CxRefinedArcAudit.h"
+#include <opencv2/imgcodecs.hpp>
 #include "CxTextInspect.h"
 #include "TorchTask.h"
 #include "CxTorchResultProjector.h"
@@ -2505,6 +2506,19 @@ bool CaptureRuntimeToolResults(
             item.candidate_count = static_cast<int>(receipt.at("refined").at("accepted_indices").size());
             item.reason = "RefinedArcAudit:" + receipt.at("status").get<std::string>() +
                 ";paired_bound_gray_inputs;carrier_image_not_comparison_source;production_eligible=false";
+            std::array<std::vector<unsigned char>, 2> previews;
+            for (int side = 0; side < 2; ++side) {
+                try {
+                    const auto overlay = tool->sideoverlay(side);
+                    if (overlay.empty() || !cv::imencode(".png", overlay, previews[side]))
+                        throw std::runtime_error("REFINED_ARC_BOUND_PREVIEW_UNAVAILABLE");
+                } catch (const std::exception&) {
+                    // A rejected undecodable input has no truthful boundary preview.
+                    if (!receipt.value("input_rejected", false)) throw;
+                    previews[side].clear();
+                }
+            }
+            capture.refined_arc_previews.push_back(std::move(previews));
             capture.refined_arc_receipts.push_back(text);
             capture.refined_arc_only = !before_refined_arc;
             // No synthetic fitted shape or overlay on the unrelated CLI carrier.

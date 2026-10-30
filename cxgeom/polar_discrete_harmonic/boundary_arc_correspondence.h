@@ -52,18 +52,28 @@ struct ArcObservedAudit {
  double weighted_rms_px=0,maximum_error_px=0,weighted_vertex_support=0;
  bool monotonic=true;
 };
+struct ArcVertexResidual {
+ size_t vertex=0,target_edge=0;
+ double target_fraction=0,error_px=0,weight=0;
+ std::complex<double> point{},nearest{};
+ bool endpoint=false;
+};
 inline ArcObservedAudit AuditObservedPolyline(const std::vector<std::complex<double>>& points,
- const std::vector<std::complex<double>>& target,double support_distance){
+ const std::vector<std::complex<double>>& target,double support_distance,
+ std::vector<ArcVertexResidual>* trace=nullptr){
+ if(trace)trace->clear();
  ArcObservedAudit out;double total=0,squares=0,supported=0,previous=-1;
  std::vector<double> arc(target.size(),0);
  for(size_t i=1;i<target.size();++i)arc[i]=arc[i-1]+std::abs(target[i]-target[i-1]);
  for(size_t i=0;i<points.size();++i){
   double best=std::numeric_limits<double>::infinity(),position=0;
+  size_t best_edge=0;double best_fraction=0;std::complex<double> nearest{};
   for(size_t j=1;j<target.size();++j){
    auto edge=target[j]-target[j-1];double denominator=std::norm(edge);
    double t=std::clamp(std::real(std::conj(edge)*(points[i]-target[j-1]))/denominator,0.,1.);
    double d=std::abs(points[i]-(target[j-1]+t*edge));
-   if(d<best){best=d;position=arc[j-1]+t*(arc[j]-arc[j-1]);}
+   if(d<best){best=d;position=arc[j-1]+t*(arc[j]-arc[j-1]);
+    best_edge=j-1;best_fraction=t;nearest=target[j-1]+t*edge;}
   }
   if(position+1e-8<previous)out.monotonic=false;
   previous=position;
@@ -72,6 +82,7 @@ inline ArcObservedAudit AuditObservedPolyline(const std::vector<std::complex<dou
   if(i+1<points.size())weight+=.5*std::abs(points[i+1]-points[i]);
   total+=weight;squares+=weight*best*best;if(best<=support_distance)supported+=weight;
   out.maximum_error_px=std::max(out.maximum_error_px,best);
+  if(trace)trace->push_back({i,best_edge,best_fraction,best,weight,points[i],nearest,i==0||i+1==points.size()});
  }
  out.weighted_rms_px=std::sqrt(squares/total);out.weighted_vertex_support=supported/total;
  if(!std::isfinite(out.weighted_rms_px)||!std::isfinite(out.weighted_vertex_support)||!std::isfinite(out.maximum_error_px))

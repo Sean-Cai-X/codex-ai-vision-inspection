@@ -90,6 +90,10 @@ public:
       const std::string& scriptPath,
       std::string& reason);
 
+  bool OpenManualScriptFile(ManualTestContext& context, const std::string& path,
+                           const std::string& caseId, bool discardConfirmed,
+                           std::string& reason);
+
     bool LoadSemanticEvidenceBindingToManualConsole(
         const std::string& nodeId,
         const SemanticEvidenceBinding& binding,

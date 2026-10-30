@@ -2,6 +2,7 @@
 #include "CxPartialMatchManualRun.h"
 #include "CxGrayBoundaryManualRun.h"
 #include "CxRefinedArcManualRun.h"
+#include "CxManualScriptLoad.h"
 #include "../libtorchsegmentation/src/utils/json.hpp"
 #include <opencv2/imgcodecs.hpp>
 #include "CxHarmonicEvidenceParameters.h"
@@ -1607,23 +1608,6 @@ bool ViewController::ConsumePendingManualScriptRun(ManualTestContext& context,
 
   RefreshRuntimeObjectTable(
       "Manual Console Pending Run", ran ? "runtime_executed" : "BLOCKED");
-  std::string manualConclusionStatus = m_manualTest.debug_status;
-  if (ran &&
-      m_manualTest.current_result_ref.result_type == "FindSegmentationResult" &&
-      !m_manualTest.current_result_ref.status.empty())
-  {
-    manualConclusionStatus = m_manualTest.current_result_ref.status;
-  }
-  CXLOG_INFO(
-      "ManualConsole",
-      "manual_run_conclusion",
-      manualConclusionStatus,
-      "script=" + context.loaded_script_path +
-          " debug_status=" + m_manualTest.debug_status +
-          " script_result_status=" + m_scriptResult.status +
-          " result_type=" + m_manualTest.current_result_ref.result_type +
-          " result_status=" + m_manualTest.current_result_ref.status +
-          " reason=" + m_manualTest.debug_reason);
   // RefreshRuntimeObjectTable() projects the newly-created runtime object and
   // may replace current_gauge.  A deferred Key Parameter/Candidate run must
   // keep the exact input snapshot that was applied and persisted, not the
@@ -1644,6 +1628,22 @@ bool ViewController::ConsumePendingManualScriptRun(ManualTestContext& context,
   cxpartialmanual::Collect(context,m_parserDebugBridge,ran);
   CollectSetMatchReceipt(context,ran);
   CollectHarmonicAuditReceipt(context,ran);
+
+  // Emit the conclusion only after receipt validation and persistence. A
+  // completed collector is not a passing geometry/production assessment.
+  if(cxpairui::IsCase(context.editor_text)){
+    m_scriptResult.status=ran?context.current_result_ref.status:"BLOCKED";
+    m_scriptResult.reason=context.debug_reason;
+    m_scriptResult.runtime_fillback_status=ran?"paired_receipt_collected":"paired_receipt_failed";
+  }
+  const auto& result=context.current_result_ref;
+  const bool typedConclusion=result.result_type=="FindSegmentationResult" ||
+      result.result_type=="RefinedArcAuditReceipt";
+  CXLOG_INFO("ManualConsole","manual_run_conclusion",
+      typedConclusion&&!result.status.empty()?result.status:context.debug_status,
+      "script="+context.loaded_script_path+" debug_status="+context.debug_status+
+      " script_result_status="+m_scriptResult.status+" result_type="+result.result_type+
+      " result_status="+result.status+" reason="+context.debug_reason);
 
   std::string snapshotPath;
   std::string snapshotReason;
@@ -1700,6 +1700,93 @@ bool ViewController::ConsumePendingManualScriptRun(ManualTestContext& context,
   return true;
 }
 
+bool ViewController::OpenManualScriptFile(ManualTestContext& context,
+    const std::string& path, const std::string& caseId, bool discardConfirmed,
+    std::string& reason)
+{
+  try {
+    const bool pending = context.has_pending_execution_snapshot ||
+        context.has_pending_candidate_save || context.refined_arc.pending ||
+        context.gray_boundary.pending || context.partial_pending ||
+        context.run_state == "running" || m_scriptRunRequested;
+    const auto prepared = cxscriptload::Prepare(
+        path.empty() ? std::filesystem::path() : ResolveWorkspaceFile(path),
+        caseId, context.editor_dirty, discardConfirmed, pending);
+    // Keep catalog/navigation and independent Torch jobs, but detach the old
+    // script's input/result ownership. Failure above leaves these intact.
+    context.current_evidence_selection = {};
+    context.selected_evidence_group = -1;
+    context.selected_evidence_thumb = -1;
+    context.last_evidence_candidate_id.clear();
+    context.last_evidence_candidate_dir.clear();
+    context.last_evidence_candidate_reason.clear();
+    context.pending_evidence_selection_rehydrate = false;
+    context.pending_execution_candidate_id.clear();
+    context.bound_state_node_id.clear();
+    context.bound_state_script_path.clear();
+    context.image_file_path.clear();
+    context.active_image_id.clear();
+    context.active_target_id.clear();
+    context.current_gauge = {};
+    context.current_result_ref = {};
+    context.refined_arc = {};
+    context.gray_boundary = {};
+    context.partial_receipt_valid = false;
+    context.partial_receipt.clear();
+    context.partial_output_path.clear();
+    context.partial_result_summary.clear();
+    context.setmatch_receipt.clear();
+    context.setmatch_output_path.clear();
+    context.harmonic_audit_receipt.clear();
+    context.harmonic_audit_output_path.clear();
+    context.harmonic_audit_result_summary.clear();
+    context.geometry_summary.clear();
+    context.image_overlay_summary.clear();
+    context.findcircle_debug_snapshot_summary.clear();
+    context.analyzed_text.clear();
+    context.line_views.clear();
+    context.object_views.clear();
+    context.global_variable_views.clear();
+    context.cxparser_ext_line_views.clear();
+    context.cxparser_ext_statement_views.clear();
+    context.cxparser_ext_object_assignments.clear();
+    context.editor_text = prepared.text;
+    context.loaded_script_path = prepared.path;
+    context.script_file_path = prepared.path;
+    context.editor_source = "direct_file";
+    context.active_case_id = prepared.case_id;
+    context.active_script_case_name = prepared.case_id;
+    context.active_script_case_path = prepared.path;
+    context.active_script_case_purpose = "direct_file";
+    context.editor_dirty = false;
+    ClearManualOperationTraceEvents(context);
+    ResetDebugRuntimeForReplay(context);
+    SeedDefaultManualGlobals(context, prepared.path);
+    m_selectedScript = -1;
+    m_runtimeShapeSyncPending = false;
+    m_runtimeShapeSyncReason.clear();
+    m_scriptResult = ScriptResult();
+    m_scriptResult.source = "direct_file";
+    m_scriptResult.script_path = prepared.path;
+    m_scriptResult.status = "NOT_RUN";
+    m_scriptResult.reason = "Script opened; execution has not started";
+    m_annotationLayer.Clear();
+    m_enableAnnotationToolV2 = false;
+    m_imageViewImage.release();
+    m_parserDebugBridge.ClearGlobalInputs();
+    m_parserDebugBridge.ResetRuntime();
+    context.debug_action = "Open Script";
+    context.debug_status = "SCRIPT_OPENED";
+    context.debug_reason = "Opened " + prepared.path + "; case=" + prepared.case_id + "; NOT_RUN";
+    RecordManualOperationTraceEvent(context, "script_open", "loaded", context.debug_reason);
+    reason = context.debug_reason;
+    return true;
+  } catch (const std::exception& e) {
+    reason = e.what();
+    return false;
+  }
+}
+
 void ViewController::DrawScriptEditorBlock(ManualTestContext& context)
 {
   SetCxCrashBreadcrumb("drawManualStateTestConsole:ScriptEditor:begin");
@@ -1707,6 +1794,8 @@ void ViewController::DrawScriptEditorBlock(ManualTestContext& context)
     return;
 
   ImGui::PushID("script_editor");
+
+  bool openRequested = false;
 
   const float toolbarHeight = 30.0f;
   ImGui::BeginChild("script_editor_toolbar", ImVec2(-1, toolbarHeight), false);
@@ -1729,9 +1818,11 @@ void ViewController::DrawScriptEditorBlock(ManualTestContext& context)
   ImGui::SameLine();
   if (ImGui::Button("Open"))
   {
-    context.debug_action = "Open Script";
-    context.debug_status = "PENDING";
-    context.debug_reason = "Open file dialog placeholder";
+    context.script_open_path = context.loaded_script_path;
+    context.script_open_case_id = context.active_case_id;
+    context.script_open_error.clear();
+    context.script_open_discard_confirmed = false;
+    openRequested = true;
   }
 
   ImGui::SameLine();
@@ -1770,6 +1861,44 @@ void ViewController::DrawScriptEditorBlock(ManualTestContext& context)
     ImGui::TextWrapped("Loaded: %s", context.loaded_script_path.c_str());
 
   ImGui::EndChild();
+
+  if (openRequested) ImGui::OpenPopup("Open script file");
+  const auto workSize = ImGui::GetMainViewport()->WorkSize;
+  const float openDialogWidth = std::min(620.0f, workSize.x * .9f);
+  ImGui::SetNextWindowSizeConstraints(ImVec2(openDialogWidth, 0), ImVec2(openDialogWidth, workSize.y * .9f));
+  ImGui::SetNextWindowSize(ImVec2(std::min(620.0f, workSize.x * .9f), 0), ImGuiCond_Appearing);
+  if (ImGui::BeginPopupModal("Open script file", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+    ImGui::TextWrapped("Load a local .cxsc file without executing it. Relative paths use the workspace resolver; image paths keep the script's existing semantics.");
+    ImGui::TextUnformatted("Script path");
+    ImGui::SetNextItemWidth(-1);
+    if (ImGui::IsWindowAppearing()) ImGui::SetKeyboardFocusHere();
+    InputTextString("##script_open_path", context.script_open_path);
+    ImGui::TextUnformatted("Case ID (blank: filename stem)");
+    ImGui::SetNextItemWidth(-1);
+    InputTextString("##script_open_case", context.script_open_case_id);
+    if (context.editor_dirty) {
+      ImGui::TextWrapped("Unsaved editor changes will be lost. Cancel to keep editing or save a candidate first.");
+      ImGui::Checkbox("Discard unsaved editor changes", &context.script_open_discard_confirmed);
+    }
+    if (!context.script_open_error.empty()) ImGui::TextWrapped("Cannot open: %s", context.script_open_error.c_str());
+    if (ImGui::Button("Cancel") || ImGui::IsKeyPressed(ImGuiKey_Escape)) ImGui::CloseCurrentPopup();
+    ImGui::SameLine();
+    const bool pending = context.has_pending_execution_snapshot || context.has_pending_candidate_save ||
+        context.refined_arc.pending || context.gray_boundary.pending || context.partial_pending ||
+        context.run_state == "running" || m_scriptRunRequested;
+    ImGui::BeginDisabled(pending || (context.editor_dirty && !context.script_open_discard_confirmed));
+    if (ImGui::Button("Load script")) {
+      std::string reason;
+      if (OpenManualScriptFile(context, context.script_open_path, context.script_open_case_id,
+                               context.script_open_discard_confirmed, reason)) {
+        context.script_open_error.clear();
+        ImGui::CloseCurrentPopup();
+      } else context.script_open_error = reason;
+    }
+    ImGui::EndDisabled();
+    if (pending) ImGui::TextWrapped("A run or save is pending. Wait for it to finish.");
+    ImGui::EndPopup();
+  }
 
   const bool isFastMatchScript =
       context.editor_text.find("FastMatch") != std::string::npos;

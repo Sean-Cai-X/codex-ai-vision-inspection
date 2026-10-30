@@ -1476,6 +1476,8 @@ struct ManualOperationTraceEvent {
 };
 
 struct ManualTestContext {
+  std::string script_open_path, script_open_case_id, script_open_error;
+  bool script_open_discard_confirmed = false;
   std::string script_file_path;
   std::string image_file_path;
   std::string data_file_path;

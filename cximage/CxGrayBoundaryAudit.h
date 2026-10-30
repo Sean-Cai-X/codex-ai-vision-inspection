@@ -27,6 +27,19 @@ class CxGrayBoundaryAudit {
    {"scan_radius_px",gray_.radius_px},{"scan_step_px",gray_.step_px},{"minimum_contrast",gray_.minimum_contrast},
    {"maximum_shift_px",gray_.maximum_shift_px},{"monotonic_tolerance",gray_.monotonic_tolerance},{"noise_floor_dn",gray_.noise_floor_dn}};if(gray_.recenter_iterations){j["recenter_iterations"]=gray_.recenter_iterations;j["recenter_tolerance_px"]=gray_.recenter_tolerance_px;}if(foreground_polarity_)j["foreground_polarity"]=foreground_polarity_;if(full_boundary_enabled_||chunk_core_points_!=100||maximum_chunks_!=64){j["full_boundary_enabled"]=full_boundary_enabled_;j["chunk_core_points"]=chunk_core_points_;j["maximum_chunks"]=maximum_chunks_;}return j;}
 public:
+ // Snapshot actual member state; never decode the opaque GUI recipe token.
+ J configurationreceipt()const{
+  auto p=parameters_receipt();
+  p["recenter_iterations"]=gray_.recenter_iterations;p["recenter_tolerance_px"]=gray_.recenter_tolerance_px;
+  p["foreground_polarity"]=foreground_polarity_;p["full_boundary_enabled"]=full_boundary_enabled_;
+  p["chunk_core_points"]=chunk_core_points_;p["maximum_chunks"]=maximum_chunks_;
+  return {{"case_id",case_id_},{"revision",revision_},{"gray",p},
+   {"endpoint_provenance",endpoints_.provenance},{"endpoints_set",endpoint_set_},
+   {"endpoints",{{"start_x",endpoints_.start.real()},{"start_y",endpoints_.start.imag()},
+    {"end_x",endpoints_.end.real()},{"end_y",endpoints_.end.imag()},
+    {"via_x",endpoints_.via.real()},{"via_y",endpoints_.via.imag()},
+    {"maximum_snap_px",endpoints_.maximum_snap_px},{"tie_epsilon_px",endpoints_.tie_epsilon_px}}}};
+ }
  CxGrayBoundaryAudit(){for(const auto& p:cxgrayparams::Parameters())parameter(p.initial,p.key);}
  void image(const char* path){invalidate();clear_endpoints();path_=text(path);}
  void caseid(const char* id){invalidate();clear_endpoints();case_id_=text(id);}

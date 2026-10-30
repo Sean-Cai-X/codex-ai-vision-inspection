@@ -236,7 +236,23 @@ void CxFastMatchHarmonicAudit::run() {
             s<<"]}";
         }
     }
-    s<<"]}}";history_.push_back(s.str());
+    s<<"]";
+    if(debug_mode_ && save_intermediate_features_){
+        s<<",\"raw_contours\":[";
+        for(int side=0;side<2;++side){
+            if(side)s<<",";
+            s<<"{\"side\":"<<side<<",\"source\":\""<<JsonEscape(sources_[side])<<"\",\"coordinate_units\":\"source_units\",\"status\":\""
+             <<(loaded_[side]?"UNAVAILABLE_DESCRIPTOR_ONLY":"AVAILABLE")<<"\",\"closed\":"<<(contours_[side].closed?"true":"false")<<",\"points\":[";
+            if(!loaded_[side])for(size_t k=0;k<contours_[side].points.size();++k){
+                if(k)s<<",";
+                auto p=contours_[side].points[k];
+                s<<"{\"source_index\":"<<k<<",\"x\":"<<p.real()<<",\"y\":"<<p.imag()<<"}";
+            }
+            s<<"]}";
+        }
+        s<<"]";
+    }
+    s<<"}}";history_.push_back(s.str());
 }
 void CxFastMatchHarmonicAudit::expectstatus(const char* expected) {
     if(!ran_ || !expected || result_.status!=expected)throw std::runtime_error("HARMONIC_STATUS_ASSERTION_FAILED:"+result_.status);

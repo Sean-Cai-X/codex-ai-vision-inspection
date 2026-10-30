@@ -364,6 +364,8 @@ struct CxScriptExecutionCapture
     std::vector<std::string> partial_match_receipts;
     std::vector<std::string> gray_boundary_receipts;
     std::vector<std::string> refined_arc_receipts;
+    // Owned previews of the two bound snapshots, never drawn on the CLI carrier.
+    std::vector<std::array<std::vector<unsigned char>, 2>> refined_arc_previews;
     bool refined_arc_only = false;
     bool script_compiled = false;
     bool runtime_completed = false;

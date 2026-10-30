@@ -6,6 +6,7 @@
 #include "CxPartialMatchUiParameters.h"
 #include "CxPartialMatchManualRun.h"
 #include "CxGrayBoundaryManualRun.h"
+#include "CxGeometryPyramidControls.h"
 #include "CxRefinedArcManualRun.h"
 #include "CxParameterProfileRuntime.h"
 #include "CxScriptCasePackageWriter.h"
@@ -9198,7 +9199,7 @@ static void DrawRefinedArcControls(ManualTestContext& context){
   }
   if(ImGui::CollapsingHeader("Pair solver / quality gates",ImGuiTreeNodeFlags_DefaultOpen)){
    for(const auto& p:cxpairui::Parameters()){
-    if(cxpairui::IsQualityParameter(p.key))continue;
+    if(cxpairui::IsQualityParameter(p.key)||cxpairui::IsAcceptanceParameter(p.key))continue;
     double value=s["parameters"].value(p.key,p.initial);if(ImGui::InputDouble(p.key,&value,0,0,"%.12g")){
      s["parameters"][p.key]=value;
      if(std::string(p.key)=="matching_landmark_arc_enabled"&&value==1){
@@ -9219,6 +9220,25 @@ static void DrawRefinedArcControls(ManualTestContext& context){
     if(ImGui::IsItemHovered())ImGui::SetTooltip("Default %.9g | %.9g .. %.9g | %s",p.initial,p.minimum,p.maximum,p.integer?"integer":"real");
    }
   }
+  if(ImGui::CollapsingHeader("Pose acceptance / DOF, errors and duration")){
+   ImGui::TextWrapped("Technical criteria only, not production approval. Defaults are unconfirmed. Pose error requires independent truth; fit residuals are not pose error.");
+   ImGui::TextWrapped("Translation uses selected X/Y axes in the source image frame. Scale error is relative percent. Duration measures this audit call (image extraction + matching) or matching only; excludes queue, GUI and export. It is not a timeout.");
+   for(const auto& p:cxposeacceptance::Parameters()){
+    ImGui::PushID(p.key);double value=s["parameters"].value(p.key,p.initial);bool edited=false;
+    const std::string key=p.key;
+    if(key=="pose_translation_unit"){int v=int(value);edited=ImGui::Combo("Translation unit",&v,"Pixels (px)\0Calibrated millimetres (mm)\0");value=v;}
+    else if(key=="pose_latency_scope"){int v=int(value);edited=ImGui::Combo("Duration scope",&v,"Image extraction + matching\0Matching only\0");value=v;}
+    else if(p.integer){bool v=value!=0;const char* label=key=="pose_acceptance_enabled"?"Enable technical criteria":key=="pose_acceptance_configured"?"Criteria reviewed (not approval)":key=="pose_require_tx"?"Require X translation":key=="pose_require_ty"?"Require Y translation":key=="pose_require_angle"?"Require rotation": "Require scale";edited=ImGui::Checkbox(label,&v);value=v?1:0;}
+    else {const char* label=key=="pose_max_translation_error"?"Max translation error (selected unit)":key=="pose_max_angle_error_deg"?"Max rotation error (deg)":key=="pose_max_scale_error_percent"?"Max scale error (%)":"Max duration (ms)";edited=ImGui::InputDouble(label,&value,0,0,"%.12g");}
+    if(ImGui::IsItemHovered())ImGui::SetTooltip("%s | Default %.9g | %.9g .. %.9g",p.key,p.initial,p.minimum,p.maximum);
+    if(edited){
+     cxpairmanual::Invalidate(context);
+     try{auto candidate=s;candidate["parameters"][p.key]=value;cxpairui::Validate(candidate);s=std::move(candidate);changed=true;}
+     catch(const std::exception& e){context.debug_reason=std::string("Edit rejected; previous value retained: ")+e.what();}
+    }
+    ImGui::PopID();
+   }
+  }
   if(changed){cxpairmanual::Invalidate(context);context.editor_text=cxpairui::Build(s);context.editor_dirty=true;context.debug_reason="Pair configuration changed; rerun both sources.";}
   if(ImGui::Button("Run paired boundary audit")){std::string reason;if(!RequestRefinedArcRun(context,reason))context.debug_reason=reason;}
  }catch(const std::exception& e){ImGui::TextWrapped("%s",e.what());}
@@ -9229,6 +9249,11 @@ static void DrawRefinedArcControls(ManualTestContext& context){
   if(ImGui::TreeNode("Executed pose / observed error / fallback")){
    auto j=nlohmann::json::parse(context.refined_arc.receipt);
    ImGui::BeginChild("pair_results",ImVec2(0,250),true,ImGuiWindowFlags_HorizontalScrollbar);
+   cxpairmanual::DrawExecutionTiming(context);
+   if(j.contains("pose_acceptance")){
+    ImGui::TextWrapped("Pose acceptance: %s | production approval: no",j["pose_acceptance"]["status"].get<std::string>().c_str());
+    ImGui::TextUnformatted(j["pose_acceptance"].dump(2).c_str());
+   }else ImGui::TextWrapped("Pose acceptance unavailable in this legacy receipt. Configure criteria and rerun.");
    if(j.value("input_rejected",false)){
     ImGui::TextWrapped("Input rejected before pose matching. No candidate, automatic selection or gap bridging.");
     ImGui::TextUnformatted(j.at("input_rejections").dump(2).c_str());
@@ -9384,6 +9409,7 @@ static void DrawPartialMatchControls(ManualTestContext& context) {
 }
 void DrawKeyParameterControlPanel(
     ManualTestContext &context, const ParserDebugBridge *parserDebugBridge) {
+  if(!context.active_case_id.empty())DrawGeometryPyramidControls(context);
   if(cxpairui::IsCase(context.editor_text)){DrawRefinedArcControls(context);return;}
   if(cxgrayui::IsCase(context.editor_text)){DrawGrayBoundaryControls(context);return;}
   if(cxpartialui::IsCase(context.editor_text)){
@@ -11167,7 +11193,8 @@ static void DrawGeometryCandidateBundleLocal(ManualTestContext &context) {
   if (!scanAttempted || loadedScanRoot != context.geometry_auto_tune_scan_root) {
     scanAttempted = true;
     loadedScanRoot = context.geometry_auto_tune_scan_root;
-    LoadLatestGeometryCandidateBundleLocal(loadedScanRoot, bundle, loadReason);
+    bundle = GeometryCandidateBundleLocal{};
+    loadReason = "NOT_LOADED: click Reload Candidate Bundle to scan the selected directory";
   }
 
   if (!ImGui::CollapsingHeader("Production Candidate / Strategy / Rollback",
@@ -11547,9 +11574,15 @@ void DrawGeometryAutoTuneEvidencePanel(ManualTestContext &context) {
   if (!ImGui::CollapsingHeader("Geometry Auto-Tune / Evidence Receipt",
                                ImGuiTreeNodeFlags_DefaultOpen))
     return;
+  if (InputTextString("Evidence scan directory", context.geometry_auto_tune_scan_root)) {
+    context.geometry_auto_tune_summary_path.clear();
+    context.geometry_auto_tune_status = "NOT_LOADED";
+    context.geometry_auto_tune_quality_state = "PENDING";
+    context.geometry_auto_tune_production_state = "REFERENCE_ONLY";
+    context.geometry_auto_tune_reason = "Directory changed; click Reload Run Evidence to load receipts";
+  }
+  ImGui::TextWrapped("Choose a project/run directory, then explicitly reload. Opening this panel does not scan historical runs; scanning the entire run root may be slow.");
   if (ImGui::Button("Reload Run Evidence##geometry_auto_tune_evidence"))
-    RefreshGeometryAutoTuneEvidenceLocal(context);
-  if (context.geometry_auto_tune_summary_path.empty())
     RefreshGeometryAutoTuneEvidenceLocal(context);
   ImGui::Text("status: %s", context.geometry_auto_tune_status.c_str());
   ImGui::TextColored(
